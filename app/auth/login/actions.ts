@@ -23,9 +23,14 @@ export async function loginAction(username: string, password: string) {
       .eq("username", username)
       .single()
 
+    console.log("[v0] Login: username lookup result:", { adminData, lookupError })
+
     if (lookupError || !adminData) {
+      console.log("[v0] Login: Admin user not found for username:", username)
       return { error: "Usuario o contraseña incorrectos" }
     }
+
+    console.log("[v0] Login: Found admin user, attempting auth with email:", adminData.email)
 
     // Use the server client (with cookies) to sign in
     const supabase = await createServerClient()
@@ -35,7 +40,10 @@ export async function loginAction(username: string, password: string) {
       password,
     })
 
+    console.log("[v0] Login: Auth result:", { authError: authError?.message })
+
     if (authError) {
+      console.log("[v0] Login: Auth failed:", authError.message)
       return { error: "Usuario o contraseña incorrectos" }
     }
 
