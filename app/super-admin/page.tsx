@@ -1,42 +1,36 @@
-import { createClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { SuperAdminClient } from "./components/super-admin-client"
 
 export const dynamic = "force-dynamic"
 
 export default async function SuperAdminPage() {
-  // Use service role client for admin operations to bypass RLS
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  // Use admin client with service role key to bypass RLS and row limits
+  const supabase = createAdminClient()
 
-  // Fetch all restaurants with counts
+  // Fetch all restaurants
   const { data: restaurants, error: restaurantsError } = await supabase
     .from("restaurants")
     .select("*")
     .order("created_at", { ascending: false })
 
   if (restaurantsError) {
-    console.error("Error fetching restaurants:", restaurantsError)
+    console.error("[v0] Error fetching restaurants:", restaurantsError)
   }
 
-  // Fetch counts with higher limit to avoid default 1000 row cap
-  const { data: menuCounts, error: menuCountsError } = await supabase
+  // Fetch all menu items - no limit needed, supabase server client handles this
+  const { data: menuItems } = await supabase
     .from("menu_items")
     .select("restaurant_id")
-    .limit(100000)
   
-  console.log("[v0] Super Admin - menuCounts length:", menuCounts?.length, "error:", menuCountsError?.message || "none")
-  
-  const { data: orderCounts } = await supabase
-    .from("orders")
-    .select("restaurant_id")
-    .limit(100000)
-  
-  const { data: categoryCounts } = await supabase
+  // Fetch all categories
+  const { data: categories } = await supabase
     .from("categories")
     .select("restaurant_id")
-    .limit(100000)
+    
+  // Fetch all orders
+  const { data: orders } = await supabase
+    .from("orders")
+    .select("restaurant_id")
 
   const { data: marketplaceSettings } = await supabase.from("marketplace_settings").select("*").limit(1).single()
 
@@ -59,20 +53,22 @@ export default async function SuperAdminPage() {
   const orderCountMap: Record<string, number> = {}
   const categoryCountMap: Record<string, number> = {}
 
-  menuCounts?.forEach((item) => {
+  menuItems?.forEach((item) => {
     if (item.restaurant_id) {
       menuCountMap[item.restaurant_id] = (menuCountMap[item.restaurant_id] || 0) + 1
     }
   })
-  
-  console.log("[v0] Super Admin - menuCountMap has", Object.keys(menuCountMap).length, "restaurants with items")
 
-  orderCounts?.forEach((item) => {
-    orderCountMap[item.restaurant_id] = (orderCountMap[item.restaurant_id] || 0) + 1
+  orders?.forEach((item) => {
+    if (item.restaurant_id) {
+      orderCountMap[item.restaurant_id] = (orderCountMap[item.restaurant_id] || 0) + 1
+    }
   })
 
-  categoryCounts?.forEach((item) => {
-    categoryCountMap[item.restaurant_id] = (categoryCountMap[item.restaurant_id] || 0) + 1
+  categories?.forEach((item) => {
+    if (item.restaurant_id) {
+      categoryCountMap[item.restaurant_id] = (categoryCountMap[item.restaurant_id] || 0) + 1
+    }
   })
 
   // Combine data
@@ -83,5 +79,12 @@ export default async function SuperAdminPage() {
     categories_count: categoryCountMap[restaurant.id] || 0,
   }))
 
-  return <SuperAdminClient restaurants={restaurantsWithCounts} marketplaceSettings={marketplaceSettings || undefined} initialCuisineTypes={cuisineTypes || []} initialMarketplaceAreas={marketplaceAreas || []} />
+  return (
+    <SuperAdminClient 
+      restaurants={restaurantsWithCounts} 
+      marketplaceSettings={marketplaceSettings || undefined} 
+      initialCuisineTypes={cuisineTypes || []} 
+      initialMarketplaceAreas={marketplaceAreas || []} 
+    />
+  )
 }
