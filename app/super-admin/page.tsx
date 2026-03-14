@@ -17,13 +17,16 @@ export default async function SuperAdminPage() {
   }
 
   // Fetch menu item counts per restaurant
-  const { data: menuCounts } = await supabase.from("menu_items").select("restaurant_id")
+  const { data: menuCounts, error: menuCountsError } = await supabase.from("menu_items").select("restaurant_id")
+  console.log("[v0] menuCounts:", menuCounts?.length, "error:", menuCountsError?.message)
 
   // Fetch order counts per restaurant
-  const { data: orderCounts } = await supabase.from("orders").select("restaurant_id")
+  const { data: orderCounts, error: orderCountsError } = await supabase.from("orders").select("restaurant_id")
+  console.log("[v0] orderCounts:", orderCounts?.length, "error:", orderCountsError?.message)
 
   // Fetch category counts per restaurant
-  const { data: categoryCounts } = await supabase.from("categories").select("restaurant_id")
+  const { data: categoryCounts, error: categoryCountsError } = await supabase.from("categories").select("restaurant_id")
+  console.log("[v0] categoryCounts:", categoryCounts?.length, "error:", categoryCountsError?.message)
 
   const { data: marketplaceSettings } = await supabase.from("marketplace_settings").select("*").limit(1).single()
 
