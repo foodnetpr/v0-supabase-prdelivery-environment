@@ -10,7 +10,8 @@ export async function POST() {
 }
 
 async function setupSuperadmin() {
-  console.log("[v0] Setup superadmin called")
+  const email = "fnpr@foodnetdelivery.com"
+  const password = "admin123"
   
   try {
     // Use service role to create auth user
@@ -25,57 +26,54 @@ async function setupSuperadmin() {
       }
     )
 
-    const email = "fnpr@foodnetdelivery.com"
-    const password = "admin123"
-
-    console.log("[v0] Checking for existing user...")
-
-    // First, try to list users to find if one exists with this email
-    const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers()
-    
-    console.log("[v0] List users result:", { count: listData?.users?.length, error: listError?.message })
-    
-    const existingUser = listData?.users?.find(u => u.email === email)
-    
     let userId: string
 
-    if (existingUser) {
-      console.log("[v0] Found existing user, updating password...")
-      // User exists, update password
-      const { data: updatedUser, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-        existingUser.id,
-        { password }
-      )
-      
-      if (updateError) {
-        console.error("[v0] Failed to update user password:", updateError)
-        return NextResponse.json({ error: updateError.message }, { status: 500 })
-      }
-      
-      userId = existingUser.id
-      console.log("[v0] Updated existing user password:", userId)
-    } else {
-      console.log("[v0] Creating new user...")
-      // Create new user via Supabase Admin API
-      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-      })
+    // Try to create the user first
+    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    })
 
-      if (createError) {
-        console.error("[v0] Failed to create auth user:", createError)
+    if (createError) {
+      // If user already exists, try to find and update them
+      if (createError.message.includes("already") || createError.message.includes("exists")) {
+        // Get the user ID from auth.users table directly
+        const { data: existingUsers } = await supabaseAdmin
+          .from("auth.users")
+          .select("id")
+          .eq("email", email)
+          .single()
+        
+        if (!existingUsers) {
+          // Try raw SQL query as fallback
+          const { data: rawUser, error: rawError } = await supabaseAdmin.rpc('get_user_id_by_email', { user_email: email })
+          
+          if (rawError || !rawUser) {
+            return NextResponse.json({ 
+              error: "User exists but couldn't retrieve ID. Please delete existing user from Supabase Auth dashboard.",
+              createError: createError.message 
+            }, { status: 500 })
+          }
+          userId = rawUser
+        } else {
+          userId = existingUsers.id
+        }
+        
+        // Update password for existing user
+        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, { password })
+        if (updateError) {
+          return NextResponse.json({ error: "Failed to update password: " + updateError.message }, { status: 500 })
+        }
+      } else {
         return NextResponse.json({ error: createError.message }, { status: 500 })
       }
-
+    } else {
       userId = newUser.user.id
-      console.log("[v0] Created new auth user:", userId)
     }
-
-    console.log("[v0] Updating admin_users record...")
     
-    // Update or create admin_users record
-    const { data: adminUser, error: adminError } = await supabaseAdmin
+    // Update admin_users record
+    const { error: adminError } = await supabaseAdmin
       .from("admin_users")
       .upsert({
         email,
@@ -85,24 +83,18 @@ async function setupSuperadmin() {
       }, {
         onConflict: "email",
       })
-      .select()
-      .single()
 
     if (adminError) {
-      console.error("[v0] Failed to update admin_users:", adminError)
       return NextResponse.json({ error: adminError.message }, { status: 500 })
     }
 
-    console.log("[v0] Setup complete!")
-
     return NextResponse.json({ 
       success: true, 
-      message: "Superadmin account setup complete",
+      message: "Superadmin account setup complete! Login with username: fnpr, password: admin123",
       user: { email, username: "fnpr", role: "super_admin", auth_user_id: userId }
     })
 
   } catch (error: any) {
-    console.error("[v0] Setup error:", error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
