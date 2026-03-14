@@ -9,9 +9,12 @@ export async function POST() {
   return setupSuperadmin()
 }
 
+// Version 2 - Updated at: 2026-03-14
 async function setupSuperadmin() {
   const email = "fnpr@foodnetdelivery.com"
   const password = "admin123"
+  
+  console.log("[v0] Setup v2 - Starting superadmin setup")
   
   try {
     // Use service role to create auth user
@@ -28,8 +31,20 @@ async function setupSuperadmin() {
 
     let userId: string
 
+    console.log("[v0] Setup v2 - Listing users...")
+    
     // First, list all users to check if one exists with this email
-    const { data: listData } = await supabaseAdmin.auth.admin.listUsers()
+    const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers()
+    
+    console.log("[v0] Setup v2 - List result:", { 
+      userCount: listData?.users?.length, 
+      error: listError?.message 
+    })
+    
+    if (listError) {
+      return NextResponse.json({ error: "Failed to list users: " + listError.message, version: 2 }, { status: 500 })
+    }
+    
     const existingUser = listData?.users?.find(u => u.email === email)
 
     if (existingUser) {
@@ -77,11 +92,13 @@ async function setupSuperadmin() {
 
     return NextResponse.json({ 
       success: true, 
+      version: 2,
       message: "Superadmin account setup complete! Login with username: fnpr, password: admin123",
       user: { email, username: "fnpr", role: "super_admin", auth_user_id: userId }
     })
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.log("[v0] Setup v2 - Caught error:", error)
+    return NextResponse.json({ error: error.message, version: 2 }, { status: 500 })
   }
 }
