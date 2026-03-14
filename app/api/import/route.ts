@@ -41,6 +41,10 @@ interface ImportRestaurant {
   restaurant: {
     id: number
     name: string
+    phone?: string
+    address?: string
+    logo_url?: string
+    featured_url?: string
   }
   categories: ImportCategory[]
 }
@@ -90,12 +94,18 @@ export async function POST(request: Request) {
             name: restaurant.name,
             slug: slug,
             external_id: String(restaurant.id),
+            phone: restaurant.phone || null,
+            restaurant_address: restaurant.address || null,
+            logo_url: restaurant.logo_url || null,
+            hero_image_url: restaurant.featured_url || null,
+            marketplace_image_url: restaurant.featured_url || restaurant.logo_url || null,
             primary_color: "#ef4444", // Default red
             secondary_color: "#f97316", // Default orange
             is_active: true,
             accepts_pickup: true,
             accepts_delivery: true,
             tax_rate: 11.5, // Puerto Rico IVU
+            marketplace_opt_in: true, // Show in marketplace by default
           }, {
             onConflict: "slug",
             ignoreDuplicates: false,
@@ -164,7 +174,7 @@ async function processCategories(
           name: category.name,
           description: category.description,
           external_id: String(category.external_id),
-          sort_order: catIndex,
+          display_order: catIndex,
           is_active: true,
         }, {
           onConflict: "restaurant_id,external_id",
@@ -212,9 +222,8 @@ async function processCategories(
               price: item.price,
               image_url: item.image_url,
               external_id: String(item.external_id),
-              sort_order: itemIndex,
+              display_order: itemIndex,
               is_active: true,
-              is_available: true,
             }, {
               onConflict: "restaurant_id,external_id",
               ignoreDuplicates: false,
@@ -256,13 +265,12 @@ async function processCategories(
                 .upsert({
                   id: crypto.randomUUID(),
                   menu_item_id: itemId,
-                  name: option.group_name,
-                  description: option.prompt,
+                  category: option.group_name,
                   is_required: option.required,
-                  min_selections: option.min_select,
-                  max_selections: option.max_select,
+                  min_selection: option.min_select,
+                  max_selection: option.max_select,
                   external_id: String(option.id),
-                  sort_order: optIndex,
+                  display_order: optIndex,
                 }, {
                   onConflict: "menu_item_id,external_id",
                   ignoreDuplicates: false,
@@ -303,10 +311,9 @@ async function processCategories(
                       id: crypto.randomUUID(),
                       item_option_id: optionId,
                       name: choice.name,
-                      price_adjustment: choice.price_delta,
+                      price_modifier: choice.price_delta,
                       external_id: String(choice.id),
-                      sort_order: choiceIndex,
-                      is_active: true,
+                      display_order: choiceIndex,
                     }, {
                       onConflict: "item_option_id,external_id",
                       ignoreDuplicates: false,

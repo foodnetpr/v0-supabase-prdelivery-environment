@@ -32,7 +32,7 @@ export async function GET(
       .select("*")
       .eq("restaurant_id", restaurant.id)
       .eq("is_active", true)
-      .order("sort_order", { ascending: true })
+      .order("display_order", { ascending: true })
 
     if (categoriesError) {
       return NextResponse.json(
@@ -55,7 +55,7 @@ export async function GET(
       `)
       .eq("restaurant_id", restaurant.id)
       .eq("is_active", true)
-      .order("sort_order", { ascending: true })
+      .order("display_order", { ascending: true })
 
     if (itemsError) {
       return NextResponse.json(
@@ -68,11 +68,11 @@ export async function GET(
     const sortedMenuItems = menuItems?.map(item => ({
       ...item,
       item_options: item.item_options
-        ?.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0))
+        ?.sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0))
         .map((option: any) => ({
           ...option,
           item_option_choices: option.item_option_choices
-            ?.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0))
+            ?.sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0))
         }))
     }))
 
@@ -113,17 +113,15 @@ export async function GET(
           options: item.item_options?.map((option: any) => ({
             id: option.id,
             external_id: option.external_id,
-            group_name: option.name,
-            prompt: option.description,
+            group_name: option.category,
             required: option.is_required,
-            min_select: option.min_selections,
-            max_select: option.max_selections,
+            min_select: option.min_selection,
+            max_select: option.max_selection,
             choices: option.item_option_choices?.map((choice: any) => ({
               id: choice.id,
               external_id: choice.external_id,
               name: choice.name,
-              price_delta: choice.price_adjustment,
-              is_active: choice.is_active,
+              price_delta: choice.price_modifier || 0,
             })) || []
           })) || []
         }))
