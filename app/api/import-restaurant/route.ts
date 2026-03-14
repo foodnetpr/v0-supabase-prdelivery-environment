@@ -17,13 +17,23 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const index = parseInt(searchParams.get("index") || "0")
   
+  console.log("[v0] Import: Starting import for index", index)
+  
   try {
     const supabase = await createClient()
     
     // Read the JSON file
     const jsonPath = path.join(process.cwd(), "data/foodnet_import_complete.json")
+    console.log("[v0] Import: Reading file from", jsonPath)
+    
+    if (!fs.existsSync(jsonPath)) {
+      console.error("[v0] Import: File not found at", jsonPath)
+      return NextResponse.json({ error: `File not found: ${jsonPath}` }, { status: 500 })
+    }
+    
     const fileContent = fs.readFileSync(jsonPath, "utf-8")
     const jsonData = JSON.parse(fileContent)
+    console.log("[v0] Import: Parsed JSON with", jsonData.length, "restaurants")
     
     if (index >= jsonData.length) {
       return NextResponse.json({ 
@@ -37,6 +47,8 @@ export async function GET(request: Request) {
     const entry = jsonData[index]
     const restaurant = entry.restaurant
     const categories = entry.categories || []
+    
+    console.log("[v0] Import: Processing restaurant", restaurant.name, "with", categories.length, "categories")
     
     const results = {
       restaurant: restaurant.name,
@@ -242,6 +254,8 @@ export async function GET(request: Request) {
       }
     }
 
+    console.log("[v0] Import: Completed", restaurant.name, "- Categories:", results.categories, "Items:", results.items, "Options:", results.options, "Choices:", results.choices)
+    
     return NextResponse.json({
       success: true,
       index,
@@ -252,6 +266,7 @@ export async function GET(request: Request) {
     })
 
   } catch (error: any) {
+    console.error("[v0] Import: Error -", error.message)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
