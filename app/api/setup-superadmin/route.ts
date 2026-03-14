@@ -1,7 +1,15 @@
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
 
+export async function GET() {
+  return setupSuperadmin()
+}
+
 export async function POST() {
+  return setupSuperadmin()
+}
+
+async function setupSuperadmin() {
   try {
     // Use service role to create auth user
     const supabaseAdmin = createClient(
