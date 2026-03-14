@@ -10,7 +10,44 @@ import { Loader2, Upload, CheckCircle, AlertCircle } from "lucide-react"
 export default function ImportPage() {
   const [jsonData, setJsonData] = useState("")
   const [loading, setLoading] = useState(false)
+  const [quickLoading, setQuickLoading] = useState(false)
   const [result, setResult] = useState<{ success: boolean; message: string; details?: any } | null>(null)
+
+  const handleQuickImport = async () => {
+    setQuickLoading(true)
+    setResult(null)
+
+    try {
+      const response = await fetch("/api/import-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setResult({ 
+          success: true, 
+          message: `Import completed! ${data.results?.restaurants || 0} restaurants, ${data.results?.categories || 0} categories, ${data.results?.items || 0} items, ${data.results?.options || 0} options, ${data.results?.choices || 0} choices`,
+          details: data
+        })
+      } else {
+        setResult({ 
+          success: false, 
+          message: data.error || data.message || "Import failed",
+          details: data
+        })
+      }
+    } catch (error: any) {
+      setResult({ 
+        success: false, 
+        message: error.message || "Import failed" 
+      })
+    } finally {
+      setQuickLoading(false)
+    }
+  }
 
   const handleImport = async () => {
     if (!jsonData.trim()) {
@@ -81,6 +118,41 @@ export default function ImportPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Quick Import Section */}
+            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <h3 className="font-semibold text-blue-900 mb-2">Quick Import</h3>
+              <p className="text-sm text-blue-700 mb-3">
+                Import all restaurant data from the pre-loaded JSON file
+              </p>
+              <Button 
+                onClick={handleQuickImport} 
+                disabled={quickLoading}
+                variant="default"
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {quickLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Importing All Data...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Import All Restaurants
+                  </>
+                )}
+              </Button>
+            </div>
+
+            <div className="relative py-2">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-muted-foreground">Or upload manually</span>
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium mb-2">
                 Upload JSON File

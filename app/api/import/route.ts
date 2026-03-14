@@ -100,11 +100,10 @@ export async function POST(request: Request) {
             hero_image_url: restaurant.featured_url || null,
             marketplace_image_url: restaurant.featured_url || restaurant.logo_url || null,
             primary_color: "#ef4444", // Default red
-            secondary_color: "#f97316", // Default orange
             is_active: true,
-            accepts_pickup: true,
-            accepts_delivery: true,
-            tax_rate: 11.5, // Puerto Rico IVU
+            pickup_enabled: true,
+            delivery_enabled: true,
+            tax_rate: 0.115, // Puerto Rico IVU (11.5% as decimal)
             show_in_marketplace: true, // Show in marketplace by default
           }, {
             onConflict: "slug",
