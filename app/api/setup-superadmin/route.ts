@@ -10,6 +10,8 @@ export async function POST() {
 }
 
 async function setupSuperadmin() {
+  console.log("[v0] Setup superadmin called")
+  
   try {
     // Use service role to create auth user
     const supabaseAdmin = createClient(
@@ -26,15 +28,22 @@ async function setupSuperadmin() {
     const email = "fnpr@foodnetdelivery.com"
     const password = "admin123"
 
-    // First, check if user already exists
-    const { data: existingUser } = await supabaseAdmin.auth.admin.getUserByEmail(email)
+    console.log("[v0] Checking for existing user...")
+
+    // First, try to list users to find if one exists with this email
+    const { data: listData, error: listError } = await supabaseAdmin.auth.admin.listUsers()
+    
+    console.log("[v0] List users result:", { count: listData?.users?.length, error: listError?.message })
+    
+    const existingUser = listData?.users?.find(u => u.email === email)
     
     let userId: string
 
-    if (existingUser?.user) {
+    if (existingUser) {
+      console.log("[v0] Found existing user, updating password...")
       // User exists, update password
       const { data: updatedUser, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-        existingUser.user.id,
+        existingUser.id,
         { password }
       )
       
@@ -43,9 +52,10 @@ async function setupSuperadmin() {
         return NextResponse.json({ error: updateError.message }, { status: 500 })
       }
       
-      userId = existingUser.user.id
+      userId = existingUser.id
       console.log("[v0] Updated existing user password:", userId)
     } else {
+      console.log("[v0] Creating new user...")
       // Create new user via Supabase Admin API
       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email,
@@ -62,6 +72,8 @@ async function setupSuperadmin() {
       console.log("[v0] Created new auth user:", userId)
     }
 
+    console.log("[v0] Updating admin_users record...")
+    
     // Update or create admin_users record
     const { data: adminUser, error: adminError } = await supabaseAdmin
       .from("admin_users")
@@ -81,10 +93,12 @@ async function setupSuperadmin() {
       return NextResponse.json({ error: adminError.message }, { status: 500 })
     }
 
+    console.log("[v0] Setup complete!")
+
     return NextResponse.json({ 
       success: true, 
       message: "Superadmin account setup complete",
-      user: { email, username: "fnpr", role: "super_admin" }
+      user: { email, username: "fnpr", role: "super_admin", auth_user_id: userId }
     })
 
   } catch (error: any) {
