@@ -17,10 +17,12 @@ export default async function SuperAdminPage() {
   }
 
   // Fetch counts with higher limit to avoid default 1000 row cap
-  const { data: menuCounts } = await supabase
+  const { data: menuCounts, error: menuError } = await supabase
     .from("menu_items")
     .select("restaurant_id")
     .limit(100000)
+  
+  console.log("[v0] Super Admin - menuCounts fetched:", menuCounts?.length, "error:", menuError?.message)
   
   const { data: orderCounts } = await supabase
     .from("orders")
@@ -54,8 +56,12 @@ export default async function SuperAdminPage() {
   const categoryCountMap: Record<string, number> = {}
 
   menuCounts?.forEach((item) => {
-    menuCountMap[item.restaurant_id] = (menuCountMap[item.restaurant_id] || 0) + 1
+    if (item.restaurant_id) {
+      menuCountMap[item.restaurant_id] = (menuCountMap[item.restaurant_id] || 0) + 1
+    }
   })
+  
+  console.log("[v0] Super Admin - menuCountMap keys:", Object.keys(menuCountMap).length, "sample:", Object.entries(menuCountMap).slice(0, 3))
 
   orderCounts?.forEach((item) => {
     orderCountMap[item.restaurant_id] = (orderCountMap[item.restaurant_id] || 0) + 1
