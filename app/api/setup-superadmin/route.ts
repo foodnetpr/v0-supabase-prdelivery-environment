@@ -28,47 +28,34 @@ async function setupSuperadmin() {
 
     let userId: string
 
-    // Try to create the user first
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-    })
+    // First, list all users to check if one exists with this email
+    const { data: listData } = await supabaseAdmin.auth.admin.listUsers()
+    const existingUser = listData?.users?.find(u => u.email === email)
 
-    if (createError) {
-      // If user already exists, try to find and update them
-      if (createError.message.includes("already") || createError.message.includes("exists")) {
-        // Get the user ID from auth.users table directly
-        const { data: existingUsers } = await supabaseAdmin
-          .from("auth.users")
-          .select("id")
-          .eq("email", email)
-          .single()
-        
-        if (!existingUsers) {
-          // Try raw SQL query as fallback
-          const { data: rawUser, error: rawError } = await supabaseAdmin.rpc('get_user_id_by_email', { user_email: email })
-          
-          if (rawError || !rawUser) {
-            return NextResponse.json({ 
-              error: "User exists but couldn't retrieve ID. Please delete existing user from Supabase Auth dashboard.",
-              createError: createError.message 
-            }, { status: 500 })
-          }
-          userId = rawUser
-        } else {
-          userId = existingUsers.id
-        }
-        
-        // Update password for existing user
-        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, { password })
-        if (updateError) {
-          return NextResponse.json({ error: "Failed to update password: " + updateError.message }, { status: 500 })
-        }
-      } else {
+    if (existingUser) {
+      // User exists, update their password
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+        existingUser.id,
+        { password }
+      )
+      
+      if (updateError) {
+        return NextResponse.json({ error: "Failed to update password: " + updateError.message }, { status: 500 })
+      }
+      
+      userId = existingUser.id
+    } else {
+      // Create new user
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      })
+
+      if (createError) {
         return NextResponse.json({ error: createError.message }, { status: 500 })
       }
-    } else {
+      
       userId = newUser.user.id
     }
     
