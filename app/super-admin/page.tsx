@@ -1,14 +1,12 @@
-import { createClient } from "@supabase/supabase-js"
+import { createClient } from "@/lib/supabase/server"
 import { SuperAdminClient } from "./components/super-admin-client"
 
 export const dynamic = "force-dynamic"
 
 export default async function SuperAdminPage() {
-  // Use service role client for admin operations to bypass RLS
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  const supabase = await createClient()
+  
+  console.log("[v0] Super Admin Page: Starting data fetch")
 
   // Fetch all restaurants with counts
   const { data: restaurants, error: restaurantsError } = await supabase
@@ -20,23 +18,41 @@ export default async function SuperAdminPage() {
     console.error("Error fetching restaurants:", restaurantsError)
   }
 
-  // Fetch counts with higher limit to avoid default 1000 row cap
-  const { data: menuCounts, error: menuCountsError } = await supabase
-    .from("menu_items")
-    .select("restaurant_id")
-    .limit(100000)
+  // Fetch counts - need to handle Supabase's default 1000 row limit
+  // Fetch in batches or use count aggregation
+  let allMenuCounts: { restaurant_id: string }[] = []
+  let offset = 0
+  const batchSize = 1000
   
-  console.log("[v0] Super Admin - menuCounts length:", menuCounts?.length, "error:", menuCountsError?.message || "none")
+  // Fetch menu items in batches to get all of them
+  while (true) {
+    const { data: batch, error } = await supabase
+      .from("menu_items")
+      .select("restaurant_id")
+      .range(offset, offset + batchSize - 1)
+    
+    if (error) {
+      console.error("[v0] Super Admin - Error fetching menu items:", error.message)
+      break
+    }
+    
+    if (!batch || batch.length === 0) break
+    allMenuCounts = [...allMenuCounts, ...batch]
+    if (batch.length < batchSize) break
+    offset += batchSize
+  }
   
-  const { data: orderCounts } = await supabase
-    .from("orders")
-    .select("restaurant_id")
-    .limit(100000)
+  console.log("[v0] Super Admin - Total menu items fetched:", allMenuCounts.length)
   
+  // Fetch categories (usually less than 1000 total)
   const { data: categoryCounts } = await supabase
     .from("categories")
     .select("restaurant_id")
-    .limit(100000)
+  
+  // Fetch orders (usually less than 1000 for now)
+  const { data: orderCounts } = await supabase
+    .from("orders")
+    .select("restaurant_id")
 
   const { data: marketplaceSettings } = await supabase.from("marketplace_settings").select("*").limit(1).single()
 
@@ -59,7 +75,7 @@ export default async function SuperAdminPage() {
   const orderCountMap: Record<string, number> = {}
   const categoryCountMap: Record<string, number> = {}
 
-  menuCounts?.forEach((item) => {
+  allMenuCounts.forEach((item) => {
     if (item.restaurant_id) {
       menuCountMap[item.restaurant_id] = (menuCountMap[item.restaurant_id] || 0) + 1
     }
