@@ -329,15 +329,17 @@ function PromoBar() {
 
 function RestaurantCard({ restaurant }: { restaurant: Restaurant }) {
   const cuisineLabel = restaurant.cuisine_type || "Catering"
-  const tileImage = restaurant.marketplace_image_url || restaurant.logo_url
+  const featuredImage = restaurant.marketplace_image_url
+  const logoImage = restaurant.logo_url
 
   return (
     <Link href={`/${restaurant.slug}`} className="block h-full">
       <div className="group overflow-hidden rounded-xl sm:rounded-2xl border border-slate-200 bg-white transition-all duration-300 hover:border-amber-200 hover:shadow-lg hover:shadow-amber-600/5 h-full flex flex-col">
         <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
-          {tileImage ? (
+          {/* Featured/Background Image */}
+          {featuredImage ? (
             <Image
-              src={tileImage || "/placeholder.svg"}
+              src={featuredImage}
               alt={restaurant.name}
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-500"
@@ -347,6 +349,22 @@ function RestaurantCard({ restaurant }: { restaurant: Restaurant }) {
               <span className="text-2xl sm:text-4xl font-bold text-slate-300">{restaurant.name.charAt(0)}</span>
             </div>
           )}
+          
+          {/* Logo Overlay - bottom left corner */}
+          {logoImage ? (
+            <div className="absolute bottom-2 left-2 w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-white shadow-md overflow-hidden border border-slate-200">
+              <Image
+                src={logoImage}
+                alt={`${restaurant.name} logo`}
+                fill
+                className="object-contain p-1"
+              />
+            </div>
+          ) : featuredImage ? (
+            <div className="absolute bottom-2 left-2 w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-white shadow-md flex items-center justify-center border border-slate-200">
+              <span className="text-sm sm:text-lg font-bold text-slate-400">{restaurant.name.charAt(0)}</span>
+            </div>
+          ) : null}
         </div>
 
         <div className="p-2.5 sm:p-4 bg-white flex-1 flex flex-col justify-center">
