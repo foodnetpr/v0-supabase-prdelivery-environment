@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createRestaurant, updateRestaurant, deleteRestaurant, fetchCuisineTypes, createCuisineType, deleteCuisineType, updateCuisineType, fetchMarketplaceAreas, createMarketplaceArea, deleteMarketplaceArea, updateMarketplaceArea } from "../actions"
-import { Trash2, Shield, Megaphone, Globe, Copy, ArrowUpRight, MapPin, Clock, AlertTriangle, Users } from "lucide-react"
+import { Trash2, Shield, Megaphone, Globe, Copy, ArrowUpRight, MapPin, Clock, AlertTriangle, Users, ImageIcon, RefreshCw } from "lucide-react"
 import { OperationsTab } from "./operations-tab"
 import { AdminUsersTab } from "./admin-users-tab"
 import { CuisineTypesTab } from "./cuisine-types-tab"
@@ -174,6 +174,8 @@ export function SuperAdminClient({
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [isUpdatingImages, setIsUpdatingImages] = useState(false)
+  const [imageUpdateResult, setImageUpdateResult] = useState<{ success: boolean; message: string } | null>(null)
   const [newRestaurant, setNewRestaurant] = useState({
     name: "",
     slug: "",
@@ -232,6 +234,36 @@ export function SuperAdminClient({
   })
   const [isSavingSettings, setIsSavingSettings] = useState(false)
   const [settingsError, setSettingsError] = useState<string | null>(null)
+
+  // Handler to update restaurant images from JSON
+  const handleUpdateImages = async () => {
+    setIsUpdatingImages(true)
+    setImageUpdateResult(null)
+    try {
+      const response = await fetch('/api/update-images', { method: 'POST' })
+      const data = await response.json()
+      if (data.success) {
+        setImageUpdateResult({
+          success: true,
+          message: `Updated ${data.updated} restaurants. Skipped ${data.skipped}. Errors: ${data.errors}`
+        })
+        // Refresh the page to show updated images
+        router.refresh()
+      } else {
+        setImageUpdateResult({
+          success: false,
+          message: data.error || 'Failed to update images'
+        })
+      }
+    } catch (error) {
+      setImageUpdateResult({
+        success: false,
+        message: 'Network error: Could not connect to API'
+      })
+    } finally {
+      setIsUpdatingImages(false)
+    }
+  }
 
   const filteredRestaurants = restaurants.filter(
     (r) =>
@@ -572,6 +604,19 @@ export function SuperAdminClient({
               Areas
             </Button>
             <Button
+              variant="outline"
+              onClick={handleUpdateImages}
+              disabled={isUpdatingImages}
+              className="gap-2"
+            >
+              {isUpdatingImages ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <ImageIcon className="h-4 w-4" />
+              )}
+              {isUpdatingImages ? "Updating..." : "Update Images"}
+            </Button>
+            <Button
               variant={viewMode === "grid" ? "default" : "outline"}
               size="icon"
               onClick={() => setViewMode("grid")}
@@ -587,6 +632,25 @@ export function SuperAdminClient({
             </Button>
           </div>
         </div>
+
+        {/* Image Update Result Message */}
+        {imageUpdateResult && (
+          <div className={`mb-4 p-4 rounded-lg border ${
+            imageUpdateResult.success 
+              ? 'bg-green-50 border-green-200 text-green-800' 
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span>{imageUpdateResult.message}</span>
+              <button 
+                onClick={() => setImageUpdateResult(null)}
+                className="text-current opacity-60 hover:opacity-100"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Restaurant Grid/List */}
         <div
