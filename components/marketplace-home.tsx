@@ -141,6 +141,7 @@ export function MarketplaceHome({
         selectedCuisine={cuisineFilter}
         onCuisineChange={setCuisineFilter}
         cuisineTypes={cuisineTypes}
+        restaurantCuisines={restaurants.map(r => r.cuisine_type).filter(Boolean) as string[]}
       />
 
       {/* Hero - Full-width banner matching partners style */}
