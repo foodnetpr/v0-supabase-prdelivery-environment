@@ -45,7 +45,7 @@ interface Restaurant {
   name: string
   slug: string
   is_active: boolean
-  payment_type: "ach" | "pop" | null
+  payment_type: "ach" | "pop" | "ath" | null
   is_manually_blocked: boolean
   block_override: boolean
   blocked_until: string | null
@@ -697,6 +697,7 @@ export function OperationsTab({
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="ach">ACH Only</SelectItem>
                 <SelectItem value="pop">POP Only</SelectItem>
+                <SelectItem value="ath">ATH Only</SelectItem>
               </SelectContent>
             </Select>
           </div>

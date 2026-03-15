@@ -62,6 +62,7 @@ interface Restaurant {
   menu_items_count?: number
   orders_count?: number
   area?: string | null
+  payment_type?: "ach" | "pop" | "ath" | null
 }
 
 interface CuisineType {
@@ -217,6 +218,7 @@ export function SuperAdminClient({
     pickup_discount_percent: 0,
     white_label: false,
     show_powered_by: true,
+    payment_type: "ach" as "ach" | "pop" | "ath",
   })
 
   const [activeTab, setActiveTab] = useState<"restaurants" | "marketing" | "operations" | "admin-users">("restaurants")
@@ -330,10 +332,11 @@ export function SuperAdminClient({
       cuisine_type: restaurant.cuisine_type || "",
       area: restaurant.area || "",
       restaurant_discount_percent: restaurant.restaurant_discount_percent ?? 0,
-    delivery_discount_percent: restaurant.delivery_discount_percent ?? 0,
-    pickup_discount_percent: restaurant.pickup_discount_percent ?? 0,
-    white_label: restaurant.white_label ?? false,
-    show_powered_by: restaurant.show_powered_by ?? true,
+      delivery_discount_percent: restaurant.delivery_discount_percent ?? 0,
+      pickup_discount_percent: restaurant.pickup_discount_percent ?? 0,
+      white_label: restaurant.white_label ?? false,
+      show_powered_by: restaurant.show_powered_by ?? true,
+      payment_type: (restaurant.payment_type as "ach" | "pop" | "ath") || "ach",
     })
     setShowEditModal(true)
   }
@@ -1286,6 +1289,25 @@ export function SuperAdminClient({
                   <option key={area} value={area}>{area}</option>
                 ))}
               </select>
+            </div>
+
+            {/* Payment Type */}
+            <div>
+              <Label>Tipo de Pago</Label>
+              <p className="text-xs text-slate-500 mb-2">Tipo de pago al restaurante: ACH (transferencia), POP (pago al recoger), ATH (ATH Móvil)</p>
+              <Select
+                value={editForm.payment_type}
+                onValueChange={(value) => setEditForm({ ...editForm, payment_type: value as "ach" | "pop" | "ath" })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar tipo de pago..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ach">ACH (Transferencia Bancaria)</SelectItem>
+                  <SelectItem value="pop">POP (Pay on Pickup)</SelectItem>
+                  <SelectItem value="ath">ATH (ATH Móvil)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* FoodNetDelivery Internal: Financial Settings */}
