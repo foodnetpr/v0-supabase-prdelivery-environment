@@ -5,14 +5,12 @@ export const dynamic = "force-dynamic"
 
 export default async function SuperAdminPage() {
   const supabase = await createClient()
-  
-  console.log("[v0] Super Admin Page: Starting data fetch")
 
-  // Fetch all restaurants with counts
+  // Fetch all restaurants with counts - alphabetically ordered
   const { data: restaurants, error: restaurantsError } = await supabase
     .from("restaurants")
     .select("*")
-    .order("created_at", { ascending: false })
+    .order("name", { ascending: true })
 
   if (restaurantsError) {
     console.error("Error fetching restaurants:", restaurantsError)
