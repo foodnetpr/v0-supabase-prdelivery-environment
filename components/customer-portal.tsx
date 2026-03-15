@@ -31,6 +31,7 @@ import { useToast } from "@/components/ui/use-toast" // Import useToast
 import { InternalShopExtras } from "@/components/internal-shop-extras"
 
 import { createBrowserClient } from "@/lib/supabase/client"
+import { GlobalNavbar } from "@/components/global-navbar"
 
 interface OptionChoice {
   id: string
@@ -1792,6 +1793,9 @@ const orderData = {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Global Navigation - persists across all pages */}
+      <GlobalNavbar showLocationBar={false} />
+      
       <header className={templateStyles.headerBar}>
         <div className="container mx-auto px-4 py-3">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

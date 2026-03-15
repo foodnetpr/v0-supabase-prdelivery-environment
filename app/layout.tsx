@@ -2,6 +2,7 @@ import type React from "react"
 import { Inter, Playfair_Display } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Toaster } from "@/components/ui/toaster"
+import { CartProvider } from "@/contexts/cart-context"
 import "./globals.css"
 
 const inter = Inter({
@@ -23,8 +24,10 @@ export default function RootLayout({
   return (
     <html lang="es" className={`${inter.variable} ${playfair.variable}`} suppressHydrationWarning>
       <body className={`font-sans antialiased`} suppressHydrationWarning>
-        {children}
-        <Toaster />
+        <CartProvider>
+          {children}
+          <Toaster />
+        </CartProvider>
         <Analytics />
       </body>
     </html>
