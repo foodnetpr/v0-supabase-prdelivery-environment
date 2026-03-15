@@ -1907,12 +1907,12 @@ const orderData = {
                   {selectedBranch?.delivery_enabled ? (
                     <>
                       <Truck className="w-4 h-4" />
-                      Solo Entrega
+                      Delivery
                     </>
                   ) : (
                     <>
                       <Package className="w-4 h-4" />
-                      Solo Recogido
+                      Take-Out
                     </>
                   )}
                 </div>
