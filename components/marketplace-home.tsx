@@ -147,30 +147,6 @@ export function MarketplaceHome({
         heroImage={heroImage}
       />
 
-      {/* Zone Filter - below cuisine icons */}
-      <section className="bg-white">
-        <div className="mx-auto max-w-6xl px-6 py-3">
-          <div className="flex items-center gap-4">
-            <label htmlFor="location-filter" className="text-sm text-slate-600 whitespace-nowrap">
-              Zona:
-            </label>
-            <Select value={locationFilter} onValueChange={setLocationFilter}>
-              <SelectTrigger className="w-[180px] bg-white border-slate-200 text-sm" id="location-filter">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toda Zona</SelectItem>
-                {AREAS.map((area) => (
-                  <SelectItem key={area} value={area}>
-                    {area}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </section>
-
       {/* Restaurant Grid */}
       {restaurants.length > 0 && (
         <section id="restaurantes" className="pt-6 pb-16">
