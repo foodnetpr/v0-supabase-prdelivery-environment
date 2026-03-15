@@ -34,10 +34,11 @@ export default async function TenantAdminPage({
   }
 
   // Check if user has access to this restaurant
+  // Use auth_user_id to link Supabase auth user to admin_users record
   const { data: adminData } = await supabase
     .from("admin_users")
     .select("role, restaurant_id")
-    .eq("id", session.user.id)
+    .eq("auth_user_id", session.user.id)
     .single()
 
   if (!adminData) {
@@ -69,8 +70,6 @@ export default async function TenantAdminPage({
   const effectiveRole = (view === "restricted" && adminData.role === "super_admin")
     ? "restaurant_admin"
     : adminData.role
-
-  console.log("[v0] admin page.tsx - effectiveRole:", effectiveRole)
 
   return <RestaurantAdminClient restaurantId={restaurant.id} restaurantName={restaurant.name} restaurant={restaurant} cuisineTypes={cuisineTypes || []} marketplaceAreas={marketplaceAreas || []} userRole={effectiveRole} />
 }
