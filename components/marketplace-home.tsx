@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Link from "next/link"
 import Image from "next/image"
 import { useState, useMemo, useEffect, useCallback } from "react"
-import { Filter, ChevronLeft, ChevronRight, ArrowRight } from "lucide-react"
+import { Filter, ChevronLeft, ChevronRight, ArrowRight, MapPin, X } from "lucide-react"
 
 type Restaurant = {
   id: string
@@ -18,6 +18,7 @@ type Restaurant = {
   city: string | null
   state: string | null
   cuisine_type: string | null
+  distance?: number
 }
 
 type MarketplaceSettings = {
@@ -27,13 +28,19 @@ type MarketplaceSettings = {
   hero_subtitle: string
 }
 
+interface MarketplaceHomeProps {
+  restaurants: Restaurant[]
+  marketplaceSettings?: MarketplaceSettings
+  deliveryMode?: boolean
+  deliveryAddress?: string | null
+}
+
 export function MarketplaceHome({
   restaurants,
   marketplaceSettings,
-}: {
-  restaurants: Restaurant[]
-  marketplaceSettings?: MarketplaceSettings
-}) {
+  deliveryMode = false,
+  deliveryAddress = null,
+}: MarketplaceHomeProps) {
   const heroImage = marketplaceSettings?.hero_image_url || "/images/partners-hero.jpg"
   const heroTitle = marketplaceSettings?.hero_title || "De Todo para Tu Junte"
   const heroSubtitle = marketplaceSettings?.hero_subtitle || "Monta el Party con nuestras deliciosas opciones..."
@@ -76,6 +83,30 @@ export function MarketplaceHome({
 
         </div>
       </nav>
+
+      {/* Delivery Mode Banner */}
+      {deliveryMode && deliveryAddress && (
+        <div className="bg-slate-900 text-white py-3">
+          <div className="mx-auto max-w-6xl px-6 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              <span className="text-sm">
+                Delivering to: <span className="font-medium">{deliveryAddress}</span>
+              </span>
+              <span className="text-slate-400 text-sm ml-2">
+                ({restaurants.length} restaurant{restaurants.length !== 1 ? "s" : ""} available)
+              </span>
+            </div>
+            <Link
+              href="/landing"
+              className="flex items-center gap-1 text-sm text-slate-300 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+              Change
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Hero - Full-width banner matching partners style */}
       <HeroSlideshow
