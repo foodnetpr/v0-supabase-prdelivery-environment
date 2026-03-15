@@ -6,7 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Link from "next/link"
 import Image from "next/image"
 import { useState, useMemo, useEffect, useCallback } from "react"
-import { Filter, ChevronLeft, ChevronRight, ArrowRight, MapPin, X } from "lucide-react"
+import { Filter, ChevronLeft, ChevronRight, ArrowRight } from "lucide-react"
+import { LocationBar, type UserLocation } from "./location-bar"
 
 type Restaurant = {
   id: string
@@ -18,7 +19,10 @@ type Restaurant = {
   city: string | null
   state: string | null
   cuisine_type: string | null
-  distance?: number
+  latitude?: string | null
+  longitude?: string | null
+  delivery_radius_miles?: number | null
+  delivery_enabled?: boolean
 }
 
 type MarketplaceSettings = {
@@ -31,20 +35,33 @@ type MarketplaceSettings = {
 interface MarketplaceHomeProps {
   restaurants: Restaurant[]
   marketplaceSettings?: MarketplaceSettings
-  deliveryMode?: boolean
-  deliveryAddress?: string | null
+}
+
+// Haversine formula to calculate distance between two points
+function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 3959 // Earth's radius in miles
+  const dLat = toRad(lat2 - lat1)
+  const dLng = toRad(lng2 - lng1)
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}
+
+function toRad(deg: number): number {
+  return deg * (Math.PI / 180)
 }
 
 export function MarketplaceHome({
   restaurants,
   marketplaceSettings,
-  deliveryMode = false,
-  deliveryAddress = null,
 }: MarketplaceHomeProps) {
   const heroImage = marketplaceSettings?.hero_image_url || "/images/partners-hero.jpg"
   const heroTitle = marketplaceSettings?.hero_title || "De Todo para Tu Junte"
   const heroSubtitle = marketplaceSettings?.hero_subtitle || "Monta el Party con nuestras deliciosas opciones..."
 
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null)
   const [cuisineFilter, setCuisineFilter] = useState<string>("all")
   const [locationFilter, setLocationFilter] = useState<string>("all")
 
@@ -58,13 +75,48 @@ export function MarketplaceHome({
     "Rio Piedras", "Santurce", "Guaynabo Pueblo", "San Patricio", "Señorial",
   ]
 
+  // Filter and sort restaurants based on user location and other filters
   const filteredRestaurants = useMemo(() => {
-    return restaurants.filter((restaurant) => {
+    let filtered = restaurants.filter((restaurant) => {
       const matchesCuisine = cuisineFilter === "all" || restaurant.cuisine_type === cuisineFilter
       const matchesLocation = locationFilter === "all" || restaurant.area === locationFilter
+      
+      // If user has set a location, filter by delivery radius
+      if (userLocation && restaurant.latitude && restaurant.longitude) {
+        const distance = calculateDistance(
+          userLocation.lat,
+          userLocation.lng,
+          parseFloat(restaurant.latitude),
+          parseFloat(restaurant.longitude)
+        )
+        const deliveryRadius = restaurant.delivery_radius_miles || 10
+        const withinDeliveryZone = distance <= deliveryRadius
+        return matchesCuisine && matchesLocation && withinDeliveryZone
+      }
+      
       return matchesCuisine && matchesLocation
     })
-  }, [restaurants, cuisineFilter, locationFilter])
+
+    // Sort by distance if user has location
+    if (userLocation) {
+      filtered = filtered
+        .map((restaurant) => {
+          if (restaurant.latitude && restaurant.longitude) {
+            const distance = calculateDistance(
+              userLocation.lat,
+              userLocation.lng,
+              parseFloat(restaurant.latitude),
+              parseFloat(restaurant.longitude)
+            )
+            return { ...restaurant, calculatedDistance: distance }
+          }
+          return { ...restaurant, calculatedDistance: Infinity }
+        })
+        .sort((a, b) => (a.calculatedDistance || 0) - (b.calculatedDistance || 0))
+    }
+
+    return filtered
+  }, [restaurants, cuisineFilter, locationFilter, userLocation])
 
   return (
     <div className="flex flex-col min-h-screen bg-white font-sans">
@@ -80,33 +132,14 @@ export function MarketplaceHome({
               className="h-9 w-auto"
             />
           </Link>
-
         </div>
       </nav>
 
-      {/* Delivery Mode Banner */}
-      {deliveryMode && deliveryAddress && (
-        <div className="bg-slate-900 text-white py-3">
-          <div className="mx-auto max-w-6xl px-6 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
-              <span className="text-sm">
-                Delivering to: <span className="font-medium">{deliveryAddress}</span>
-              </span>
-              <span className="text-slate-400 text-sm ml-2">
-                ({restaurants.length} restaurant{restaurants.length !== 1 ? "s" : ""} available)
-              </span>
-            </div>
-            <Link
-              href="/landing"
-              className="flex items-center gap-1 text-sm text-slate-300 hover:text-white"
-            >
-              <X className="w-4 h-4" />
-              Change
-            </Link>
-          </div>
-        </div>
-      )}
+      {/* Location Bar - DoorDash/UberEats style location capture */}
+      <LocationBar 
+        onLocationChange={setUserLocation}
+        initialLocation={userLocation}
+      />
 
       {/* Hero - Full-width banner matching partners style */}
       <HeroSlideshow
