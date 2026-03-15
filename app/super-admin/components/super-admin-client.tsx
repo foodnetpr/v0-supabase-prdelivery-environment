@@ -325,7 +325,7 @@ export function SuperAdminClient({
     setEditForm({
       name: restaurant.name,
       standalone_domain: "",
-      design_template: restaurant.design_template || "classic",
+      design_template: restaurant.design_template || "list-right",
       primary_color: restaurant.primary_color || "#722F37",
       is_active: restaurant.is_active,
       show_in_marketplace: restaurant.show_in_marketplace || false,
