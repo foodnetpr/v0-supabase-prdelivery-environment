@@ -7,7 +7,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { Filter, ChevronLeft, ChevronRight, ArrowRight } from "lucide-react"
-import { LocationBar, type UserLocation } from "./location-bar"
+import { LocationBar, type UserLocation, type OrderMode } from "./location-bar"
 
 type Restaurant = {
   id: string
@@ -62,6 +62,7 @@ export function MarketplaceHome({
   const heroSubtitle = marketplaceSettings?.hero_subtitle || "Monta el Party con nuestras deliciosas opciones..."
 
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null)
+  const [orderMode, setOrderMode] = useState<OrderMode>("delivery")
   const [cuisineFilter, setCuisineFilter] = useState<string>("all")
   const [locationFilter, setLocationFilter] = useState<string>("all")
 
@@ -138,7 +139,9 @@ export function MarketplaceHome({
       {/* Location Bar - DoorDash/UberEats style location capture */}
       <LocationBar 
         onLocationChange={setUserLocation}
+        onModeChange={setOrderMode}
         initialLocation={userLocation}
+        initialMode={orderMode}
       />
 
       {/* Hero - Full-width banner matching partners style */}
