@@ -131,11 +131,11 @@ export function MarketplaceHome({
           {/* Logo */}
           <Link href="/" className="flex items-center flex-shrink-0">
             <Image
-              src="/foodnet-delivery-logo.jpg"
-              alt="FoodNetDelivery"
-              width={120}
-              height={36}
-              className="h-7 w-auto"
+              src="/foodnetpr-logo.png"
+              alt="FoodNetPR Delivery"
+              width={160}
+              height={56}
+              className="h-10 w-auto"
             />
           </Link>
 

@@ -351,7 +351,7 @@ export function LocationBar({
           <Map className="w-4 h-4 text-slate-500" />
         </div>
         <Select onValueChange={handleZipSelect} value={location?.zip || ""}>
-          <SelectTrigger className="border-0 h-8 text-sm w-[130px] focus:ring-0 focus:ring-offset-0">
+          <SelectTrigger className="border-0 h-8 text-sm w-[160px] focus:ring-0 focus:ring-offset-0">
             <SelectValue placeholder="Código Postal" />
           </SelectTrigger>
           <SelectContent className="max-h-60">
