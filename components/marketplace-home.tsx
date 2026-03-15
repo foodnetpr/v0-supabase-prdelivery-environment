@@ -121,28 +121,29 @@ export function MarketplaceHome({
 
   return (
     <div className="flex flex-col min-h-screen bg-white font-sans">
-      {/* Navigation - matches partners page */}
-      <nav className="sticky top-0 z-50 border-b border-slate-100 bg-white/90 backdrop-blur-lg">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-          <Link href="/" className="flex items-center">
+      {/* Navigation - single line with logo, location, and mode toggle */}
+      <nav className="sticky top-0 z-50 border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3 gap-4">
+          {/* Logo */}
+          <Link href="/" className="flex items-center flex-shrink-0">
             <Image
               src="/foodnet-delivery-logo.jpg"
               alt="FoodNetDelivery"
-              width={160}
-              height={48}
-              className="h-9 w-auto"
+              width={140}
+              height={42}
+              className="h-8 w-auto"
             />
           </Link>
+
+          {/* Location and Mode Toggle - DoorDash style inline */}
+          <LocationBar 
+            onLocationChange={setUserLocation}
+            onModeChange={setOrderMode}
+            initialLocation={userLocation}
+            initialMode={orderMode}
+          />
         </div>
       </nav>
-
-      {/* Location Bar - DoorDash/UberEats style location capture */}
-      <LocationBar 
-        onLocationChange={setUserLocation}
-        onModeChange={setOrderMode}
-        initialLocation={userLocation}
-        initialMode={orderMode}
-      />
 
       {/* Hero - Full-width banner matching partners style */}
       <HeroSlideshow

@@ -1,9 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { MapPin, Navigation, ChevronDown, X, Pencil, Truck, ShoppingBag } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useState, useEffect, useRef } from "react"
+import { MapPin, ChevronDown, X, Truck, ShoppingBag, Navigation, Loader2 } from "lucide-react"
 import { AddressAutocomplete } from "./address-autocomplete"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   Select,
   SelectContent,
@@ -30,24 +34,17 @@ const PUERTO_RICO_ZIP_CODES = [
   { zip: "00924", area: "San Juan - Cupey" },
   { zip: "00926", area: "San Juan - Cupey Gardens" },
   { zip: "00927", area: "San Juan - Hato Rey" },
-  { zip: "00936", area: "San Juan" },
   { zip: "00949", area: "Toa Baja" },
   { zip: "00950", area: "Toa Baja - Levittown" },
-  { zip: "00951", area: "Toa Baja" },
-  { zip: "00952", area: "Sabana Seca" },
-  { zip: "00953", area: "Toa Alta" },
   { zip: "00956", area: "Bayamón" },
   { zip: "00957", area: "Bayamón" },
-  { zip: "00958", area: "Bayamón" },
   { zip: "00959", area: "Bayamón" },
-  { zip: "00960", area: "Bayamón" },
   { zip: "00961", area: "Bayamón" },
   { zip: "00962", area: "Cataño" },
   { zip: "00965", area: "Guaynabo" },
   { zip: "00966", area: "Guaynabo" },
   { zip: "00968", area: "Guaynabo" },
   { zip: "00969", area: "Guaynabo" },
-  { zip: "00971", area: "Guaynabo" },
   { zip: "00976", area: "Trujillo Alto" },
   { zip: "00979", area: "Carolina" },
   { zip: "00982", area: "Carolina" },
@@ -80,10 +77,11 @@ export function LocationBar({
 }: LocationBarProps) {
   const [location, setLocation] = useState<UserLocation | null>(initialLocation || null)
   const [mode, setMode] = useState<OrderMode>(initialMode)
-  const [isEditing, setIsEditing] = useState(false)
+  const [isOpen, setIsOpen] = useState(false)
   const [addressInput, setAddressInput] = useState("")
   const [isLocating, setIsLocating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<"location" | "address" | "zip">("location")
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -115,7 +113,7 @@ export function LocationBar({
       localStorage.removeItem(LOCATION_STORAGE_KEY)
     }
     onLocationChange(newLocation)
-    setIsEditing(false)
+    setIsOpen(false)
     setError(null)
   }
 
@@ -161,16 +159,16 @@ export function LocationBar({
             })
           }
         } catch {
-          setError("No pudimos obtener tu dirección. Intenta ingresarla manualmente.")
+          setError("No pudimos obtener tu dirección")
         }
         setIsLocating(false)
       },
       (err) => {
         setIsLocating(false)
         if (err.code === err.PERMISSION_DENIED) {
-          setError("Permiso de ubicación denegado. Por favor ingresa tu dirección manualmente.")
+          setError("Permiso de ubicación denegado")
         } else {
-          setError("No pudimos obtener tu ubicación. Intenta ingresarla manualmente.")
+          setError("No pudimos obtener tu ubicación")
         }
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -194,10 +192,10 @@ export function LocationBar({
           zip: components.zip,
         })
       } else {
-        setError("No pudimos encontrar esa dirección. Intenta con otra.")
+        setError("No pudimos encontrar esa dirección")
       }
     } catch {
-      setError("Error al buscar la dirección. Intenta de nuevo.")
+      setError("Error al buscar la dirección")
     }
   }
 
@@ -228,152 +226,147 @@ export function LocationBar({
     }
   }
 
-  // If location is set and not editing, show compact view
-  if (location && !isEditing) {
-    return (
-      <div className="bg-slate-900 text-white">
-        <div className="mx-auto max-w-6xl px-6 py-3">
-          <div className="flex items-center justify-between gap-4">
-            {/* Mode Toggle */}
-            <div className="flex items-center gap-1 bg-slate-800 rounded-full p-1">
-              <button
-                onClick={() => handleModeChange("delivery")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  mode === "delivery" 
-                    ? "bg-amber-500 text-slate-900" 
-                    : "text-slate-300 hover:text-white"
-                }`}
-              >
-                <Truck className="h-4 w-4" />
-                Delivery
-              </button>
-              <button
-                onClick={() => handleModeChange("pickup")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                  mode === "pickup" 
-                    ? "bg-amber-500 text-slate-900" 
-                    : "text-slate-300 hover:text-white"
-                }`}
-              >
-                <ShoppingBag className="h-4 w-4" />
-                Pick-Up
-              </button>
-            </div>
+  // Truncate address for display
+  const displayAddress = location?.address 
+    ? location.address.length > 25 
+      ? location.address.substring(0, 25) + "..." 
+      : location.address
+    : null
 
-            {/* Location display */}
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <MapPin className="h-4 w-4 text-amber-400 flex-shrink-0" />
-              <span className="text-sm truncate">
-                {mode === "delivery" ? "Entregando a" : "Recogiendo cerca de"}: <span className="font-medium">{location.address}</span>
-              </span>
-            </div>
-
-            {/* Edit button */}
-            <button
-              onClick={() => setIsEditing(true)}
-              className="flex items-center gap-1 text-sm text-slate-300 hover:text-white transition-colors flex-shrink-0"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Cambiar
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Expanded location input view
   return (
-    <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white">
-      <div className="mx-auto max-w-6xl px-6 py-5">
-        <div className="flex flex-col gap-4">
-          {/* Mode Toggle - Prominent at top */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 bg-slate-800 rounded-full p-1">
+    <div className="flex items-center gap-3">
+      {/* Location Dropdown */}
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTrigger asChild>
+          <button className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-colors text-sm">
+            <MapPin className="h-4 w-4 text-rose-600" />
+            <span className="max-w-[180px] truncate font-medium text-slate-700">
+              {displayAddress || "Ingresa ubicación"}
+            </span>
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-0" align="start">
+          <div className="p-4 space-y-4">
+            {/* Tab buttons for different input methods */}
+            <div className="flex border-b border-slate-200">
               <button
-                onClick={() => handleModeChange("delivery")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  mode === "delivery" 
-                    ? "bg-amber-500 text-slate-900" 
-                    : "text-slate-300 hover:text-white"
+                onClick={() => setActiveTab("location")}
+                className={`flex-1 pb-2 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === "location" 
+                    ? "border-rose-600 text-rose-600" 
+                    : "border-transparent text-slate-500 hover:text-slate-700"
                 }`}
               >
-                <Truck className="h-4 w-4" />
-                Delivery
+                <Navigation className="h-4 w-4 inline mr-1" />
+                Auto
               </button>
               <button
-                onClick={() => handleModeChange("pickup")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  mode === "pickup" 
-                    ? "bg-amber-500 text-slate-900" 
-                    : "text-slate-300 hover:text-white"
+                onClick={() => setActiveTab("address")}
+                className={`flex-1 pb-2 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === "address" 
+                    ? "border-rose-600 text-rose-600" 
+                    : "border-transparent text-slate-500 hover:text-slate-700"
                 }`}
               >
-                <ShoppingBag className="h-4 w-4" />
-                Pick-Up
+                Dirección
+              </button>
+              <button
+                onClick={() => setActiveTab("zip")}
+                className={`flex-1 pb-2 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === "zip" 
+                    ? "border-rose-600 text-rose-600" 
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Zip Code
               </button>
             </div>
-            
-            {location && (
+
+            {/* Tab content */}
+            {activeTab === "location" && (
               <button
-                onClick={() => setIsEditing(false)}
-                className="text-slate-400 hover:text-white"
+                onClick={handleUseMyLocation}
+                disabled={isLocating}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-colors"
               >
-                <X className="h-5 w-5" />
+                {isLocating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <MapPin className="h-4 w-4" />
+                )}
+                {isLocating ? "Localizando..." : "Usar mi ubicación"}
               </button>
             )}
-          </div>
 
-          {/* Location Input Options */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            {/* Option 1: Use My Location button with pin inside */}
-            <Button
-              variant="outline"
-              onClick={handleUseMyLocation}
-              disabled={isLocating}
-              className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white gap-2 h-11"
-            >
-              <MapPin className={`h-4 w-4 ${isLocating ? "animate-pulse" : ""}`} />
-              {isLocating ? "Localizando..." : "Usar mi ubicación"}
-            </Button>
-
-            {/* Divider */}
-            <span className="hidden sm:block text-slate-500 text-sm">o</span>
-
-            {/* Option 2: Address autocomplete */}
-            <div className="flex-1 min-w-0">
+            {activeTab === "address" && (
               <AddressAutocomplete
                 value={addressInput}
                 onChange={setAddressInput}
                 onAddressSelected={handleAddressSelected}
-                placeholder="o ingresa tu dirección"
-                className="bg-white text-slate-900 border-0 h-11 w-full"
+                placeholder="Ingresa tu dirección"
+                className="w-full"
               />
-            </div>
+            )}
 
-            {/* Divider */}
-            <span className="hidden sm:block text-slate-500 text-sm">o</span>
+            {activeTab === "zip" && (
+              <Select onValueChange={handleZipSelect}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecciona Zip Code" />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  {PUERTO_RICO_ZIP_CODES.map((zipInfo) => (
+                    <SelectItem key={zipInfo.zip} value={zipInfo.zip}>
+                      {zipInfo.zip} - {zipInfo.area}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
-            {/* Option 3: Zip code dropdown */}
-            <Select onValueChange={handleZipSelect}>
-              <SelectTrigger className="w-full sm:w-56 bg-white text-slate-900 border-0 h-11">
-                <SelectValue placeholder="Selecciona Zip Code" />
-              </SelectTrigger>
-              <SelectContent className="max-h-64">
-                {PUERTO_RICO_ZIP_CODES.map((zipInfo) => (
-                  <SelectItem key={zipInfo.zip} value={zipInfo.zip}>
-                    {zipInfo.zip} - {zipInfo.area}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Error message */}
+            {error && (
+              <p className="text-sm text-red-500">{error}</p>
+            )}
+
+            {/* Current location display with clear button */}
+            {location && (
+              <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+                <span className="text-sm text-slate-600 truncate flex-1">{location.address}</span>
+                <button
+                  onClick={() => saveLocation(null)}
+                  className="ml-2 p-1 hover:bg-slate-200 rounded"
+                >
+                  <X className="h-4 w-4 text-slate-400" />
+                </button>
+              </div>
+            )}
           </div>
+        </PopoverContent>
+      </Popover>
 
-          {/* Error message */}
-          {error && (
-            <p className="text-sm text-red-400">{error}</p>
-          )}
-        </div>
+      {/* Mode Toggle - DoorDash style pill */}
+      <div className="flex items-center bg-slate-100 rounded-full p-0.5">
+        <button
+          onClick={() => handleModeChange("delivery")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+            mode === "delivery" 
+              ? "bg-slate-900 text-white" 
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          Delivery
+        </button>
+        <button
+          onClick={() => handleModeChange("pickup")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+            mode === "pickup" 
+              ? "bg-slate-900 text-white" 
+              : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          Pickup
+        </button>
       </div>
     </div>
   )
