@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { MapPin, Navigation, Loader2, ChevronDown } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { MapPin, Navigation, Loader2, Keyboard, Map } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -9,12 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import { AddressAutocomplete } from "./address-autocomplete"
+import { Input } from "@/components/ui/input"
 
 const LOCATION_STORAGE_KEY = "foodnet_user_location"
 const MODE_STORAGE_KEY = "foodnet_order_mode"
@@ -65,8 +60,12 @@ export function LocationBar({
   const [location, setLocation] = useState<UserLocation | null>(initialLocation || null)
   const [mode, setMode] = useState<OrderMode>(initialMode)
   const [isLoadingGeo, setIsLoadingGeo] = useState(false)
-  const [addressValue, setAddressValue] = useState("")
-  const [isLocationPopoverOpen, setIsLocationPopoverOpen] = useState(false)
+  const [addressInput, setAddressInput] = useState("")
+  const [isAutoMode, setIsAutoMode] = useState(true)
+  const [suggestions, setSuggestions] = useState<Array<{ description: string; place_id: string }>>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const suggestionsRef = useRef<HTMLDivElement>(null)
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -77,6 +76,7 @@ export function LocationBar({
       try {
         const parsed = JSON.parse(savedLocation)
         setLocation(parsed)
+        setAddressInput(parsed.address || "")
         onLocationChange(parsed)
       } catch (e) {
         console.error("Failed to parse saved location", e)
@@ -89,6 +89,23 @@ export function LocationBar({
     }
   }, [])
 
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(event.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
   const handleModeChange = (newMode: OrderMode) => {
     setMode(newMode)
     localStorage.setItem(MODE_STORAGE_KEY, newMode)
@@ -97,10 +114,11 @@ export function LocationBar({
 
   const handleLocationSet = (newLocation: UserLocation) => {
     setLocation(newLocation)
+    setAddressInput(newLocation.address)
     localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(newLocation))
     onLocationChange(newLocation)
-    setIsLocationPopoverOpen(false)
-    setAddressValue("")
+    setShowSuggestions(false)
+    setSuggestions([])
   }
 
   const handleUseMyLocation = async () => {
@@ -150,6 +168,67 @@ export function LocationBar({
     )
   }
 
+  const handleAddressInputChange = async (value: string) => {
+    setAddressInput(value)
+    
+    if (value.length < 3) {
+      setSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/places/autocomplete?input=${encodeURIComponent(value)}`)
+      const data = await response.json()
+      
+      if (data.predictions && data.predictions.length > 0) {
+        setSuggestions(data.predictions.slice(0, 5))
+        setShowSuggestions(true)
+      } else {
+        setSuggestions([])
+        setShowSuggestions(false)
+      }
+    } catch (error) {
+      console.error("Error fetching suggestions:", error)
+    }
+  }
+
+  const handleSuggestionSelect = async (suggestion: { description: string; place_id: string }) => {
+    try {
+      const response = await fetch(`/api/places/details?place_id=${suggestion.place_id}`)
+      const data = await response.json()
+      
+      if (data.lat && data.lng) {
+        handleLocationSet({
+          address: suggestion.description,
+          lat: data.lat,
+          lng: data.lng,
+        })
+      }
+    } catch (error) {
+      console.error("Error getting place details:", error)
+    }
+  }
+
+  const handleAddressSubmit = async () => {
+    if (!addressInput.trim()) return
+
+    try {
+      const response = await fetch(`/api/places/geocode?address=${encodeURIComponent(addressInput)}`)
+      const data = await response.json()
+      
+      if (data.lat && data.lng) {
+        handleLocationSet({
+          address: addressInput,
+          lat: data.lat,
+          lng: data.lng,
+        })
+      }
+    } catch (error) {
+      console.error("Error geocoding address:", error)
+    }
+  }
+
   const handleZipSelect = async (zip: string) => {
     const zipData = PUERTO_RICO_ZIP_CODES.find((z) => z.zip === zip)
     if (!zipData) return
@@ -172,12 +251,12 @@ export function LocationBar({
   }
 
   return (
-    <>
-      {/* Delivery / Pickup Toggle - Uber Eats style pill */}
-      <div className="flex items-center bg-slate-100 rounded-full p-0.5">
+    <div className="flex items-center gap-2 flex-1">
+      {/* 1. Delivery / Pickup Toggle */}
+      <div className="flex items-center bg-slate-100 rounded-full p-0.5 flex-shrink-0">
         <button
           onClick={() => handleModeChange("delivery")}
-          className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all ${
+          className={`px-3 py-1 text-sm font-medium rounded-full transition-all ${
             mode === "delivery"
               ? "bg-black text-white"
               : "text-slate-600 hover:text-slate-900"
@@ -187,7 +266,7 @@ export function LocationBar({
         </button>
         <button
           onClick={() => handleModeChange("pickup")}
-          className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all ${
+          className={`px-3 py-1 text-sm font-medium rounded-full transition-all ${
             mode === "pickup"
               ? "bg-black text-white"
               : "text-slate-600 hover:text-slate-900"
@@ -197,92 +276,93 @@ export function LocationBar({
         </button>
       </div>
 
-      {/* Location Button/Dropdown - Uber Eats style */}
-      <Popover open={isLocationPopoverOpen} onOpenChange={setIsLocationPopoverOpen}>
-        <PopoverTrigger asChild>
-          <button className="flex items-center gap-1 px-2 py-1.5 hover:bg-slate-100 rounded-full transition-colors min-w-0">
-            <MapPin className="w-4 h-4 text-slate-900 flex-shrink-0" />
-            <span className="text-sm text-slate-900 truncate max-w-[160px]">
-              {location?.address || "Ingresa dirección"}
-            </span>
-            <ChevronDown className="w-4 h-4 text-slate-500 flex-shrink-0" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-80 p-4" align="start">
-          <div className="space-y-4">
-            {/* Use My Location Button */}
-            <button
-              onClick={handleUseMyLocation}
-              disabled={isLoadingGeo}
-              className="w-full flex items-center gap-3 px-4 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-colors disabled:opacity-50"
-            >
-              {isLoadingGeo ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Navigation className="w-5 h-5" />
-              )}
-              <span className="font-medium">
-                {isLoadingGeo ? "Buscando..." : "Usar mi ubicación"}
-              </span>
-            </button>
+      {/* 2. Use My Location Button */}
+      <button
+        onClick={handleUseMyLocation}
+        disabled={isLoadingGeo}
+        className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-full hover:bg-slate-50 transition-colors flex-shrink-0 disabled:opacity-50"
+      >
+        {isLoadingGeo ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Navigation className="w-4 h-4" />
+        )}
+        <span className="text-sm font-medium whitespace-nowrap">
+          {isLoadingGeo ? "Buscando..." : "Usar mi ubicación"}
+        </span>
+      </button>
 
-            {/* Divider */}
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-slate-500">o ingresa</span>
-              </div>
-            </div>
-
-            {/* Address Input */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Dirección</label>
-              <AddressAutocomplete
-                placeholder="Calle, número, ciudad..."
-                value={addressValue}
-                onChange={setAddressValue}
-                onAddressSelected={async (components) => {
-                  const fullAddress = `${components.streetAddress}, ${components.city}, ${components.state} ${components.zip}`
-                  try {
-                    const response = await fetch(`/api/places/geocode?address=${encodeURIComponent(fullAddress)}`)
-                    const data = await response.json()
-                    if (data.lat && data.lng) {
-                      handleLocationSet({
-                        address: fullAddress,
-                        lat: data.lat,
-                        lng: data.lng,
-                        zip: components.zip,
-                      })
-                    }
-                  } catch (error) {
-                    console.error("Error geocoding address:", error)
-                  }
-                }}
-                className="w-full"
-              />
-            </div>
-
-            {/* Zip Code Select */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Código Postal</label>
-              <Select onValueChange={handleZipSelect}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecciona código postal" />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {PUERTO_RICO_ZIP_CODES.map((z) => (
-                    <SelectItem key={z.zip} value={z.zip}>
-                      {z.zip} - {z.area}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      {/* 3. Address Input - ALWAYS VISIBLE */}
+      <div className="relative flex-1 min-w-[200px] max-w-md">
+        <div className="flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white">
+          <div className="flex items-center gap-1.5 px-2 border-r border-slate-200 bg-slate-50">
+            <Keyboard className="w-4 h-4 text-slate-500" />
           </div>
-        </PopoverContent>
-      </Popover>
-    </>
+          <Input
+            ref={inputRef}
+            type="text"
+            placeholder="Ingresar dirección"
+            value={addressInput}
+            onChange={(e) => handleAddressInputChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleAddressSubmit()
+              }
+            }}
+            onFocus={() => {
+              if (suggestions.length > 0) {
+                setShowSuggestions(true)
+              }
+            }}
+            className="border-0 h-8 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 flex-1"
+          />
+          {/* Auto/Manual toggle */}
+          <button
+            onClick={() => setIsAutoMode(!isAutoMode)}
+            className="px-2 text-xs text-slate-500 hover:text-slate-700 border-l border-slate-200 h-full bg-slate-50 whitespace-nowrap"
+          >
+            {isAutoMode ? "Auto" : "Manual"}
+          </button>
+        </div>
+
+        {/* Suggestions Dropdown */}
+        {showSuggestions && suggestions.length > 0 && (
+          <div
+            ref={suggestionsRef}
+            className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-50 overflow-hidden"
+          >
+            {suggestions.map((suggestion, index) => (
+              <button
+                key={suggestion.place_id || index}
+                onClick={() => handleSuggestionSelect(suggestion)}
+                className="w-full px-3 py-2 text-left text-sm hover:bg-slate-100 transition-colors flex items-center gap-2"
+              >
+                <MapPin className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                <span className="truncate">{suggestion.description}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 4. Zip Code Dropdown */}
+      <div className="flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white flex-shrink-0">
+        <div className="flex items-center gap-1 px-2 border-r border-slate-200 bg-slate-50">
+          <Map className="w-4 h-4 text-slate-500" />
+        </div>
+        <Select onValueChange={handleZipSelect} value={location?.zip || ""}>
+          <SelectTrigger className="border-0 h-8 text-sm w-[130px] focus:ring-0 focus:ring-offset-0">
+            <SelectValue placeholder="Código Postal" />
+          </SelectTrigger>
+          <SelectContent className="max-h-60">
+            {PUERTO_RICO_ZIP_CODES.map((z) => (
+              <SelectItem key={z.zip} value={z.zip}>
+                {z.zip} - {z.area}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
   )
 }

@@ -139,16 +139,13 @@ export function MarketplaceHome({
             />
           </Link>
 
-          {/* Delivery/Pickup Toggle + Location - flows from logo */}
+          {/* Delivery/Pickup Toggle + Location - flows from logo, takes remaining space */}
           <LocationBar 
             onLocationChange={setUserLocation}
             onModeChange={setOrderMode}
             initialLocation={userLocation}
             initialMode={orderMode}
           />
-
-          {/* Spacer */}
-          <div className="flex-1" />
 
           {/* Right side: Cart, Login, Sign up */}
           <div className="flex items-center gap-2">
