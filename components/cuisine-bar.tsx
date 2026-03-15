@@ -18,19 +18,21 @@ interface CuisineBarProps {
   restaurantCuisines: string[] // List of cuisine types that have at least 1 restaurant
 }
 
-export function CuisineBar({ selectedCuisine, onCuisineChange, cuisineTypes, restaurantCuisines }: CuisineBarProps) {
+export function CuisineBar({ selectedCuisine, onCuisineChange, cuisineTypes = [], restaurantCuisines = [] }: CuisineBarProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [showLeftArrow, setShowLeftArrow] = useState(false)
   const [showRightArrow, setShowRightArrow] = useState(true)
 
   // Filter cuisine types to only show those with at least 1 restaurant
   const filteredCuisineTypes = useMemo(() => {
+    if (!cuisineTypes || !restaurantCuisines) return []
+    
     const normalizedRestaurantCuisines = restaurantCuisines
       .filter(Boolean)
-      .map(c => c.toLowerCase())
+      .map(c => c.toLowerCase().trim())
     
     return cuisineTypes.filter(cuisine => 
-      normalizedRestaurantCuisines.includes(cuisine.name.toLowerCase())
+      normalizedRestaurantCuisines.includes(cuisine.name.toLowerCase().trim())
     )
   }, [cuisineTypes, restaurantCuisines])
 
