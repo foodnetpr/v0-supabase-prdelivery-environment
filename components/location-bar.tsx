@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { MapPin, ChevronDown, X, Truck, ShoppingBag, Navigation, Loader2 } from "lucide-react"
+import { useState, useEffect } from "react"
+import { MapPin, ChevronDown, Navigation, Loader2 } from "lucide-react"
 import { AddressAutocomplete } from "./address-autocomplete"
 import {
   Popover,
@@ -15,42 +15,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
 
 const LOCATION_STORAGE_KEY = "foodnet_user_location"
 const MODE_STORAGE_KEY = "foodnet_order_mode"
 
-// Puerto Rico zip codes - common areas
+// Puerto Rico zip codes
 const PUERTO_RICO_ZIP_CODES = [
-  { zip: "00901", area: "San Juan - Viejo San Juan" },
-  { zip: "00907", area: "San Juan - Condado" },
-  { zip: "00909", area: "San Juan - Santurce" },
-  { zip: "00911", area: "San Juan - Santurce" },
-  { zip: "00913", area: "San Juan - Santurce" },
-  { zip: "00917", area: "San Juan - Hato Rey" },
-  { zip: "00918", area: "San Juan - Hato Rey" },
-  { zip: "00920", area: "San Juan - Río Piedras" },
-  { zip: "00921", area: "San Juan - Río Piedras" },
-  { zip: "00923", area: "San Juan - Cupey" },
-  { zip: "00924", area: "San Juan - Cupey" },
-  { zip: "00926", area: "San Juan - Cupey Gardens" },
-  { zip: "00927", area: "San Juan - Hato Rey" },
+  { zip: "00901", area: "Viejo San Juan" },
+  { zip: "00907", area: "Condado" },
+  { zip: "00909", area: "Santurce" },
+  { zip: "00917", area: "Hato Rey" },
+  { zip: "00918", area: "Hato Rey" },
+  { zip: "00920", area: "Río Piedras" },
+  { zip: "00923", area: "Cupey" },
+  { zip: "00926", area: "Cupey Gardens" },
   { zip: "00949", area: "Toa Baja" },
-  { zip: "00950", area: "Toa Baja - Levittown" },
   { zip: "00956", area: "Bayamón" },
-  { zip: "00957", area: "Bayamón" },
   { zip: "00959", area: "Bayamón" },
-  { zip: "00961", area: "Bayamón" },
-  { zip: "00962", area: "Cataño" },
   { zip: "00965", area: "Guaynabo" },
-  { zip: "00966", area: "Guaynabo" },
   { zip: "00968", area: "Guaynabo" },
-  { zip: "00969", area: "Guaynabo" },
+  { zip: "00969", area: "Garden Hills" },
   { zip: "00976", area: "Trujillo Alto" },
   { zip: "00979", area: "Carolina" },
-  { zip: "00982", area: "Carolina" },
-  { zip: "00983", area: "Carolina - Isla Verde" },
-  { zip: "00985", area: "Carolina" },
-  { zip: "00987", area: "Carolina" },
+  { zip: "00983", area: "Isla Verde" },
 ]
 
 export type OrderMode = "delivery" | "pickup"
@@ -78,280 +66,161 @@ export function LocationBar({
   const [location, setLocation] = useState<UserLocation | null>(initialLocation || null)
   const [mode, setMode] = useState<OrderMode>(initialMode)
   const [isOpen, setIsOpen] = useState(false)
-  const [addressInput, setAddressInput] = useState("")
-  const [isLocating, setIsLocating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<"location" | "address" | "zip">("location")
+  const [isLoadingGeo, setIsLoadingGeo] = useState(false)
+  const [activeTab, setActiveTab] = useState<"auto" | "address" | "zip">("auto")
 
   // Load from localStorage on mount
   useEffect(() => {
-    const storedLocation = localStorage.getItem(LOCATION_STORAGE_KEY)
-    const storedMode = localStorage.getItem(MODE_STORAGE_KEY) as OrderMode | null
+    const savedLocation = localStorage.getItem(LOCATION_STORAGE_KEY)
+    const savedMode = localStorage.getItem(MODE_STORAGE_KEY) as OrderMode | null
     
-    if (storedLocation) {
+    if (savedLocation) {
       try {
-        const parsed = JSON.parse(storedLocation) as UserLocation
+        const parsed = JSON.parse(savedLocation)
         setLocation(parsed)
         onLocationChange(parsed)
-      } catch {
-        // Invalid stored data
+      } catch (e) {
+        console.error("Failed to parse saved location", e)
       }
     }
     
-    if (storedMode && (storedMode === "delivery" || storedMode === "pickup")) {
-      setMode(storedMode)
-      onModeChange?.(storedMode)
+    if (savedMode) {
+      setMode(savedMode)
+      onModeChange?.(savedMode)
     }
   }, [])
 
-  // Save location to localStorage
-  const saveLocation = (newLocation: UserLocation | null) => {
-    setLocation(newLocation)
-    if (newLocation) {
-      localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(newLocation))
-    } else {
-      localStorage.removeItem(LOCATION_STORAGE_KEY)
-    }
-    onLocationChange(newLocation)
-    setIsOpen(false)
-    setError(null)
-  }
-
-  // Handle mode change
   const handleModeChange = (newMode: OrderMode) => {
     setMode(newMode)
     localStorage.setItem(MODE_STORAGE_KEY, newMode)
     onModeChange?.(newMode)
   }
 
-  // Use browser geolocation
+  const handleLocationSet = (newLocation: UserLocation) => {
+    setLocation(newLocation)
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(newLocation))
+    onLocationChange(newLocation)
+    setIsOpen(false)
+  }
+
   const handleUseMyLocation = async () => {
     if (!navigator.geolocation) {
-      setError("Tu navegador no soporta geolocalización")
+      alert("Tu navegador no soporta geolocalización")
       return
     }
 
-    setIsLocating(true)
-    setError(null)
-
+    setIsLoadingGeo(true)
+    
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords
         
         try {
-          const response = await fetch(
-            `/api/places/reverse-geocode?lat=${latitude}&lng=${longitude}`
-          )
+          const response = await fetch(`/api/places/reverse-geocode?lat=${latitude}&lng=${longitude}`)
           const data = await response.json()
           
           if (data.address) {
-            saveLocation({
+            handleLocationSet({
               address: data.address,
               lat: latitude,
               lng: longitude,
-              zip: data.zip,
             })
           } else {
-            saveLocation({
+            handleLocationSet({
               address: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
               lat: latitude,
               lng: longitude,
             })
           }
-        } catch {
-          setError("No pudimos obtener tu dirección")
+        } catch (error) {
+          handleLocationSet({
+            address: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+            lat: latitude,
+            lng: longitude,
+          })
         }
-        setIsLocating(false)
+        setIsLoadingGeo(false)
       },
-      (err) => {
-        setIsLocating(false)
-        if (err.code === err.PERMISSION_DENIED) {
-          setError("Permiso de ubicación denegado")
-        } else {
-          setError("No pudimos obtener tu ubicación")
-        }
+      (error) => {
+        console.error("Geolocation error:", error)
+        alert("No pudimos obtener tu ubicación. Por favor ingresa tu dirección manualmente.")
+        setIsLoadingGeo(false)
       },
       { enableHighAccuracy: true, timeout: 10000 }
     )
   }
 
-  // Handle address selection from autocomplete
-  const handleAddressSelected = async (components: { streetAddress: string; city: string; state: string; zip: string }) => {
+  const handleAddressSelect = async (address: string, placeId?: string) => {
+    if (placeId) {
+      try {
+        const response = await fetch(`/api/places/details?placeId=${placeId}`)
+        const data = await response.json()
+        
+        if (data.lat && data.lng) {
+          handleLocationSet({
+            address: address,
+            lat: data.lat,
+            lng: data.lng,
+          })
+          return
+        }
+      } catch (error) {
+        console.error("Error getting place details:", error)
+      }
+    }
+    
+    // Fallback to geocoding
     try {
-      const fullAddress = `${components.streetAddress}, ${components.city}, ${components.state} ${components.zip}`
-      const response = await fetch(
-        `/api/places/geocode?address=${encodeURIComponent(fullAddress)}`
-      )
+      const response = await fetch(`/api/places/geocode?address=${encodeURIComponent(address)}`)
       const data = await response.json()
       
       if (data.lat && data.lng) {
-        saveLocation({
-          address: fullAddress,
+        handleLocationSet({
+          address: address,
           lat: data.lat,
           lng: data.lng,
-          zip: components.zip,
         })
-      } else {
-        setError("No pudimos encontrar esa dirección")
       }
-    } catch {
-      setError("Error al buscar la dirección")
+    } catch (error) {
+      console.error("Error geocoding address:", error)
     }
   }
 
-  // Handle zip code selection
   const handleZipSelect = async (zip: string) => {
-    if (!zip) return
+    const zipData = PUERTO_RICO_ZIP_CODES.find((z) => z.zip === zip)
+    if (!zipData) return
     
     try {
-      const response = await fetch(
-        `/api/places/geocode?address=${encodeURIComponent(zip + ", Puerto Rico")}`
-      )
+      const response = await fetch(`/api/places/geocode?address=${zip}, Puerto Rico`)
       const data = await response.json()
       
-      const zipInfo = PUERTO_RICO_ZIP_CODES.find(z => z.zip === zip)
-      
       if (data.lat && data.lng) {
-        saveLocation({
-          address: zipInfo ? `${zipInfo.area} (${zip})` : `Código postal ${zip}`,
+        handleLocationSet({
+          address: `${zipData.area}, PR ${zip}`,
           lat: data.lat,
           lng: data.lng,
           zip: zip,
         })
-      } else {
-        setError("No pudimos encontrar ese código postal")
       }
-    } catch {
-      setError("Error al buscar el código postal")
+    } catch (error) {
+      console.error("Error geocoding zip:", error)
     }
   }
 
-  // Truncate address for display
-  const displayAddress = location?.address 
-    ? location.address.length > 25 
-      ? location.address.substring(0, 25) + "..." 
-      : location.address
-    : null
+  const truncateAddress = (addr: string, maxLength: number = 25) => {
+    if (addr.length <= maxLength) return addr
+    return addr.substring(0, maxLength) + "..."
+  }
 
   return (
     <div className="flex items-center gap-3">
-      {/* Location Dropdown */}
-      <Popover open={isOpen} onOpenChange={setIsOpen}>
-        <PopoverTrigger asChild>
-          <button className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-colors text-sm">
-            <MapPin className="h-4 w-4 text-rose-600" />
-            <span className="max-w-[180px] truncate font-medium text-slate-700">
-              {displayAddress || "Ingresa ubicación"}
-            </span>
-            <ChevronDown className="h-4 w-4 text-slate-400" />
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-80 p-0" align="start">
-          <div className="p-4 space-y-4">
-            {/* Tab buttons for different input methods */}
-            <div className="flex border-b border-slate-200">
-              <button
-                onClick={() => setActiveTab("location")}
-                className={`flex-1 pb-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === "location" 
-                    ? "border-rose-600 text-rose-600" 
-                    : "border-transparent text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                <Navigation className="h-4 w-4 inline mr-1" />
-                Auto
-              </button>
-              <button
-                onClick={() => setActiveTab("address")}
-                className={`flex-1 pb-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === "address" 
-                    ? "border-rose-600 text-rose-600" 
-                    : "border-transparent text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                Dirección
-              </button>
-              <button
-                onClick={() => setActiveTab("zip")}
-                className={`flex-1 pb-2 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === "zip" 
-                    ? "border-rose-600 text-rose-600" 
-                    : "border-transparent text-slate-500 hover:text-slate-700"
-                }`}
-              >
-                Zip Code
-              </button>
-            </div>
-
-            {/* Tab content */}
-            {activeTab === "location" && (
-              <button
-                onClick={handleUseMyLocation}
-                disabled={isLocating}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-colors"
-              >
-                {isLocating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <MapPin className="h-4 w-4" />
-                )}
-                {isLocating ? "Localizando..." : "Usar mi ubicación"}
-              </button>
-            )}
-
-            {activeTab === "address" && (
-              <AddressAutocomplete
-                value={addressInput}
-                onChange={setAddressInput}
-                onAddressSelected={handleAddressSelected}
-                placeholder="Ingresa tu dirección"
-                className="w-full"
-              />
-            )}
-
-            {activeTab === "zip" && (
-              <Select onValueChange={handleZipSelect}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecciona Zip Code" />
-                </SelectTrigger>
-                <SelectContent className="max-h-64">
-                  {PUERTO_RICO_ZIP_CODES.map((zipInfo) => (
-                    <SelectItem key={zipInfo.zip} value={zipInfo.zip}>
-                      {zipInfo.zip} - {zipInfo.area}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            {/* Error message */}
-            {error && (
-              <p className="text-sm text-red-500">{error}</p>
-            )}
-
-            {/* Current location display with clear button */}
-            {location && (
-              <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
-                <span className="text-sm text-slate-600 truncate flex-1">{location.address}</span>
-                <button
-                  onClick={() => saveLocation(null)}
-                  className="ml-2 p-1 hover:bg-slate-200 rounded"
-                >
-                  <X className="h-4 w-4 text-slate-400" />
-                </button>
-              </div>
-            )}
-          </div>
-        </PopoverContent>
-      </Popover>
-
-      {/* Mode Toggle - DoorDash style pill */}
-      <div className="flex items-center bg-slate-100 rounded-full p-0.5">
+      {/* Delivery / Pickup Toggle - Uber Eats style */}
+      <div className="flex items-center bg-slate-100 rounded-full p-1">
         <button
           onClick={() => handleModeChange("delivery")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-            mode === "delivery" 
-              ? "bg-slate-900 text-white" 
+          className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all ${
+            mode === "delivery"
+              ? "bg-white text-slate-900 shadow-sm"
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
@@ -359,15 +228,134 @@ export function LocationBar({
         </button>
         <button
           onClick={() => handleModeChange("pickup")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-            mode === "pickup" 
-              ? "bg-slate-900 text-white" 
+          className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all ${
+            mode === "pickup"
+              ? "bg-white text-slate-900 shadow-sm"
               : "text-slate-600 hover:text-slate-900"
           }`}
         >
           Pickup
         </button>
       </div>
+
+      {/* Location Dropdown */}
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTrigger asChild>
+          <button className="flex items-center gap-2 px-3 py-2 rounded-full hover:bg-slate-100 transition-colors text-sm">
+            <MapPin className="w-4 h-4 text-rose-500" />
+            <span className="text-slate-700 max-w-[180px] truncate">
+              {location ? truncateAddress(location.address) : "Ingresa ubicación"}
+            </span>
+            <ChevronDown className="w-4 h-4 text-slate-400" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-0" align="start">
+          {/* Tab Navigation */}
+          <div className="flex border-b border-slate-200">
+            <button
+              onClick={() => setActiveTab("auto")}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === "auto"
+                  ? "text-slate-900 border-b-2 border-slate-900"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Auto
+            </button>
+            <button
+              onClick={() => setActiveTab("address")}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === "address"
+                  ? "text-slate-900 border-b-2 border-slate-900"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Dirección
+            </button>
+            <button
+              onClick={() => setActiveTab("zip")}
+              className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                activeTab === "zip"
+                  ? "text-slate-900 border-b-2 border-slate-900"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Zip Code
+            </button>
+          </div>
+
+          {/* Tab Content */}
+          <div className="p-4">
+            {activeTab === "auto" && (
+              <div className="space-y-3">
+                <p className="text-sm text-slate-500">
+                  Usa tu ubicación actual para encontrar restaurantes cerca de ti.
+                </p>
+                <Button
+                  onClick={handleUseMyLocation}
+                  disabled={isLoadingGeo}
+                  className="w-full bg-slate-900 hover:bg-slate-800"
+                >
+                  {isLoadingGeo ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Obteniendo ubicación...
+                    </>
+                  ) : (
+                    <>
+                      <Navigation className="w-4 h-4 mr-2" />
+                      Usar mi ubicación
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+
+            {activeTab === "address" && (
+              <div className="space-y-3">
+                <p className="text-sm text-slate-500">
+                  Ingresa tu dirección de entrega.
+                </p>
+                <AddressAutocomplete
+                  placeholder="o ingresa tu dirección"
+                  defaultValue={location?.address || ""}
+                  onSelect={handleAddressSelect}
+                />
+              </div>
+            )}
+
+            {activeTab === "zip" && (
+              <div className="space-y-3">
+                <p className="text-sm text-slate-500">
+                  Selecciona tu código postal.
+                </p>
+                <Select onValueChange={handleZipSelect}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona zip code..." />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {PUERTO_RICO_ZIP_CODES.map((z) => (
+                      <SelectItem key={z.zip} value={z.zip}>
+                        {z.zip} - {z.area}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          {/* Current Location Display */}
+          {location && (
+            <div className="border-t border-slate-200 p-3 bg-slate-50">
+              <div className="flex items-center gap-2 text-sm">
+                <MapPin className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                <span className="text-slate-600 truncate">{location.address}</span>
+              </div>
+            </div>
+          )}
+        </PopoverContent>
+      </Popover>
     </div>
   )
 }

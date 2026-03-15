@@ -6,8 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Link from "next/link"
 import Image from "next/image"
 import { useState, useMemo, useEffect, useCallback } from "react"
-import { Filter, ChevronLeft, ChevronRight, ArrowRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react"
 import { LocationBar, type UserLocation, type OrderMode } from "./location-bar"
+import { CuisineBar } from "./cuisine-bar"
 
 type Restaurant = {
   id: string
@@ -79,7 +80,10 @@ export function MarketplaceHome({
   // Filter and sort restaurants based on user location and other filters
   const filteredRestaurants = useMemo(() => {
     let filtered = restaurants.filter((restaurant) => {
-      const matchesCuisine = cuisineFilter === "all" || restaurant.cuisine_type === cuisineFilter
+      // Cuisine filter - check if restaurant cuisine matches or contains the filter text
+      const matchesCuisine = cuisineFilter === "all" || 
+        (restaurant.cuisine_type?.toLowerCase().includes(cuisineFilter.toLowerCase()) ||
+         cuisineFilter.toLowerCase().includes(restaurant.cuisine_type?.toLowerCase() || ""))
       const matchesLocation = locationFilter === "all" || restaurant.area === locationFilter
       
       // If user has set a location, filter by delivery radius
@@ -145,6 +149,13 @@ export function MarketplaceHome({
         </div>
       </nav>
 
+      {/* Cuisine Type Icons Bar */}
+      <CuisineBar
+        selectedCuisine={cuisineFilter}
+        onCuisineChange={setCuisineFilter}
+        availableCuisines={cuisineTypes as string[]}
+      />
+
       {/* Hero - Full-width banner matching partners style */}
       <HeroSlideshow
         heroTitle={heroTitle}
@@ -152,52 +163,26 @@ export function MarketplaceHome({
         heroImage={heroImage}
       />
 
-      {/* Filters */}
-      <section className="border-b border-slate-100 bg-white">
-        <div className="mx-auto max-w-6xl px-6 py-4">
-          <div className="flex flex-wrap items-center gap-6">
-            <div className="flex items-center gap-2">
-              <Filter className="w-5 h-5 text-slate-500" />
-              <span className="font-semibold text-sm text-slate-700">Filtrar:</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label htmlFor="cuisine-filter" className="text-sm text-slate-600 whitespace-nowrap">
-                Tipo de Cocina:
-              </label>
-              <Select value={cuisineFilter} onValueChange={setCuisineFilter}>
-                <SelectTrigger className="w-[180px] bg-white border-slate-200 text-sm" id="cuisine-filter">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  {cuisineTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <label htmlFor="location-filter" className="text-sm text-slate-600 whitespace-nowrap">
-                Zona:
-              </label>
-              <Select value={locationFilter} onValueChange={setLocationFilter}>
-                <SelectTrigger className="w-[180px] bg-white border-slate-200 text-sm" id="location-filter">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Toda Zona</SelectItem>
-                  {AREAS.map((area) => (
-                    <SelectItem key={area} value={area}>
-                      {area}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      {/* Zone Filter - below cuisine icons */}
+      <section className="bg-white">
+        <div className="mx-auto max-w-6xl px-6 py-3">
+          <div className="flex items-center gap-4">
+            <label htmlFor="location-filter" className="text-sm text-slate-600 whitespace-nowrap">
+              Zona:
+            </label>
+            <Select value={locationFilter} onValueChange={setLocationFilter}>
+              <SelectTrigger className="w-[180px] bg-white border-slate-200 text-sm" id="location-filter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toda Zona</SelectItem>
+                {AREAS.map((area) => (
+                  <SelectItem key={area} value={area}>
+                    {area}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </section>
