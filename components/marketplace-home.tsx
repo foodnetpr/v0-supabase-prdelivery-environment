@@ -24,7 +24,13 @@ type Restaurant = {
   latitude?: string | null
   longitude?: string | null
   delivery_radius_miles?: number | null
+  delivery_zip_codes?: string[] | null
   delivery_enabled?: boolean
+}
+
+type RestaurantWithDistance = Restaurant & {
+  calculatedDistance: number | null
+  inDeliveryZone: boolean
 }
 
 type MarketplaceSettings = {
@@ -82,50 +88,51 @@ export function MarketplaceHome({
     "Rio Piedras", "Santurce", "Guaynabo Pueblo", "San Patricio", "Señorial",
   ]
 
-  // Filter and sort restaurants based on user location and other filters
-  const filteredRestaurants = useMemo(() => {
-    let filtered = restaurants.filter((restaurant) => {
-      // Cuisine filter - match by cuisine type name (case-insensitive)
-      const matchesCuisine = cuisineFilter === "all" || 
-        restaurant.cuisine_type?.toLowerCase() === cuisineFilter.toLowerCase()
-      const matchesLocation = locationFilter === "all" || restaurant.area === locationFilter
-      
-      // If user has set a location, filter by delivery radius
-      if (userLocation && restaurant.latitude && restaurant.longitude) {
-        const distance = calculateDistance(
-          userLocation.lat,
-          userLocation.lng,
-          parseFloat(restaurant.latitude),
-          parseFloat(restaurant.longitude)
-        )
-        const deliveryRadius = restaurant.delivery_radius_miles || 10
-        const withinDeliveryZone = distance <= deliveryRadius
-        return matchesCuisine && matchesLocation && withinDeliveryZone
+  // Compute distance + delivery zone for every restaurant, then filter/sort
+  const restaurantsWithDistance = useMemo((): RestaurantWithDistance[] => {
+    return restaurants.map((restaurant) => {
+      if (!userLocation || !restaurant.latitude || !restaurant.longitude) {
+        return { ...restaurant, calculatedDistance: null, inDeliveryZone: true }
       }
-      
+
+      const distance = calculateDistance(
+        userLocation.lat,
+        userLocation.lng,
+        parseFloat(restaurant.latitude),
+        parseFloat(restaurant.longitude)
+      )
+
+      // Check delivery zip code match if available
+      let inDeliveryZone: boolean
+      if (restaurant.delivery_zip_codes && restaurant.delivery_zip_codes.length > 0 && userLocation.zip) {
+        inDeliveryZone = restaurant.delivery_zip_codes.includes(userLocation.zip)
+      } else {
+        const deliveryRadius = restaurant.delivery_radius_miles ?? 10
+        inDeliveryZone = distance <= deliveryRadius
+      }
+
+      return { ...restaurant, calculatedDistance: distance, inDeliveryZone }
+    })
+  }, [restaurants, userLocation])
+
+  const filteredRestaurants = useMemo((): RestaurantWithDistance[] => {
+    const filtered = restaurantsWithDistance.filter((restaurant) => {
+      const matchesCuisine =
+        cuisineFilter === "all" ||
+        restaurant.cuisine_type?.toLowerCase() === cuisineFilter.toLowerCase()
+      const matchesLocation = locationFilter === "all" || (restaurant as any).area === locationFilter
       return matchesCuisine && matchesLocation
     })
 
-    // Sort by distance if user has location
-    if (userLocation) {
-      filtered = filtered
-        .map((restaurant) => {
-          if (restaurant.latitude && restaurant.longitude) {
-            const distance = calculateDistance(
-              userLocation.lat,
-              userLocation.lng,
-              parseFloat(restaurant.latitude),
-              parseFloat(restaurant.longitude)
-            )
-            return { ...restaurant, calculatedDistance: distance }
-          }
-          return { ...restaurant, calculatedDistance: Infinity }
-        })
-        .sort((a, b) => (a.calculatedDistance || 0) - (b.calculatedDistance || 0))
-    }
-
-    return filtered
-  }, [restaurants, cuisineFilter, locationFilter, userLocation])
+    // Sort: available (in zone) first by distance, then out-of-zone last
+    return [...filtered].sort((a, b) => {
+      if (a.inDeliveryZone && !b.inDeliveryZone) return -1
+      if (!a.inDeliveryZone && b.inDeliveryZone) return 1
+      const dA = a.calculatedDistance ?? Infinity
+      const dB = b.calculatedDistance ?? Infinity
+      return dA - dB
+    })
+  }, [restaurantsWithDistance, cuisineFilter, locationFilter])
 
   return (
     <div className="flex flex-col min-h-screen bg-white font-sans">
@@ -147,13 +154,32 @@ export function MarketplaceHome({
       {/* Hero - Full-width banner matching partners style */}
       <PromoBar />
 
+      {/* No location banner */}
+      {!userLocation && (
+        <div className="bg-amber-50 border-b border-amber-100 px-4 py-2.5">
+          <div className="mx-auto max-w-7xl flex items-center gap-2 text-sm text-amber-800">
+            <svg className="w-4 h-4 flex-shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span>Ingresa tu dirección para ver qué restaurantes entregan en tu zona.</span>
+          </div>
+        </div>
+      )}
+
       {/* Restaurant Grid */}
       {restaurants.length > 0 && (
         <section id="restaurantes" className="pt-4 sm:pt-6 pb-12 sm:pb-16">
           <div className="px-4 mx-auto max-w-7xl">
             <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {filteredRestaurants.map((restaurant) => (
-                <RestaurantCard key={restaurant.id} restaurant={restaurant} />
+                <RestaurantCard
+                  key={restaurant.id}
+                  restaurant={restaurant}
+                  distance={restaurant.calculatedDistance}
+                  inDeliveryZone={restaurant.inDeliveryZone}
+                  hasLocation={!!userLocation}
+                />
               ))}
             </div>
           </div>
@@ -331,14 +357,43 @@ function PromoBar() {
   )
 }
 
-function RestaurantCard({ restaurant }: { restaurant: Restaurant }) {
+function RestaurantCard({
+  restaurant,
+  distance,
+  inDeliveryZone,
+  hasLocation,
+}: {
+  restaurant: Restaurant
+  distance: number | null
+  inDeliveryZone: boolean
+  hasLocation: boolean
+}) {
   const cuisineLabel = restaurant.cuisine_type || "Catering"
   const featuredImage = restaurant.marketplace_image_url
   const logoImage = restaurant.logo_url
+  const unavailable = hasLocation && !inDeliveryZone
+
+  const distanceLabel =
+    distance !== null
+      ? distance < 0.1
+        ? "Menos de 0.1 mi"
+        : `${distance.toFixed(1)} mi`
+      : null
 
   return (
-    <Link href={`/${restaurant.slug}`} className="block h-full">
-      <div className="group overflow-hidden rounded-xl sm:rounded-2xl border border-slate-200 bg-white transition-all duration-300 hover:border-amber-200 hover:shadow-lg hover:shadow-amber-600/5 h-full flex flex-col">
+    <Link
+      href={unavailable ? "#" : `/${restaurant.slug}`}
+      className="block h-full"
+      onClick={unavailable ? (e) => e.preventDefault() : undefined}
+      aria-disabled={unavailable}
+    >
+      <div
+        className={`group overflow-hidden rounded-xl sm:rounded-2xl border bg-white transition-all duration-300 h-full flex flex-col ${
+          unavailable
+            ? "border-slate-100 opacity-50 cursor-not-allowed grayscale"
+            : "border-slate-200 hover:border-amber-200 hover:shadow-lg hover:shadow-amber-600/5"
+        }`}
+      >
         <div className="relative aspect-[4/3] bg-slate-100 overflow-hidden">
           {/* Featured/Background Image */}
           {featuredImage ? (
@@ -346,14 +401,30 @@ function RestaurantCard({ restaurant }: { restaurant: Restaurant }) {
               src={featuredImage}
               alt={restaurant.name}
               fill
-              className="object-cover group-hover:scale-105 transition-transform duration-500"
+              className={`object-cover ${!unavailable ? "group-hover:scale-105 transition-transform duration-500" : ""}`}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
               <span className="text-2xl sm:text-4xl font-bold text-slate-300">{restaurant.name.charAt(0)}</span>
             </div>
           )}
-          
+
+          {/* Distance badge */}
+          {distanceLabel && (
+            <div className="absolute top-2 right-2 bg-black/60 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full backdrop-blur-sm">
+              {distanceLabel}
+            </div>
+          )}
+
+          {/* Out-of-zone overlay label */}
+          {unavailable && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="bg-black/50 text-white text-[10px] sm:text-xs font-semibold px-2 py-1 rounded-full backdrop-blur-sm">
+                Fuera de zona
+              </span>
+            </div>
+          )}
+
           {/* Logo Overlay - bottom left corner */}
           {logoImage ? (
             <div className="absolute bottom-2 left-2 w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-white shadow-md overflow-hidden border border-slate-200">
