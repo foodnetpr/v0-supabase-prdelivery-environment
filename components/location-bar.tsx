@@ -258,37 +258,13 @@ export function LocationBar({
   if (isMobile) {
     return (
       <div className="flex flex-col gap-2">
-        {/* Row 1: Delivery/Pickup Toggle + Use Location */}
+        {/* Row 1: Use Location Button */}
         <div className="flex items-center gap-2">
-          {showModeToggle && (
-            <div className="flex items-center bg-slate-100 rounded-full p-0.5 flex-shrink-0">
-              <button
-                onClick={() => handleModeChange("delivery")}
-                className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all ${
-                  mode === "delivery"
-                    ? "bg-black text-white"
-                    : "text-slate-600"
-                }`}
-              >
-                Delivery
-              </button>
-              <button
-                onClick={() => handleModeChange("pickup")}
-                className={`px-3 py-1.5 text-sm font-medium rounded-full transition-all ${
-                  mode === "pickup"
-                    ? "bg-black text-white"
-                    : "text-slate-600"
-                }`}
-              >
-                Pickup
-              </button>
-            </div>
-          )}
-          
           <button
             onClick={handleUseMyLocation}
             disabled={isLoadingGeo}
-            className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-full hover:bg-slate-50 transition-colors flex-shrink-0 disabled:opacity-50 ml-auto"
+            title={isLoadingGeo ? "Buscando..." : "Usar mi ubicación"}
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-full hover:bg-slate-50 transition-colors flex-shrink-0 disabled:opacity-50"
           >
             {isLoadingGeo ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -353,50 +329,22 @@ export function LocationBar({
   // Desktop Layout
   return (
     <div className="flex items-center gap-2 flex-1">
-      {/* 1. Delivery / Pickup Toggle - conditionally shown */}
-      {showModeToggle && (
-        <div className="flex items-center bg-slate-100 rounded-full p-0.5 flex-shrink-0">
-          <button
-            onClick={() => handleModeChange("delivery")}
-            className={`px-3 py-1 text-sm font-medium rounded-full transition-all ${
-              mode === "delivery"
-                ? "bg-black text-white"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Delivery
-          </button>
-          <button
-            onClick={() => handleModeChange("pickup")}
-            className={`px-3 py-1 text-sm font-medium rounded-full transition-all ${
-              mode === "pickup"
-                ? "bg-black text-white"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Pickup
-          </button>
-        </div>
-      )}
-
-      {/* 2. Use My Location Button */}
+      {/* 2. Use My Location Button - icon only */}
       <button
         onClick={handleUseMyLocation}
         disabled={isLoadingGeo}
-        className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded-full hover:bg-slate-50 transition-colors flex-shrink-0 disabled:opacity-50"
+        title={isLoadingGeo ? "Buscando..." : "Usar mi ubicación"}
+        className="flex items-center justify-center w-8 h-8 border border-slate-300 rounded-full hover:bg-slate-50 transition-colors flex-shrink-0 disabled:opacity-50"
       >
         {isLoadingGeo ? (
           <Loader2 className="w-4 h-4 animate-spin" />
         ) : (
           <Navigation className="w-4 h-4" />
         )}
-        <span className="text-sm font-medium whitespace-nowrap">
-          {isLoadingGeo ? "Buscando..." : "Usar mi ubicación"}
-        </span>
       </button>
 
       {/* 3. Address Input - ALWAYS VISIBLE */}
-      <div className="relative flex-1 min-w-[200px] max-w-md">
+      <div className="relative flex-1 min-w-[200px]">
         <div className="flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white">
           <div className="flex items-center gap-1.5 px-2 border-r border-slate-200 bg-slate-50">
             <Keyboard className="w-4 h-4 text-slate-500" />
@@ -454,13 +402,13 @@ export function LocationBar({
           <Map className="w-4 h-4 text-slate-500" />
         </div>
         <Select onValueChange={handleZipSelect} value={location?.zip || ""}>
-          <SelectTrigger className="border-0 h-8 text-sm w-[160px] focus:ring-0 focus:ring-offset-0">
-            <SelectValue placeholder="Código Postal" />
+          <SelectTrigger className="border-0 h-8 text-sm w-[90px] focus:ring-0 focus:ring-offset-0">
+            <SelectValue placeholder="Zip" />
           </SelectTrigger>
           <SelectContent className="max-h-60">
             {PUERTO_RICO_ZIP_CODES.map((z) => (
               <SelectItem key={z.zip} value={z.zip}>
-                {z.zip} - {z.area}
+                {z.zip}
               </SelectItem>
             ))}
           </SelectContent>
