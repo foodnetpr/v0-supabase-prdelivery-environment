@@ -118,6 +118,70 @@ export async function calculateDeliveryFee(params: CalculateDeliveryFeeParams): 
   }
 }
 
+// Calculate delivery fee using customer lat/lng directly (no geocoding needed)
+export async function calculateDeliveryFeeByCoords(params: {
+  restaurantId: string
+  customerLat: number
+  customerLng: number
+  restaurantLat: number
+  restaurantLng: number
+  itemCount: number
+}): Promise<CalculateDeliveryFeeResult> {
+  try {
+    const { restaurantId, customerLat, customerLng, restaurantLat, restaurantLng, itemCount } = params
+
+    const distance = haversineDistance(restaurantLat, restaurantLng, customerLat, customerLng)
+
+    const supabase = await createServerClient()
+    const [zonesResult, settingsResult] = await Promise.all([
+      supabase
+        .from("delivery_zones")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .eq("is_active", true)
+        .order("display_order", { ascending: true }),
+      supabase
+        .from("platform_settings")
+        .select("delivery_fee_subsidy")
+        .limit(1)
+        .single(),
+    ])
+
+    const subsidy = Number(settingsResult.data?.delivery_fee_subsidy ?? 3.0)
+    const { data: zones, error } = zonesResult
+
+    if (error || !zones || zones.length === 0) {
+      return { success: false, fee: 0, displayedFee: 0, distance, zoneName: "", itemSurcharge: 0, error: "Delivery zones not configured." }
+    }
+
+    const matchingZone = zones.find((z) => distance >= z.min_distance && distance <= z.max_distance)
+    if (!matchingZone) {
+      return {
+        success: false, fee: 0, displayedFee: 0, distance, zoneName: "", itemSurcharge: 0,
+        error: `Delivery not available for ${distance.toFixed(1)} miles. Maximum is ${Math.max(...zones.map((z) => z.max_distance))} miles.`,
+      }
+    }
+
+    let itemSurcharge = 0
+    if (itemCount > matchingZone.min_items_for_surcharge && matchingZone.per_item_surcharge > 0) {
+      itemSurcharge = (itemCount - matchingZone.min_items_for_surcharge) * matchingZone.per_item_surcharge
+    }
+
+    const totalFee = Number(matchingZone.base_fee) + itemSurcharge
+    return {
+      success: true,
+      fee: totalFee,
+      displayedFee: Math.max(0, totalFee - subsidy),
+      distance,
+      zoneName: matchingZone.zone_name,
+      itemSurcharge,
+    }
+  } catch (error) {
+    console.error("[v0] Error calculating delivery fee by coords:", error)
+    return { success: false, fee: 0, displayedFee: 0, distance: 0, zoneName: "", itemSurcharge: 0, error: "Failed to calculate delivery fee." }
+  }
+}
+
 // Haversine formula to calculate distance between two lat/lng points in miles
 function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 3958.8 // Earth radius in miles

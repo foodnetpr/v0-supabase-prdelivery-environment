@@ -19,7 +19,7 @@ import StripeCheckout from "./stripe-checkout"
 import SquareCheckout from "./square-checkout"
 import ATHMovilCheckout from "./athmovil-checkout"
 import { Input } from "@/components/ui/input"
-import { calculateDeliveryFee, checkDeliveryZone } from "@/app/actions/delivery-zones"
+import { calculateDeliveryFee, calculateDeliveryFeeByCoords, checkDeliveryZone } from "@/app/actions/delivery-zones"
 import {
   getUnitLabel as getUnitLabelCentral,
   getQuantityUnitLabel as getQuantityUnitLabelCentral,
@@ -1312,21 +1312,64 @@ export default function CustomerPortal({
     }
   }
 
-  // Auto-calculate delivery fee on mount when a saved address is already available
+  // Auto-calculate delivery fee on mount using the address already set in the header (localStorage)
   useEffect(() => {
-    if (
-      deliveryMethod === "delivery" &&
-      defaultSavedAddress?.address_line_1 &&
-      defaultSavedAddress?.city &&
-      defaultSavedAddress?.postal_code
-    ) {
-      handleCalculateDeliveryFee({
-        streetAddress: defaultSavedAddress.address_line_1,
-        streetAddress2: defaultSavedAddress.address_line_2 || "",
-        city: defaultSavedAddress.city,
-        state: defaultSavedAddress.state || "PR",
-        zip: defaultSavedAddress.postal_code,
-      })
+    if (deliveryMethod !== "delivery") return
+
+    try {
+      const raw = localStorage.getItem("foodnet_user_location")
+      if (!raw) return
+      const saved = JSON.parse(raw) as { address: string; lat: number; lng: number; zip?: string }
+      if (!saved.lat || !saved.lng) return
+
+      // Pre-populate the address form fields from the saved address string
+      // Format: "1181 Calle Canada, San Juan, Puerto Rico"
+      const parts = saved.address.split(",").map((s) => s.trim())
+      const street = parts[0] || ""
+      const city = parts[1] || ""
+      const stateOrCountry = parts[2] || "PR"
+      const state = stateOrCountry.replace(/Puerto Rico/i, "PR").trim()
+      const zip = saved.zip || ""
+
+      setDeliveryForm((prev) => ({
+        ...prev,
+        streetAddress: street || prev.streetAddress,
+        city: city || prev.city,
+        state: state || prev.state,
+        zip: zip || prev.zip,
+      }))
+
+      // If restaurant has lat/lng, use Haversine immediately (no API call)
+      const restaurantLat = (restaurant as any).latitude ?? (restaurant as any).lat
+      const restaurantLng = (restaurant as any).longitude ?? (restaurant as any).lng
+
+      if (restaurantLat && restaurantLng) {
+        setDeliveryFeeCalculation((prev) => ({ ...prev, isCalculating: true }))
+        const itemCount = cart.filter((i) => i.type !== "delivery_fee" && !i.isAutomatic).length
+        calculateDeliveryFeeByCoords({
+          restaurantId: restaurant.id,
+          customerLat: saved.lat,
+          customerLng: saved.lng,
+          restaurantLat,
+          restaurantLng,
+          itemCount,
+        }).then((result) => {
+          setDeliveryFeeCalculation({
+            fee: result.fee,
+            displayedFee: result.displayedFee,
+            distance: result.distance,
+            zoneName: result.zoneName,
+            itemSurcharge: result.itemSurcharge,
+            isCalculating: false,
+            error: result.error,
+          })
+        })
+      } else if (street && city && zip) {
+        // Fallback to text-based calculation if restaurant has no coords
+        handleCalculateDeliveryFee({ streetAddress: street, city, state, zip })
+      }
+    } catch {
+      // Silently ignore localStorage parse errors
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deliveryMethod, restaurant.id])
@@ -4087,10 +4130,12 @@ const orderData = {
                       <Label htmlFor="eventDate" className="text-sm font-medium">
                         {deliveryMethod === "delivery" ? "Fecha del Delivery" : "Fecha de Recogido"} *
                       </Label>
-                      <p className="text-xs text-muted-foreground">
-                        {deliveryMethod === "delivery" ? "Entrega" : "Recogido"} requiere minimo {leadTimeHours} horas de anticipacion.
-                        Puedes programar hasta {maxAdvanceDays} dias de antelacion.
-                      </p>
+                      {leadTimeHours > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          {deliveryMethod === "delivery" ? "Entrega" : "Recogido"} requiere minimo {leadTimeHours} horas de anticipacion.
+                          Puedes programar hasta {maxAdvanceDays} dias de antelacion.
+                        </p>
+                      )}
                       {leadTimeHours > getMethodLeadTime() && (
                         <p className="text-sm text-amber-600">
                           Tu carrito contiene articulos que requieren {leadTimeHours} horas de anticipacion
