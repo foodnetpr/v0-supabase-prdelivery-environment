@@ -162,6 +162,7 @@ export async function POST(request: Request) {
                 .upsert({
                   menu_item_id: itemId,
                   category: option.group_name || option.name,
+                  prompt: option.prompt || null,
                   is_required: option.required || false,
                   min_selection: option.min_select || 0,
                   max_selection: option.max_select || 10,
