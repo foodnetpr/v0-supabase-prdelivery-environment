@@ -361,7 +361,9 @@ export default function RestaurantAdminClient({
     hero_image_url: "",
     primary_color: "#6B1F1F",
     standalone_domain: "",
-    restaurant_address: "", // Added restaurant_address
+    restaurant_address: "",
+    latitude: "",
+    longitude: "",
     tax_rate: "",
     delivery_fee: "",
     tip_option_1: "",
@@ -495,7 +497,7 @@ export default function RestaurantAdminClient({
       const { data: restaurantData } = await supabase
         .from("restaurants")
         .select(
-          "tax_rate, delivery_fee, tip_option_1, tip_option_2, tip_option_3, lead_time_hours, delivery_lead_time_hours, pickup_lead_time_hours, max_advance_days, min_delivery_order, min_pickup_order, restaurant_address, primary_color, standalone_domain, design_template, packages_section_title, name, logo_url, banner_logo_url, hero_image_url, delivery_enabled, pickup_enabled, show_service_packages, shipday_api_key, is_chain, hide_branch_selector_title, delivery_base_fee, delivery_included_containers, footer_description, footer_email, footer_phone, footer_links, payment_provider, stripe_account_id, square_access_token, square_location_id, square_environment, athmovil_public_token, athmovil_ecommerce_id",
+          "tax_rate, delivery_fee, tip_option_1, tip_option_2, tip_option_3, lead_time_hours, delivery_lead_time_hours, pickup_lead_time_hours, max_advance_days, min_delivery_order, min_pickup_order, restaurant_address, latitude, longitude, primary_color, standalone_domain, design_template, packages_section_title, name, logo_url, banner_logo_url, hero_image_url, delivery_enabled, pickup_enabled, show_service_packages, shipday_api_key, is_chain, hide_branch_selector_title, delivery_base_fee, delivery_included_containers, footer_description, footer_email, footer_phone, footer_links, payment_provider, stripe_account_id, square_access_token, square_location_id, square_environment, athmovil_public_token, athmovil_ecommerce_id",
         )
         .eq("id", restaurantId)
         .single()
@@ -512,7 +514,9 @@ export default function RestaurantAdminClient({
           hero_image_url: restaurantData.hero_image_url || "",
           primary_color: restaurantData.primary_color || "#6B1F1F",
           standalone_domain: restaurantData.standalone_domain || "",
-          restaurant_address: restaurantData.restaurant_address || "", // Set restaurant_address
+          restaurant_address: restaurantData.restaurant_address || "",
+          latitude: restaurantData.latitude?.toString() || "",
+          longitude: restaurantData.longitude?.toString() || "",
           tax_rate: restaurantData.tax_rate?.toString() || "0",
           delivery_fee: restaurantData.delivery_fee?.toString() || "25",
           tip_option_1: (() => { const v = restaurantData.tip_option_1; return v ? (v > 0 && v < 1 ? Math.round(v * 100) : v).toString() : "12" })(),
@@ -1802,6 +1806,8 @@ export default function RestaurantAdminClient({
       primary_color: settingsForm.primary_color,
       standalone_domain: settingsForm.standalone_domain || null,
       restaurant_address: settingsForm.restaurant_address,
+      latitude: settingsForm.latitude ? Number.parseFloat(settingsForm.latitude) : undefined,
+      longitude: settingsForm.longitude ? Number.parseFloat(settingsForm.longitude) : undefined,
       tax_rate: settingsForm.tax_rate ? Number.parseFloat(settingsForm.tax_rate) : null,
       delivery_fee: settingsForm.delivery_fee ? Number.parseFloat(settingsForm.delivery_fee) : null,
       lead_time_hours: settingsForm.lead_time_hours ? Number.parseInt(settingsForm.lead_time_hours) : null,
@@ -3566,12 +3572,55 @@ const pickupOrders = orders.filter((o: any) => o.order_type === "pickup" || o.de
                 </div>
                 <div>
                   <Label className="text-base font-semibold">Restaurant Address</Label>
-                  <p className="text-sm text-gray-500 mb-3">Used for delivery distance calculations</p>
+                  <p className="text-sm text-gray-500 mb-3">
+                    Used for delivery distance calculations. Saving a new address auto-geocodes coordinates.
+                  </p>
                   <Input
-                    placeholder="123 Main St, City, State ZIP"
+                    placeholder="303 Ave De Diego, Puerto Nuevo, San Juan, PR 00920"
                     value={settingsForm.restaurant_address || ""}
                     onChange={(e) => setSettingsForm({ ...settingsForm, restaurant_address: e.target.value })}
                   />
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <div>
+                      <Label className="text-xs text-gray-500 mb-1 block">Latitud</Label>
+                      <Input
+                        type="number"
+                        step="any"
+                        placeholder="18.4270"
+                        value={settingsForm.latitude || ""}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, latitude: e.target.value })}
+                        className="font-mono text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-gray-500 mb-1 block">Longitud</Label>
+                      <Input
+                        type="number"
+                        step="any"
+                        placeholder="-66.0513"
+                        value={settingsForm.longitude || ""}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, longitude: e.target.value })}
+                        className="font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                  {settingsForm.latitude && settingsForm.longitude && (
+                    <a
+                      href={`https://www.google.com/maps?q=${settingsForm.latitude},${settingsForm.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline mt-2 inline-block"
+                    >
+                      Verificar ubicacion en Google Maps →
+                    </a>
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">
+                    Puedes obtener coordenadas exactas en{" "}
+                    <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" className="underline">
+                      maps.google.com
+                    </a>{" "}
+                    — clic derecho en el mapa → "¿Qué hay aquí?"
+                  </p>
                 </div>
 
                 {/* Existing settings fields */}

@@ -906,6 +906,8 @@ export async function updateRestaurantSettings(
     min_delivery_order?: number | null
     min_pickup_order?: number | null
     restaurant_address?: string
+    latitude?: number
+    longitude?: number
     primary_color?: string
     standalone_domain?: string | null
     design_template?: string
@@ -942,9 +944,14 @@ export async function updateRestaurantSettings(
 ) {
   const supabase = getAdminClient()
 
-  // Auto-geocode whenever the restaurant address is being updated
   const payload: typeof data & { latitude?: number; longitude?: number } = { ...data }
-  if (data.restaurant_address) {
+
+  if (data.latitude !== undefined && data.longitude !== undefined) {
+    // Explicit coordinates provided — use them directly, skip geocoding
+    payload.latitude = data.latitude
+    payload.longitude = data.longitude
+  } else if (data.restaurant_address) {
+    // No explicit coords — auto-geocode from the address
     const coords = await geocodeAddressToCoords(data.restaurant_address)
     if (coords) {
       payload.latitude = coords.lat
