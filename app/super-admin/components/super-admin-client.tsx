@@ -19,6 +19,7 @@ import {
   Plus,
   Loader2,
   Pencil,
+  FileText,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -39,6 +40,7 @@ import { Trash2, Shield, Megaphone, Globe, Copy, ArrowUpRight, MapPin, Clock, Al
 import { OperationsTab } from "./operations-tab"
 import { AdminUsersTab } from "./admin-users-tab"
 import { CuisineTypesTab } from "./cuisine-types-tab"
+import { ReportsTab } from "./reports-tab"
 
 interface Restaurant {
   id: string
@@ -224,7 +226,7 @@ export function SuperAdminClient({
     payment_type: "ach" as "ach" | "pop" | "ath",
   })
 
-  const [activeTab, setActiveTab] = useState<"restaurants" | "marketing" | "operations" | "admin-users" | "cuisine-types">("restaurants")
+  const [activeTab, setActiveTab] = useState<"restaurants" | "marketing" | "operations" | "admin-users" | "cuisine-types" | "reports">("restaurants")
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [marketplaceSettings, setMarketplaceSettings] = useState({
     id: initialSettings?.id || "",
@@ -513,6 +515,17 @@ export function SuperAdminClient({
               <ShoppingCart className="h-4 w-4" />
               Internal Shop
             </Link>
+            <button
+              onClick={() => setActiveTab("reports")}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
+                activeTab === "reports"
+                  ? "border-slate-900 text-slate-900 bg-slate-50"
+                  : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+              }`}
+            >
+              <FileText className="h-4 w-4" />
+              Reports
+            </button>
           </div>
         </div>
       </header>
@@ -1033,6 +1046,11 @@ export function SuperAdminClient({
       {/* Cuisine Types Tab */}
       {activeTab === "cuisine-types" && (
         <CuisineTypesTab />
+      )}
+
+      {/* Reports Tab */}
+      {activeTab === "reports" && (
+        <ReportsTab restaurants={restaurants} />
       )}
 
       {/* Create Restaurant Modal - keep existing */}
