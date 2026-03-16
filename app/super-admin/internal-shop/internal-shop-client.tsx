@@ -255,10 +255,18 @@ export function InternalShopClient({ initialItems }: InternalShopClientProps) {
                 </p>
               </div>
             </div>
-            <Button onClick={openCreateModal}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Item
-            </Button>
+            <div className="flex items-center gap-2">
+              <Link href="/shop" target="_blank">
+                <Button variant="outline" size="sm">
+                  <Package className="mr-2 h-4 w-4" />
+                  View Shop
+                </Button>
+              </Link>
+              <Button onClick={openCreateModal}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Item
+              </Button>
+            </div>
           </div>
         </div>
       </div>

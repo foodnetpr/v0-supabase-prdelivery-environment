@@ -597,8 +597,10 @@ export default function CustomerPortal({
     } catch { /* storage full or unavailable */ }
   }, [cart, cartStorageKey])
 
-  // Count only actual food/product items (exclude delivery fee)
-  const foodCartCount = cart.filter((item) => item.type !== "delivery_fee").length
+  // Count only actual food/product items (exclude delivery fee), summing quantities
+  const foodCartCount = cart
+    .filter((item) => item.type !== "delivery_fee")
+    .reduce((sum, item) => sum + (item.quantity || 1), 0)
 
   const [itemCustomizations, setItemCustomizations] = useState<Record<string, string | string[] | Record<string, number>>>({})
 
@@ -4386,6 +4388,8 @@ const orderData = {
                             internalShopItemId: item.id,
                             name: item.name,
                             price: Number(item.price),
+                            finalPrice: Number(item.price),
+                            totalPrice: Number(item.price) * quantity,
                             quantity: quantity,
                             image_url: item.image_url,
                             category: item.category,
