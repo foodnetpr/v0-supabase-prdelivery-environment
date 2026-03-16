@@ -70,7 +70,7 @@ export function CuisineBar({ selectedCuisine, onCuisineChange, cuisineTypes = []
 
   return (
     <div className="bg-white border-b border-slate-100">
-      <div className="relative px-4">
+      <div className="relative px-4 mx-auto max-w-7xl">
         {/* Left Arrow - inside content area */}
         {showLeftArrow && (
           <button

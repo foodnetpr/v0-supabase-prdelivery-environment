@@ -150,7 +150,7 @@ export function MarketplaceHome({
       {/* Restaurant Grid */}
       {restaurants.length > 0 && (
         <section id="restaurantes" className="pt-4 sm:pt-6 pb-12 sm:pb-16">
-          <div className="px-4">
+          <div className="px-4 mx-auto max-w-7xl">
             <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {filteredRestaurants.map((restaurant) => (
                 <RestaurantCard key={restaurant.id} restaurant={restaurant} />
@@ -261,7 +261,7 @@ function PromoBar() {
 
   return (
     <section className="relative bg-white py-4 sm:py-6">
-      <div className="px-4">
+      <div className="px-4 mx-auto max-w-7xl">
         {/* Section header */}
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-base sm:text-lg font-bold text-slate-900">Ofertas y Promociones</h2>
