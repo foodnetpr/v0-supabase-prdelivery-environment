@@ -16,7 +16,12 @@ function createSlug(name: string): string {
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
-    
+
+    // Parse optional batch range from query params: ?startId=1&endId=20
+    const url = new URL(request.url)
+    const startId = parseInt(url.searchParams.get("startId") || "1")
+    const endId = parseInt(url.searchParams.get("endId") || "999999")
+
     // Read the JSON file from the data directory
     const jsonPath = path.join(process.cwd(), "data/foodnet_import_complete.json")
     
@@ -34,17 +39,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid data format - expected array" }, { status: 400 })
     }
 
+    // Apply batch filter if startId/endId were provided
+    const batch = jsonData.filter((entry: any) => {
+      const id = Number(entry?.restaurant?.id ?? 0)
+      return id >= startId && id <= endId
+    })
+
     const results = {
       restaurants: 0,
       categories: 0,
       items: 0,
       options: 0,
       choices: 0,
+      batchRange: `${startId}–${endId}`,
+      totalInBatch: batch.length,
       errors: [] as string[]
     }
 
-    // Process each restaurant
-    for (const entry of jsonData) {
+    // Process each restaurant in the batch
+    for (const entry of batch) {
       try {
         const restaurant = entry.restaurant
         const categories = entry.categories || []
