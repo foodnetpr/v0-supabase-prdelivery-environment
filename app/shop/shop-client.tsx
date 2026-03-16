@@ -5,6 +5,7 @@ import Image from "next/image"
 import { Plus, Minus, ShoppingCart, Package, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { GlobalNavbar } from "@/components/global-navbar"
 
 interface ShopItem {
   id: string
@@ -79,8 +80,11 @@ export function ShopClient({ initialItems }: ShopClientProps) {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
+      {/* Global site navigation */}
+      <GlobalNavbar showLocationBar={false} showModeToggle={false} />
+
+      {/* Shop-specific sub-header */}
+      <header className="sticky top-[64px] z-40 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Package className="h-5 w-5 text-gray-700" />
@@ -113,7 +117,7 @@ export function ShopClient({ initialItems }: ShopClientProps) {
 
       {/* Category filter pills */}
       {categories.length > 1 && (
-        <div className="sticky top-14 z-30 bg-white border-b border-gray-100">
+        <div className="sticky top-[120px] z-30 bg-white border-b border-gray-100">
           <div className="max-w-5xl mx-auto px-4 py-2 flex gap-2 overflow-x-auto scrollbar-none">
             <button
               onClick={() => setActiveCategory("all")}

@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
-import { Truck, Package, ShoppingCart, Filter, Check, Minus, Plus, MapPin, Pencil, Trash2, PlusCircle, MinusCircle } from "lucide-react" // Added User icon
+import { Truck, Package, ShoppingCart, Filter, Check, Minus, Plus, MapPin, Pencil, Trash2, PlusCircle, MinusCircle, X } from "lucide-react"
 import Image from "next/image"
 import StripeCheckout from "./stripe-checkout"
 import SquareCheckout from "./square-checkout"
@@ -3321,26 +3321,44 @@ const orderData = {
         </DialogContent>
       </Dialog>
 
-      {/* Shopping Cart Dialog - UPDATED VISUALS */}
-      <Dialog open={showCart} onOpenChange={setShowCart}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
-          <DialogHeader className="flex-shrink-0 border-b pb-4">
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <ShoppingCart className="w-5 h-5" style={{ color: primaryColor }} />
-  Carrito de Compras
+      {/* Shopping Cart — right-side sliding drawer */}
+      {showCart && (
+        <div className="fixed inset-0 z-50 flex">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setShowCart(false)}
+            aria-hidden="true"
+          />
+          {/* Panel */}
+          <div className="relative ml-auto w-full max-w-md bg-white h-full flex flex-col shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="flex-shrink-0 flex items-center justify-between px-5 py-4 border-b">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5" style={{ color: primaryColor }} />
+                <span className="font-bold text-lg">Carrito de Compras</span>
                 {foodCartCount > 0 && (
                   <span
-                    className="text-sm font-normal px-2 py-0.5 rounded-full text-white"
+                    className="text-xs font-semibold px-2 py-0.5 rounded-full text-white"
                     style={{ backgroundColor: primaryColor }}
                   >
-                    {foodCartCount} {foodCartCount === 1 ? "articulo" : "articulos"}
+                    {foodCartCount} {foodCartCount === 1 ? "artículo" : "artículos"}
                   </span>
                 )}
-            </DialogTitle>
-          </DialogHeader>
+              </div>
+              <button
+                onClick={() => setShowCart(false)}
+                className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+                aria-label="Cerrar carrito"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+            {/* Scrollable body + footer share the remaining height */}
+            <div className="flex flex-col flex-1 min-h-0">
 
                 {foodCartCount === 0 ? (
-                  <div className="py-12 text-center text-muted-foreground">
+                  <div className="py-12 px-5 text-center text-muted-foreground">
                     <div
                       className="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center"
                 style={{ backgroundColor: `${primaryColor}15` }}
@@ -3351,7 +3369,7 @@ const orderData = {
               <p className="text-sm mt-1">Agrega algunos articulos deliciosos para comenzar</p>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto space-y-3 min-h-0 py-4">
+            <div className="flex-1 overflow-y-auto space-y-3 min-h-0 py-4 px-5">
               {cart
                 .map((item, index) => ({ item, originalIndex: index }))
                 .sort((a, b) => {
@@ -3769,7 +3787,7 @@ const orderData = {
 
             {/* Cart Footer with Total */}
             {foodCartCount > 0 && (
-            <div className="flex-shrink-0 border-t pt-4 mt-2 space-y-3">
+            <div className="flex-shrink-0 border-t pt-4 mt-2 space-y-3 px-5 pb-5">
               <div className="flex items-center justify-between text-lg font-semibold">
                 <span>Subtotal</span>
                 <span style={{ color: primaryColor }}>
@@ -3791,8 +3809,10 @@ const orderData = {
               </Button>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+            </div>{/* end flex-col body */}
+          </div>{/* end panel */}
+        </div>
+      )}{/* end cart drawer */}
 
       {/* Delivery Form Dialog (controlled by checkoutStep) */}
       <Dialog open={showCheckout} onOpenChange={setShowCheckout}>
