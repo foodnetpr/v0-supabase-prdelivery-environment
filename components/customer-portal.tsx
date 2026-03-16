@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { AddressAutocomplete, type AddressComponents } from "@/components/address-autocomplete"
 import { Badge } from "@/components/ui/badge"
@@ -1312,84 +1312,100 @@ export default function CustomerPortal({
     }
   }
 
-  // Auto-calculate delivery fee on mount using the address already set in the header (localStorage)
+  // Shared logic: apply a UserLocation to the delivery form and recalculate the fee
+  const applyLocationAndCalc = useCallback((saved: {
+    address: string; lat: number; lng: number
+    zip?: string; streetAddress?: string; city?: string; state?: string
+  }) => {
+    if (!saved.lat || !saved.lng) return
+
+    const restaurantLat = (restaurant as any).latitude ?? (restaurant as any).lat
+    const restaurantLng = (restaurant as any).longitude ?? (restaurant as any).lng
+
+    const applyAndCalc = (street: string, city: string, state: string, zip: string) => {
+      setDeliveryForm((prev) => ({
+        ...prev,
+        streetAddress: street || prev.streetAddress,
+        city: city || prev.city,
+        state: state || prev.state,
+        zip: zip || prev.zip,
+      }))
+
+      if (restaurantLat && restaurantLng) {
+        setDeliveryFeeCalculation((prev) => ({ ...prev, isCalculating: true }))
+        const itemCount = cart.filter((i) => i.type !== "delivery_fee" && !i.isAutomatic).length
+        calculateDeliveryFeeByCoords({
+          restaurantId: restaurant.id,
+          customerLat: saved.lat,
+          customerLng: saved.lng,
+          restaurantLat,
+          restaurantLng,
+          itemCount,
+        }).then((result) => {
+          setDeliveryFeeCalculation({
+            fee: result.fee,
+            displayedFee: result.displayedFee,
+            distance: result.distance,
+            zoneName: result.zoneName,
+            itemSurcharge: result.itemSurcharge,
+            isCalculating: false,
+            error: result.error,
+          })
+        })
+      } else if (street && city && zip) {
+        handleCalculateDeliveryFee({ streetAddress: street, city, state, zip })
+      }
+    }
+
+    // Best case: structured fields already stored
+    if (saved.streetAddress && saved.city && saved.state) {
+      applyAndCalc(saved.streetAddress, saved.city, saved.state, saved.zip || "")
+      return
+    }
+
+    // Fallback: reverse-geocode lat/lng to get structured components
+    fetch(`/api/places/reverse-geocode?lat=${saved.lat}&lng=${saved.lng}`)
+      .then((r) => r.json())
+      .then((geo: { street?: string; city?: string; state?: string; zip?: string }) => {
+        const street = geo.street || ""
+        const city = geo.city || ""
+        const state = geo.state || "PR"
+        const zip = geo.zip || saved.zip || ""
+
+        const updated = { ...saved, streetAddress: street, city, state, zip }
+        localStorage.setItem("foodnet_user_location", JSON.stringify(updated))
+
+        applyAndCalc(street, city, state, zip)
+      })
+      .catch(() => { /* silently ignore */ })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurant.id, restaurant])
+
+  // Auto-calculate delivery fee on mount
   useEffect(() => {
     if (deliveryMethod !== "delivery") return
-
     try {
       const raw = localStorage.getItem("foodnet_user_location")
       if (!raw) return
-      const saved = JSON.parse(raw) as {
-        address: string; lat: number; lng: number
-        zip?: string; streetAddress?: string; city?: string; state?: string
-      }
-      if (!saved.lat || !saved.lng) return
-
-      const restaurantLat = (restaurant as any).latitude ?? (restaurant as any).lat
-      const restaurantLng = (restaurant as any).longitude ?? (restaurant as any).lng
-
-      const applyAndCalc = (street: string, city: string, state: string, zip: string) => {
-        setDeliveryForm((prev) => ({
-          ...prev,
-          streetAddress: street || prev.streetAddress,
-          city: city || prev.city,
-          state: state || prev.state,
-          zip: zip || prev.zip,
-        }))
-
-        if (restaurantLat && restaurantLng) {
-          setDeliveryFeeCalculation((prev) => ({ ...prev, isCalculating: true }))
-          const itemCount = cart.filter((i) => i.type !== "delivery_fee" && !i.isAutomatic).length
-          calculateDeliveryFeeByCoords({
-            restaurantId: restaurant.id,
-            customerLat: saved.lat,
-            customerLng: saved.lng,
-            restaurantLat,
-            restaurantLng,
-            itemCount,
-          }).then((result) => {
-            setDeliveryFeeCalculation({
-              fee: result.fee,
-              displayedFee: result.displayedFee,
-              distance: result.distance,
-              zoneName: result.zoneName,
-              itemSurcharge: result.itemSurcharge,
-              isCalculating: false,
-              error: result.error,
-            })
-          })
-        } else if (street && city && zip) {
-          handleCalculateDeliveryFee({ streetAddress: street, city, state, zip })
-        }
-      }
-
-      // Best case: structured fields already stored from a previous autocomplete selection
-      if (saved.streetAddress && saved.city && saved.state) {
-        applyAndCalc(saved.streetAddress, saved.city, saved.state, saved.zip || "")
-        return
-      }
-
-      // Fallback: call reverse-geocode with lat/lng to get structured components
-      fetch(`/api/places/reverse-geocode?lat=${saved.lat}&lng=${saved.lng}`)
-        .then((r) => r.json())
-        .then((geo: { street?: string; city?: string; state?: string; zip?: string }) => {
-          const street = geo.street || ""
-          const city = geo.city || ""
-          const state = geo.state || "PR"
-          const zip = geo.zip || saved.zip || ""
-
-          // Persist structured fields back so the next page load is instant (no API call needed)
-          const updated = { ...saved, streetAddress: street, city, state, zip }
-          localStorage.setItem("foodnet_user_location", JSON.stringify(updated))
-
-          applyAndCalc(street, city, state, zip)
-        })
-        .catch(() => { /* silently ignore — fee stays as pending */ })
-    } catch {
-      // Silently ignore localStorage parse errors
-    }
+      const saved = JSON.parse(raw)
+      applyLocationAndCalc(saved)
+    } catch { /* ignore parse errors */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deliveryMethod, restaurant.id])
+
+  // Re-calculate whenever the customer changes their address in the top bar
+  useEffect(() => {
+    if (deliveryMethod !== "delivery") return
+    const handler = (e: Event) => {
+      const location = (e as CustomEvent).detail
+      if (location?.lat && location?.lng) {
+        applyLocationAndCalc(location)
+      }
+    }
+    window.addEventListener("foodnet:location-changed", handler)
+    return () => window.removeEventListener("foodnet:location-changed", handler)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deliveryMethod, applyLocationAndCalc])
 
   const handleSubmitCheckout = async () => {
     if (!user) {

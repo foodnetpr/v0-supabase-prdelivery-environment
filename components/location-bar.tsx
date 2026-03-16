@@ -141,6 +141,8 @@ export function LocationBar({
     setAddressInput(newLocation.address)
     localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(newLocation))
     onLocationChange(newLocation)
+    // Notify same-tab listeners (e.g. customer-portal) that the location changed
+    window.dispatchEvent(new CustomEvent("foodnet:location-changed", { detail: newLocation }))
     setShowSuggestions(false)
     setSuggestions([])
   }
