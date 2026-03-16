@@ -199,7 +199,7 @@ const templateStyles: Record<
     layout: "vertical",
   },
   "list-right": {
-    card: "bg-white border-b border-gray-100 hover:bg-gray-50/50 transition-colors",
+    card: "bg-white border border-gray-200 rounded-xl hover:border-gray-300 hover:shadow-sm transition-all",
     cardHover: "",
     image: "object-cover rounded-lg",
     imageWrapper: "relative w-20 h-20 md:w-24 md:h-24 flex-shrink-0 overflow-hidden rounded-lg",
@@ -208,7 +208,7 @@ const templateStyles: Record<
     description: "text-xs md:text-sm text-muted-foreground line-clamp-2 mt-0.5",
     price: "text-sm font-normal mt-1",
     button: "",
-    grid: "grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0",
+    grid: "grid grid-cols-1 md:grid-cols-2 gap-3",
     sectionTitle: "text-lg font-bold mb-4 text-foreground uppercase tracking-wide",
     categoryButton: "shrink-0 bg-transparent hover:bg-primary/10 rounded-full",
     headerBar: "sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b shadow-sm",
@@ -216,7 +216,7 @@ const templateStyles: Record<
     imagePosition: "right",
   },
   "list-left": {
-    card: "bg-white border-b border-gray-100 hover:bg-gray-50/50 transition-colors",
+    card: "bg-white border border-gray-200 rounded-xl hover:border-gray-300 hover:shadow-sm transition-all",
     cardHover: "",
     image: "object-cover rounded-lg",
     imageWrapper: "relative w-20 h-20 md:w-24 md:h-24 flex-shrink-0 overflow-hidden rounded-lg",
@@ -225,7 +225,7 @@ const templateStyles: Record<
     description: "text-xs md:text-sm text-muted-foreground line-clamp-2 mt-0.5",
     price: "text-sm font-normal mt-1",
     button: "",
-    grid: "grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0",
+    grid: "grid grid-cols-1 md:grid-cols-2 gap-3",
     sectionTitle: "text-lg font-bold mb-4 text-foreground uppercase tracking-wide",
     categoryButton: "shrink-0 bg-transparent hover:bg-primary/10 rounded-full",
     headerBar: "sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b shadow-sm",
@@ -233,7 +233,7 @@ const templateStyles: Record<
     imagePosition: "left",
   },
   "list-right-3col": {
-    card: "bg-white border-b border-gray-100 hover:bg-gray-50/50 transition-colors",
+    card: "bg-white border border-gray-200 rounded-xl hover:border-gray-300 hover:shadow-sm transition-all",
     cardHover: "",
     image: "object-cover rounded-lg",
     imageWrapper: "relative w-16 h-16 md:w-20 md:h-20 flex-shrink-0 overflow-hidden rounded-lg",
@@ -242,7 +242,7 @@ const templateStyles: Record<
     description: "text-xs text-muted-foreground line-clamp-1 mt-0.5",
     price: "text-xs md:text-sm font-normal mt-1",
     button: "",
-    grid: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0 divide-y md:divide-y-0",
+    grid: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3",
     sectionTitle: "text-lg font-bold mb-4 text-foreground uppercase tracking-wide",
     categoryButton: "shrink-0 bg-transparent hover:bg-primary/10 rounded-full",
     headerBar: "sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b shadow-sm",
@@ -250,7 +250,7 @@ const templateStyles: Record<
     imagePosition: "right",
   },
   "list-left-3col": {
-    card: "bg-white border-b border-gray-100 hover:bg-gray-50/50 transition-colors",
+    card: "bg-white border border-gray-200 rounded-xl hover:border-gray-300 hover:shadow-sm transition-all",
     cardHover: "",
     image: "object-cover rounded-lg",
     imageWrapper: "relative w-16 h-16 md:w-20 md:h-20 flex-shrink-0 overflow-hidden rounded-lg",
@@ -259,7 +259,7 @@ const templateStyles: Record<
     description: "text-xs text-muted-foreground line-clamp-1 mt-0.5",
     price: "text-xs md:text-sm font-normal mt-1",
     button: "",
-    grid: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0 divide-y md:divide-y-0",
+    grid: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3",
     sectionTitle: "text-lg font-bold mb-4 text-foreground uppercase tracking-wide",
     categoryButton: "shrink-0 bg-transparent hover:bg-primary/10 rounded-full",
     headerBar: "sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b shadow-sm",
@@ -267,7 +267,7 @@ const templateStyles: Record<
     imagePosition: "left",
   },
   "list-right-4col": {
-    card: "bg-white border-b border-gray-100 hover:bg-gray-50/50 transition-colors",
+    card: "bg-white border border-gray-200 rounded-xl hover:border-gray-300 hover:shadow-sm transition-all",
     cardHover: "",
     image: "object-cover rounded-md",
     imageWrapper: "relative w-14 h-14 md:w-16 md:h-16 flex-shrink-0 overflow-hidden rounded-md",
@@ -276,7 +276,7 @@ const templateStyles: Record<
     description: "hidden",
     price: "text-xs font-normal mt-0.5",
     button: "",
-    grid: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-0 divide-y sm:divide-y-0",
+    grid: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3",
     sectionTitle: "text-lg font-bold mb-4 text-foreground uppercase tracking-wide",
     categoryButton: "shrink-0 bg-transparent hover:bg-primary/10 rounded-full",
     headerBar: "sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b shadow-sm",
@@ -284,7 +284,7 @@ const templateStyles: Record<
     imagePosition: "right",
   },
   "list-left-4col": {
-    card: "bg-white border-b border-gray-100 hover:bg-gray-50/50 transition-colors",
+    card: "bg-white border border-gray-200 rounded-xl hover:border-gray-300 hover:shadow-sm transition-all",
     cardHover: "",
     image: "object-cover rounded-md",
     imageWrapper: "relative w-14 h-14 md:w-16 md:h-16 flex-shrink-0 overflow-hidden rounded-md",
@@ -293,7 +293,7 @@ const templateStyles: Record<
     description: "hidden",
     price: "text-xs font-normal mt-0.5",
     button: "",
-    grid: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-0 divide-y sm:divide-y-0",
+    grid: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3",
     sectionTitle: "text-lg font-bold mb-4 text-foreground uppercase tracking-wide",
     categoryButton: "shrink-0 bg-transparent hover:bg-primary/10 rounded-full",
     headerBar: "sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b shadow-sm",
@@ -347,7 +347,7 @@ export function MenuItemCard({ item, template, onSelect, primaryColor }: MenuIte
 
     return (
       <div
-        className={`group flex items-center gap-3 p-3 cursor-pointer ${styles.card} ${styles.cardHover}`}
+        className={`group relative flex items-center gap-3 p-3 cursor-pointer ${styles.card} ${styles.cardHover}`}
         onClick={onSelect}
       >
         {imageOnLeft && item.image_url && (
@@ -360,7 +360,8 @@ export function MenuItemCard({ item, template, onSelect, primaryColor }: MenuIte
             />
           </div>
         )}
-        <div className="flex-1 min-w-0">
+        {/* Leave bottom-right room for the + button */}
+        <div className="flex-1 min-w-0 pb-5">
           <h3 className={styles.title}>{item.name}</h3>
           {item.description && <p className={styles.description}>{item.description}</p>}
           {showPrice && (
@@ -386,16 +387,6 @@ export function MenuItemCard({ item, template, onSelect, primaryColor }: MenuIte
             )
           )}
         </div>
-        <button
-          className="flex-shrink-0 w-6 h-6 rounded-full shadow-md flex items-center justify-center text-white transition-transform hover:scale-110"
-          style={{ backgroundColor: primaryColor || "hsl(var(--primary))" }}
-          onClick={(e) => {
-            e.stopPropagation()
-            onSelect()
-          }}
-        >
-          <Plus className="w-4 h-4" />
-        </button>
         {!imageOnLeft && item.image_url && (
           <div className={`${styles.imageWrapper}`}>
             <Image
@@ -406,6 +397,17 @@ export function MenuItemCard({ item, template, onSelect, primaryColor }: MenuIte
             />
           </div>
         )}
+        {/* + button always pinned to bottom-right corner of the card */}
+        <button
+          className="absolute bottom-2 right-2 w-7 h-7 rounded-full shadow-md flex items-center justify-center text-white transition-transform hover:scale-110 z-10"
+          style={{ backgroundColor: primaryColor || "hsl(var(--primary))" }}
+          onClick={(e) => {
+            e.stopPropagation()
+            onSelect()
+          }}
+        >
+          <Plus className="w-4 h-4" />
+        </button>
       </div>
     )
   }
