@@ -149,7 +149,7 @@ export function MarketplaceHome({
 
       {/* Restaurant Grid */}
       {restaurants.length > 0 && (
-        <section id="restaurantes" className="pt-4 sm:pt-6 pb-12 sm:pb-16" style={{ backgroundColor: 'red', width: '100%' }}>
+        <section id="restaurantes" className="pt-4 sm:pt-6 pb-12 sm:pb-16">
           <div className="px-4">
             <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {filteredRestaurants.map((restaurant) => (
@@ -260,7 +260,7 @@ function PromoBar() {
   }
 
   return (
-    <section className="relative bg-white py-4 sm:py-6" style={{ backgroundColor: 'red', width: '100%' }}>
+    <section className="relative bg-white py-4 sm:py-6">
       <div className="px-4">
         {/* Section header */}
         <div className="flex items-center justify-between mb-3 sm:mb-4">

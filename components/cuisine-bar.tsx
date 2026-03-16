@@ -69,7 +69,7 @@ export function CuisineBar({ selectedCuisine, onCuisineChange, cuisineTypes = []
   }
 
   return (
-    <div className="bg-white border-b border-slate-100" style={{ backgroundColor: 'red', width: '100%' }}>
+    <div className="bg-white border-b border-slate-100">
       <div className="relative px-4">
         {/* Left Arrow - inside content area */}
         {showLeftArrow && (
