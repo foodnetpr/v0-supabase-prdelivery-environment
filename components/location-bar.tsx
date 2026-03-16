@@ -43,6 +43,10 @@ export interface UserLocation {
   lat: number
   lng: number
   zip?: string
+  // Structured components — populated when selected from autocomplete or reverse geocode
+  streetAddress?: string
+  city?: string
+  state?: string
 }
 
 interface LocationBarProps {
@@ -218,12 +222,16 @@ export function LocationBar({
     try {
       const response = await fetch(`/api/places/details?place_id=${suggestion.place_id}`)
       const data = await response.json()
-      
+
       if (data.lat && data.lng) {
         handleLocationSet({
           address: suggestion.description,
           lat: data.lat,
           lng: data.lng,
+          zip: data.zip || "",
+          streetAddress: data.streetAddress || "",
+          city: data.city || "",
+          state: data.state || "PR",
         })
       }
     } catch (error) {

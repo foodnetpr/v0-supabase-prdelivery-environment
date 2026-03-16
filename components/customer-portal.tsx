@@ -1319,55 +1319,72 @@ export default function CustomerPortal({
     try {
       const raw = localStorage.getItem("foodnet_user_location")
       if (!raw) return
-      const saved = JSON.parse(raw) as { address: string; lat: number; lng: number; zip?: string }
+      const saved = JSON.parse(raw) as {
+        address: string; lat: number; lng: number
+        zip?: string; streetAddress?: string; city?: string; state?: string
+      }
       if (!saved.lat || !saved.lng) return
 
-      // Pre-populate the address form fields from the saved address string
-      // Format: "1181 Calle Canada, San Juan, Puerto Rico"
-      const parts = saved.address.split(",").map((s) => s.trim())
-      const street = parts[0] || ""
-      const city = parts[1] || ""
-      const stateOrCountry = parts[2] || "PR"
-      const state = stateOrCountry.replace(/Puerto Rico/i, "PR").trim()
-      const zip = saved.zip || ""
-
-      setDeliveryForm((prev) => ({
-        ...prev,
-        streetAddress: street || prev.streetAddress,
-        city: city || prev.city,
-        state: state || prev.state,
-        zip: zip || prev.zip,
-      }))
-
-      // If restaurant has lat/lng, use Haversine immediately (no API call)
       const restaurantLat = (restaurant as any).latitude ?? (restaurant as any).lat
       const restaurantLng = (restaurant as any).longitude ?? (restaurant as any).lng
 
-      if (restaurantLat && restaurantLng) {
-        setDeliveryFeeCalculation((prev) => ({ ...prev, isCalculating: true }))
-        const itemCount = cart.filter((i) => i.type !== "delivery_fee" && !i.isAutomatic).length
-        calculateDeliveryFeeByCoords({
-          restaurantId: restaurant.id,
-          customerLat: saved.lat,
-          customerLng: saved.lng,
-          restaurantLat,
-          restaurantLng,
-          itemCount,
-        }).then((result) => {
-          setDeliveryFeeCalculation({
-            fee: result.fee,
-            displayedFee: result.displayedFee,
-            distance: result.distance,
-            zoneName: result.zoneName,
-            itemSurcharge: result.itemSurcharge,
-            isCalculating: false,
-            error: result.error,
+      const applyAndCalc = (street: string, city: string, state: string, zip: string) => {
+        setDeliveryForm((prev) => ({
+          ...prev,
+          streetAddress: street || prev.streetAddress,
+          city: city || prev.city,
+          state: state || prev.state,
+          zip: zip || prev.zip,
+        }))
+
+        if (restaurantLat && restaurantLng) {
+          setDeliveryFeeCalculation((prev) => ({ ...prev, isCalculating: true }))
+          const itemCount = cart.filter((i) => i.type !== "delivery_fee" && !i.isAutomatic).length
+          calculateDeliveryFeeByCoords({
+            restaurantId: restaurant.id,
+            customerLat: saved.lat,
+            customerLng: saved.lng,
+            restaurantLat,
+            restaurantLng,
+            itemCount,
+          }).then((result) => {
+            setDeliveryFeeCalculation({
+              fee: result.fee,
+              displayedFee: result.displayedFee,
+              distance: result.distance,
+              zoneName: result.zoneName,
+              itemSurcharge: result.itemSurcharge,
+              isCalculating: false,
+              error: result.error,
+            })
           })
-        })
-      } else if (street && city && zip) {
-        // Fallback to text-based calculation if restaurant has no coords
-        handleCalculateDeliveryFee({ streetAddress: street, city, state, zip })
+        } else if (street && city && zip) {
+          handleCalculateDeliveryFee({ streetAddress: street, city, state, zip })
+        }
       }
+
+      // Best case: structured fields already stored from a previous autocomplete selection
+      if (saved.streetAddress && saved.city && saved.state) {
+        applyAndCalc(saved.streetAddress, saved.city, saved.state, saved.zip || "")
+        return
+      }
+
+      // Fallback: call reverse-geocode with lat/lng to get structured components
+      fetch(`/api/places/reverse-geocode?lat=${saved.lat}&lng=${saved.lng}`)
+        .then((r) => r.json())
+        .then((geo: { street?: string; city?: string; state?: string; zip?: string }) => {
+          const street = geo.street || ""
+          const city = geo.city || ""
+          const state = geo.state || "PR"
+          const zip = geo.zip || saved.zip || ""
+
+          // Persist structured fields back so the next page load is instant (no API call needed)
+          const updated = { ...saved, streetAddress: street, city, state, zip }
+          localStorage.setItem("foodnet_user_location", JSON.stringify(updated))
+
+          applyAndCalc(street, city, state, zip)
+        })
+        .catch(() => { /* silently ignore — fee stays as pending */ })
     } catch {
       // Silently ignore localStorage parse errors
     }

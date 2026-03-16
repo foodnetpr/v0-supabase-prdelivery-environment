@@ -22,19 +22,32 @@ export async function GET(request: Request) {
 
     if (data.status === "OK" && data.results.length > 0) {
       const result = data.results[0]
-      
-      // Extract zip code from address components
-      let zip = ""
-      for (const component of result.address_components) {
-        if (component.types.includes("postal_code")) {
-          zip = component.short_name
-          break
-        }
-      }
+      const components = result.address_components as Array<{ types: string[]; long_name: string; short_name: string }>
+
+      const get = (type: string, nameType: "long_name" | "short_name" = "long_name") =>
+        components.find((c) => c.types.includes(type))?.[nameType] ?? ""
+
+      // Build street number + route
+      const streetNumber = get("street_number")
+      const route = get("route")
+      const street = [streetNumber, route].filter(Boolean).join(" ") || get("premise") || get("subpremise")
+
+      const city =
+        get("locality") ||
+        get("sublocality_level_1") ||
+        get("sublocality") ||
+        get("administrative_area_level_2")
+      const state = get("administrative_area_level_1", "short_name")
+      const zip = get("postal_code", "short_name")
+      const country = get("country", "short_name")
 
       return NextResponse.json({
         address: result.formatted_address,
+        street,
+        city,
+        state,
         zip,
+        country,
       })
     }
 
