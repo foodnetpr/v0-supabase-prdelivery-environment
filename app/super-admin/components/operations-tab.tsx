@@ -40,6 +40,7 @@ import {
   DollarSign,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { bulkApplyTiersToAllRestaurants } from "@/app/super-admin/actions"
 
 interface Restaurant {
   id: string
@@ -162,6 +163,16 @@ export function OperationsTab({
   const [scheduledBlocks, setScheduledBlocks] = useState(initialBlocks)
   const [isSaving, setIsSaving] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+
+  // Default tier grid state
+  const DEFAULT_TIERS = Array.from({ length: 10 }, (_, i) => ({
+    minDistance: i,
+    maxDistance: i + 1,
+    baseFee: "",
+  }))
+  const [tierGrid, setTierGrid] = useState<{ minDistance: number; maxDistance: number; baseFee: string }[]>(DEFAULT_TIERS)
+  const [isBulkApplyingAll, setIsBulkApplyingAll] = useState(false)
+  const [tierGridResult, setTierGridResult] = useState<{ success?: boolean; updated?: number; error?: string } | null>(null)
   const [filterPaymentType, setFilterPaymentType] = useState<"all" | "ach" | "pop">("all")
   
   // POP Block modal state
@@ -507,6 +518,109 @@ export function OperationsTab({
                 <p className="text-xs text-destructive">{settings.emergency_block_reason}</p>
               )}
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Default Delivery Tier Grid — applies to ALL restaurants */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5" />
+            Default Delivery Tiers — All Restaurants
+          </CardTitle>
+          <CardDescription>
+            Enter base fees for each distance tier and click "Apply to All Restaurants" to set these zones across every active restaurant at once. Individual restaurants can still be adjusted from their own admin panel afterward.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left font-medium pb-2 pr-4 text-muted-foreground w-16">Tier</th>
+                  <th className="text-left font-medium pb-2 pr-4 text-muted-foreground w-32">Distance</th>
+                  <th className="text-left font-medium pb-2 text-muted-foreground">Base Fee</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {tierGrid.map((tier, i) => (
+                  <tr key={i}>
+                    <td className="py-2 pr-4 font-mono text-xs text-muted-foreground">T{i + 1}</td>
+                    <td className="py-2 pr-4 text-muted-foreground whitespace-nowrap">
+                      {tier.minDistance}–{tier.maxDistance} mi
+                    </td>
+                    <td className="py-2">
+                      <div className="flex items-center gap-1">
+                        <span className="text-muted-foreground text-sm">$</span>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={tier.baseFee}
+                          onChange={(e) => {
+                            const next = [...tierGrid]
+                            next[i] = { ...next[i], baseFee: e.target.value }
+                            setTierGrid(next)
+                          }}
+                          className="h-8 w-24"
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {tierGridResult && (
+            <p className={cn("text-sm", tierGridResult.success ? "text-green-700" : "text-red-600")}>
+              {tierGridResult.success
+                ? `Applied to ${tierGridResult.updated} restaurant${tierGridResult.updated !== 1 ? "s" : ""} successfully.`
+                : `Error: ${tierGridResult.error}`}
+            </p>
+          )}
+
+          <div className="flex items-center gap-3">
+            <Button
+              disabled={isBulkApplyingAll}
+              onClick={async () => {
+                const filledCount = tierGrid.filter((t) => Number(t.baseFee) > 0).length
+                if (filledCount === 0) return
+                if (!confirm(`This will replace ALL delivery zones on every active restaurant with these ${filledCount} tier(s). This cannot be undone. Continue?`)) return
+                setIsBulkApplyingAll(true)
+                setTierGridResult(null)
+                try {
+                  const result = await bulkApplyTiersToAllRestaurants(
+                    tierGrid.map((t) => ({
+                      minDistance: t.minDistance,
+                      maxDistance: t.maxDistance,
+                      baseFee: Number.parseFloat(t.baseFee) || 0,
+                    })),
+                  )
+                  setTierGridResult(result)
+                } finally {
+                  setIsBulkApplyingAll(false)
+                }
+              }}
+              className="gap-2 bg-[#1a1a1a] hover:bg-[#333]"
+            >
+              {isBulkApplyingAll ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Applying...</>
+              ) : (
+                "Apply to All Restaurants"
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setTierGrid(DEFAULT_TIERS)
+                setTierGridResult(null)
+              }}
+            >
+              Reset
+            </Button>
           </div>
         </CardContent>
       </Card>

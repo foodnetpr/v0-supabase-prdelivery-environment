@@ -583,3 +583,65 @@ export async function updateRestaurant(
     }
   }
 }
+
+// Apply a set of distance tiers to EVERY active restaurant at once.
+// Existing zones for each restaurant are replaced. Individual restaurants can
+// still be overridden afterward via their own admin panel.
+export async function bulkApplyTiersToAllRestaurants(
+  tiers: { minDistance: number; maxDistance: number; baseFee: number }[],
+) {
+  try {
+    const supabase = createServiceClient()
+
+    const { data: restaurants, error: fetchError } = await supabase
+      .from("restaurants")
+      .select("id")
+      .eq("is_active", true)
+
+    if (fetchError) throw new Error(fetchError.message)
+    if (!restaurants || restaurants.length === 0) {
+      return { success: true, updated: 0 }
+    }
+
+    const restaurantIds = restaurants.map((r: { id: string }) => r.id)
+    const validTiers = tiers.filter((t) => t.baseFee > 0)
+
+    // Delete all existing zones for these restaurants
+    const { error: delError } = await supabase
+      .from("delivery_zones")
+      .delete()
+      .in("restaurant_id", restaurantIds)
+
+    if (delError) throw new Error(delError.message)
+
+    if (validTiers.length === 0) {
+      return { success: true, updated: restaurantIds.length }
+    }
+
+    // Build zone rows for every restaurant × every tier
+    const rows = restaurantIds.flatMap((restaurantId: string) =>
+      validTiers.map((t, i) => ({
+        restaurant_id: restaurantId,
+        zone_name: `Tier ${i + 1} (${t.minDistance}–${t.maxDistance} mi)`,
+        min_distance: t.minDistance,
+        max_distance: t.maxDistance,
+        base_fee: t.baseFee,
+        per_item_surcharge: 0,
+        min_items_for_surcharge: 50,
+        display_order: i,
+        is_active: true,
+      })),
+    )
+
+    const { error: insError } = await supabase.from("delivery_zones").insert(rows)
+    if (insError) throw new Error(insError.message)
+
+    return { success: true, updated: restaurantIds.length }
+  } catch (error) {
+    console.error("[Super Admin] bulkApplyTiersToAllRestaurants error:", error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "An unexpected error occurred",
+    }
+  }
+}
