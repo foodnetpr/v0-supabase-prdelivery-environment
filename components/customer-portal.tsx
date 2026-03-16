@@ -636,7 +636,7 @@ export default function CustomerPortal({
     fee: 0,
     displayedFee: 0,
     distance: 0,
-    zoneName: "Entrega Estandar",
+    zoneName: "",
     itemSurcharge: 0,
     isCalculating: false,
   })
@@ -1486,10 +1486,10 @@ const orderData = {
       customTip: "",
     })
     setDeliveryFeeCalculation({
-      // Reset delivery fee calculation
-      fee: effectiveRestaurant.delivery_fee || 25,
+      fee: 0,
+      displayedFee: 0,
       distance: 0,
-      zoneName: "Entrega Estandar",
+      zoneName: "",
       itemSurcharge: 0,
       isCalculating: false,
     })
