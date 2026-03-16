@@ -150,7 +150,7 @@ export function MarketplaceHome({
       {/* Restaurant Grid */}
       {restaurants.length > 0 && (
         <section id="restaurantes" className="pt-4 sm:pt-6 pb-12 sm:pb-16">
-          <div className="w-full px-3 md:mx-auto md:max-w-7xl md:px-4">
+          <div className="mx-auto max-w-7xl px-4">
             <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {filteredRestaurants.map((restaurant) => (
                 <RestaurantCard key={restaurant.id} restaurant={restaurant} />
@@ -161,7 +161,7 @@ export function MarketplaceHome({
       )}
 
       {filteredRestaurants.length === 0 && restaurants.length > 0 && (
-        <div className="w-full px-3 md:mx-auto md:max-w-7xl md:px-4 py-12 sm:py-20 text-center">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:py-20 text-center">
           <Card className="p-6 sm:p-12 max-w-2xl mx-auto border-slate-200">
             <h3 className="text-lg sm:text-2xl font-bold mb-3 sm:mb-4 text-slate-900">No Se Encontraron Restaurantes</h3>
             <p className="text-sm sm:text-base text-slate-600 mb-4 sm:mb-6">
@@ -182,7 +182,7 @@ export function MarketplaceHome({
       )}
 
       {filteredRestaurants.length === 0 && restaurants.length === 0 && (
-        <div className="w-full px-3 md:mx-auto md:max-w-7xl md:px-4 py-12 sm:py-20 text-center">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:py-20 text-center">
           <Card className="p-6 sm:p-12 max-w-2xl mx-auto border-slate-200">
             <h3 className="text-lg sm:text-2xl font-bold mb-3 sm:mb-4 text-slate-900">No Hay Restaurantes Disponibles</h3>
             <p className="text-sm sm:text-base text-slate-600">Vuelva pronto mientras los restaurantes se unen a nuestro mercado.</p>
@@ -261,7 +261,7 @@ function PromoBar() {
 
   return (
     <section className="relative bg-white py-4 sm:py-6">
-      <div className="w-full px-3 md:mx-auto md:max-w-7xl md:px-4">
+      <div className="mx-auto max-w-7xl px-4">
         {/* Section header */}
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-base sm:text-lg font-bold text-slate-900">Ofertas y Promociones</h2>
@@ -385,7 +385,7 @@ function RestaurantCard({ restaurant }: { restaurant: Restaurant }) {
 function MarketplaceFooter() {
   return (
     <footer className="border-t border-slate-200 bg-white py-6 sm:py-8 mt-auto">
-      <div className="w-full flex flex-col items-center justify-between gap-3 sm:gap-4 px-3 md:mx-auto md:max-w-7xl md:px-4 sm:flex-row">
+      <div className="mx-auto max-w-7xl px-4 flex flex-col items-center justify-between gap-3 sm:gap-4 sm:flex-row">
         <Image
           src="/foodnet-delivery-logo.jpg"
           alt="FoodNetDelivery"
