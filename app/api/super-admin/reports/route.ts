@@ -46,7 +46,12 @@ export async function GET(req: NextRequest) {
       stripe_payment_intent_id,
       order_source,
       restaurant_id,
-      restaurants!inner(id, name, slug, tax_rate)
+      restaurants!inner(
+        id, name, slug, tax_rate,
+        restaurant_discount_percent,
+        delivery_discount_percent,
+        pickup_discount_percent
+      )
     `
     )
     .gte("created_at", `${startDate}T00:00:00`)
@@ -108,11 +113,17 @@ export async function GET(req: NextRequest) {
 
   for (const order of orders ?? []) {
     const rId = order.restaurant_id
+    const rest = order.restaurants as any
+
     if (!restaurantMap[rId]) {
       restaurantMap[rId] = {
         restaurantId: rId,
-        restaurantName: (order.restaurants as any)?.name ?? "Unknown",
-        restaurantSlug: (order.restaurants as any)?.slug ?? "",
+        restaurantName: rest?.name ?? "Unknown",
+        restaurantSlug: rest?.slug ?? "",
+        // Store all three rate fields on the restaurant entry so the UI can display them
+        commissionGeneral: Number(rest?.restaurant_discount_percent || 0),
+        commissionDelivery: Number(rest?.delivery_discount_percent || 0),
+        commissionPickup: Number(rest?.pickup_discount_percent || 0),
         orders: [],
         totals: {
           subtotal: 0,
@@ -131,8 +142,20 @@ export async function GET(req: NextRequest) {
     const tip = Number(order.tip || 0)
     const deliveryFee = Number(order.delivery_fee || 0)
     const total = Number(order.total || 0)
-    const commission = 0 // Commission logic can be extended later
-    const totalEarned = subtotal + tax + tip
+
+    // Resolve the effective commission rate for this specific order using the
+    // same logic as the restaurant edit dialog: use the type-specific rate if
+    // it is > 0, otherwise fall back to the General rate.
+    const generalRate = Number(rest?.restaurant_discount_percent || 0)
+    const deliveryRate = Number(rest?.delivery_discount_percent || 0)
+    const pickupRate = Number(rest?.pickup_discount_percent || 0)
+    const orderType = (order.delivery_type ?? "").toLowerCase()
+    let effectiveRate = generalRate
+    if (orderType === "delivery" && deliveryRate > 0) effectiveRate = deliveryRate
+    if (orderType === "pickup" && pickupRate > 0) effectiveRate = pickupRate
+
+    const commission = subtotal * (effectiveRate / 100)
+    const totalEarned = subtotal + tax + tip - commission
 
     const paymentMethodDerived = order.stripe_payment_intent_id
       ? "CREDIT"

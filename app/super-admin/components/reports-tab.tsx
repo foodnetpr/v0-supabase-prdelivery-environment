@@ -45,6 +45,9 @@ interface RestaurantReport {
   restaurantId: string
   restaurantName: string
   restaurantSlug: string
+  commissionGeneral: number
+  commissionDelivery: number
+  commissionPickup: number
   orders: ReportOrder[]
   totals: {
     subtotal: number
@@ -97,12 +100,10 @@ function RestaurantInvoice({
   report,
   startDate,
   endDate,
-  commissionRate,
 }: {
   report: RestaurantReport
   startDate: string
   endDate: string
-  commissionRate: number
 }) {
   const [expanded, setExpanded] = useState(true)
   const printRef = useRef<HTMLDivElement>(null)
@@ -139,12 +140,9 @@ function RestaurantInvoice({
     w.close()
   }
 
-  // Recompute commission per order from rate
-  const commissionedOrders = report.orders.map((o) => ({
-    ...o,
-    commission: o.subtotal * (commissionRate / 100),
-    totalEarned: o.subtotal + o.tax + o.tip - o.subtotal * (commissionRate / 100),
-  }))
+  // Commission is already computed per-order by the API using each restaurant's
+  // own rates (delivery_discount_percent / pickup_discount_percent / restaurant_discount_percent).
+  const commissionedOrders = report.orders
 
   const totals = commissionedOrders.reduce(
     (acc, o) => ({
@@ -158,6 +156,13 @@ function RestaurantInvoice({
     }),
     { subtotal: 0, tax: 0, tip: 0, deliveryFee: 0, total: 0, commission: 0, totalEarned: 0 }
   )
+
+  // Derive a display rate for the invoice header. Show all three if they differ.
+  const { commissionGeneral, commissionDelivery, commissionPickup } = report
+  const rateLabel =
+    commissionDelivery === 0 && commissionPickup === 0
+      ? `${commissionGeneral}%`
+      : `General ${commissionGeneral}% | Delivery ${commissionDelivery || commissionGeneral}% | Pickup ${commissionPickup || commissionGeneral}%`
 
   return (
     <Card className="border border-slate-200 shadow-sm">
@@ -185,6 +190,9 @@ function RestaurantInvoice({
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="text-xs">
               {report.orders.length} orders
+            </Badge>
+            <Badge variant="outline" className="text-xs font-mono text-slate-600">
+              Commission: {rateLabel}
             </Badge>
             <span className="text-sm font-semibold text-slate-700">
               ${fmt(totals.totalEarned)} earned
@@ -249,7 +257,9 @@ function RestaurantInvoice({
                       <td className="py-2.5 px-3 text-slate-700">{order.paymentMethod}</td>
                       <td className="py-2.5 px-3 text-slate-600">{order.daypart}</td>
                       <td className="py-2.5 px-3 text-right text-slate-600">
-                        {commissionRate > 0 ? `${commissionRate.toFixed(2)}%` : "0.00%"}
+                        {order.subtotal > 0
+                          ? `${((order.commission / order.subtotal) * 100).toFixed(2)}%`
+                          : "0.00%"}
                       </td>
                       <td className="py-2.5 px-3 text-right text-slate-800">${fmt(order.subtotal)}</td>
                       <td className="py-2.5 px-3 text-right text-slate-800">${fmt(order.tip)}</td>
@@ -284,9 +294,9 @@ function RestaurantInvoice({
                   <span>Subtotal of Delivery Sales</span>
                   <span>${fmt(totals.subtotal)}</span>
                 </div>
-                {commissionRate > 0 && (
+                {totals.commission > 0 && (
                   <div className="flex justify-between text-xs text-slate-600">
-                    <span>Platform Commission ({commissionRate}%)</span>
+                    <span>Platform Commission ({rateLabel})</span>
                     <span>- ${fmt(totals.commission)}</span>
                   </div>
                 )}
@@ -314,7 +324,8 @@ function RestaurantInvoice({
 }
 
 // Platform-wide totals summary card
-function PlatformSummaryCard({ data, commissionRate }: { data: ReportData; commissionRate: number }) {
+// Commission is already computed per-order with each restaurant's own rates.
+function PlatformSummaryCard({ data }: { data: ReportData }) {
   const grandTotals = data.restaurants.reduce(
     (acc, r) => {
       r.orders.forEach((o) => {
@@ -322,8 +333,8 @@ function PlatformSummaryCard({ data, commissionRate }: { data: ReportData; commi
         acc.tax += o.tax
         acc.tip += o.tip
         acc.total += o.total
-        acc.commission += o.subtotal * (commissionRate / 100)
-        acc.totalEarned += o.subtotal + o.tax + o.tip - o.subtotal * (commissionRate / 100)
+        acc.commission += o.commission
+        acc.totalEarned += o.totalEarned
         acc.orders++
       })
       return acc
@@ -346,7 +357,7 @@ function PlatformSummaryCard({ data, commissionRate }: { data: ReportData; commi
             { label: "Tax", value: fmt(grandTotals.tax), money: true },
             { label: "Tips", value: fmt(grandTotals.tip), money: true },
             { label: "Total Charged", value: fmt(grandTotals.total), money: true },
-            { label: `Commission (${commissionRate}%)`, value: fmt(grandTotals.commission), money: true },
+            { label: "Platform Commission", value: fmt(grandTotals.commission), money: true },
             { label: "Total Owed to Restaurants", value: fmt(grandTotals.totalEarned), money: true },
           ].map((stat) => (
             <div key={stat.label} className="text-center">
@@ -369,7 +380,6 @@ export function ReportsTab({ restaurants }: ReportsTabProps) {
   const [deliveryType, setDeliveryType] = useState("all")
   const [paymentMethod, setPaymentMethod] = useState("all")
   const [paidFilter, setPaidFilter] = useState("all")
-  const [commissionRate, setCommissionRate] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [reportData, setReportData] = useState<ReportData | null>(null)
@@ -420,8 +430,8 @@ export function ReportsTab({ restaurants }: ReportsTabProps) {
           fmt(o.tax),
           fmt(o.tip),
           fmt(o.total),
-          fmt(o.subtotal * (commissionRate / 100)),
-          fmt(o.subtotal + o.tax + o.tip - o.subtotal * (commissionRate / 100)),
+          fmt(o.commission),
+          fmt(o.totalEarned),
         ])
       })
     })
@@ -486,24 +496,6 @@ export function ReportsTab({ restaurants }: ReportsTabProps) {
                     ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            {/* Commission */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium text-slate-600">Commission Rate (%)</Label>
-              <div className="flex items-center gap-1.5">
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.1}
-                  value={commissionRate}
-                  onChange={(e) => setCommissionRate(Number(e.target.value) || 0)}
-                  placeholder="0"
-                  className="w-full"
-                />
-                <span className="text-sm text-slate-500 shrink-0">%</span>
-              </div>
             </div>
 
             {/* Order Type */}
@@ -613,7 +605,7 @@ export function ReportsTab({ restaurants }: ReportsTabProps) {
         <div className="space-y-4">
           {/* Platform summary */}
           {reportData.restaurants.length > 0 && (
-            <PlatformSummaryCard data={reportData} commissionRate={commissionRate} />
+            <PlatformSummaryCard data={reportData} />
           )}
 
           {/* No results */}
@@ -635,7 +627,6 @@ export function ReportsTab({ restaurants }: ReportsTabProps) {
                 report={r}
                 startDate={reportData.meta.startDate}
                 endDate={reportData.meta.endDate}
-                commissionRate={commissionRate}
               />
             ))}
         </div>
