@@ -4092,6 +4092,7 @@ const orderData = {
                         type="tel"
                         value={deliveryForm.phone}
                         onChange={(e) => setDeliveryForm({ ...deliveryForm, phone: e.target.value })}
+                        placeholder="(787) 000-0000"
                         className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg transition-all focus:ring-2"
                         required
                       />
@@ -4367,25 +4368,33 @@ const orderData = {
                         />
                       </div>
                       <div>
-                        <Label>Estado *</Label>
-                        <Input
-                          required
-                          value={deliveryForm.state}
-                          onChange={(e) => setDeliveryForm({ ...deliveryForm, state: e.target.value.toUpperCase() })}
-                          placeholder="FL"
-                          maxLength={2}
-                          onBlur={handleCalculateDeliveryFee}
-                          className="mt-2"
-                        />
+                        <Label>Estado</Label>
+                        <div className="mt-2 px-3 py-2 border rounded-md bg-muted text-sm font-medium text-muted-foreground select-none">
+                          PR — Puerto Rico
+                        </div>
                       </div>
                       <div>
                         <Label>Codigo Postal *</Label>
                         <Input
                           required
                           value={deliveryForm.zip}
-                          onChange={(e) => setDeliveryForm({ ...deliveryForm, zip: e.target.value })}
-                          placeholder="12345"
-                          onBlur={handleCalculateDeliveryFee}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, "").slice(0, 5)
+                            setDeliveryForm({ ...deliveryForm, zip: val })
+                          }}
+                          placeholder="00900"
+                          maxLength={5}
+                          pattern="00[679]\d{2}"
+                          title="Ingresa un codigo postal valido de Puerto Rico (006xx, 007xx, 009xx)"
+                          onBlur={(e) => {
+                            const val = e.target.value
+                            if (val && !/^00[679]\d{2}$/.test(val)) {
+                              e.target.setCustomValidity("Codigo postal invalido. Puerto Rico usa codigos que comienzan con 006, 007 o 009.")
+                            } else {
+                              e.target.setCustomValidity("")
+                              handleCalculateDeliveryFee()
+                            }
+                          }}
                           className="mt-2"
                         />
                       </div>
