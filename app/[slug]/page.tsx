@@ -68,7 +68,7 @@ export default async function TenantPortalPage({
 
     const { data: menuItems } = await supabase
       .from("menu_items")
-      .select("*")
+      .select("*, item_options(*, item_option_choices(*))")
       .eq("restaurant_id", restaurant.id)
       .eq("is_active", true)
       .order("display_order", { ascending: true, nullsFirst: false })
@@ -137,23 +137,8 @@ export default async function TenantPortalPage({
     }
 
     const menuItemIds = (menuItems || []).map((item) => item.id)
-    const { data: itemOptions } =
-      menuItemIds.length > 0
-        ? await supabase.from("item_options").select("*").in("menu_item_id", menuItemIds)
-        : { data: [] }
 
-    const optionIds = (itemOptions || []).map((opt) => opt.id)
-    const { data: optionChoices } =
-      optionIds.length > 0
-        ? await supabase.from("item_option_choices").select("*").in("item_option_id", optionIds).order("display_order", { ascending: true })
-        : { data: [] }
-
-    const optionsWithChoices = (itemOptions || []).map((option) => ({
-      ...option,
-      item_option_choices: (optionChoices || []).filter((choice) => choice.item_option_id === option.id),
-    }))
-
-    // Fetch item sizes
+    // Fetch item sizes (still needed separately — not nested above to keep ordering)
     const { data: itemSizes } =
       menuItemIds.length > 0
         ? await supabase
@@ -163,11 +148,17 @@ export default async function TenantPortalPage({
             .order("display_order", { ascending: true })
         : { data: [] }
 
+    // item_options and item_option_choices are already nested on each menuItem via the select above
     const menuItemsWithOptions = (menuItems || []).map((item) => ({
       ...item,
       base_price: item.price,
       category: categories?.find((cat) => cat.id === item.category_id)?.name || "",
-      item_options: optionsWithChoices.filter((opt) => opt.menu_item_id === item.id),
+      item_options: (item.item_options || []).map((opt: any) => ({
+        ...opt,
+        item_option_choices: (opt.item_option_choices || []).sort(
+          (a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0)
+        ),
+      })),
       sizes: (itemSizes || []).filter((size) => size.menu_item_id === item.id),
     }))
 
