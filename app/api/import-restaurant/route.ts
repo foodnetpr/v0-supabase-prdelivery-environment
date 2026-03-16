@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+// POST /api/import-restaurant — accepts a single { restaurant, categories } entry from the browser import page
 
 // Helper to create slug from name
 function createSlug(name: string): string {
