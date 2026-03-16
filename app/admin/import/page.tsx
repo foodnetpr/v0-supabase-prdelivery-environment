@@ -1,236 +1,191 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, Upload, CheckCircle, AlertCircle } from "lucide-react"
+import { Progress } from "@/components/ui/progress"
+import { CheckCircle, XCircle, Loader2, Upload } from "lucide-react"
+
+type RowStatus = "pending" | "running" | "done" | "error"
+
+type RestaurantRow = {
+  name: string
+  status: RowStatus
+  categories?: number
+  items?: number
+  options?: number
+  choices?: number
+  error?: string
+}
 
 export default function ImportPage() {
-  const [jsonData, setJsonData] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [quickLoading, setQuickLoading] = useState(false)
-  const [result, setResult] = useState<{ success: boolean; message: string; details?: any } | null>(null)
+  const [rows, setRows] = useState<RestaurantRow[]>([])
+  const [isRunning, setIsRunning] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [summary, setSummary] = useState<{ done: number; errors: number; total: number } | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const abortRef = useRef(false)
 
-  const handleQuickImport = async () => {
-    setQuickLoading(true)
-    setResult(null)
-
-    try {
-      const response = await fetch("/api/import-all", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setResult({ 
-          success: true, 
-          message: `Import completed! ${data.results?.restaurants || 0} restaurants, ${data.results?.categories || 0} categories, ${data.results?.items || 0} items, ${data.results?.options || 0} options, ${data.results?.choices || 0} choices`,
-          details: data
-        })
-      } else {
-        setResult({ 
-          success: false, 
-          message: data.error || data.message || "Import failed",
-          details: data
-        })
-      }
-    } catch (error: any) {
-      setResult({ 
-        success: false, 
-        message: error.message || "Import failed" 
-      })
-    } finally {
-      setQuickLoading(false)
-    }
+  function updateRow(i: number, patch: Partial<RestaurantRow>) {
+    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)))
   }
 
-  const handleImport = async () => {
-    if (!jsonData.trim()) {
-      setResult({ success: false, message: "Please paste JSON data to import" })
+  async function handleImport(e: React.FormEvent) {
+    e.preventDefault()
+    const file = fileRef.current?.files?.[0]
+    if (!file) return
+
+    abortRef.current = false
+    setSummary(null)
+    setProgress(0)
+    setRows([])
+    setIsRunning(true)
+
+    let data: any[]
+    try {
+      data = JSON.parse(await file.text())
+    } catch {
+      alert("Invalid JSON — could not parse file.")
+      setIsRunning(false)
       return
     }
 
-    setLoading(true)
-    setResult(null)
-
-    try {
-      const parsed = JSON.parse(jsonData)
-      
-      const response = await fetch("/api/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed),
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setResult({ 
-          success: true, 
-          message: `Successfully imported ${data.imported?.length || 0} restaurants`,
-          details: data
-        })
-        setJsonData("")
-      } else {
-        setResult({ 
-          success: false, 
-          message: data.error || "Import failed",
-          details: data
-        })
-      }
-    } catch (error: any) {
-      setResult({ 
-        success: false, 
-        message: error.message || "Invalid JSON or import failed" 
-      })
-    } finally {
-      setLoading(false)
+    if (!Array.isArray(data)) {
+      alert("JSON must be a top-level array of restaurant entries.")
+      setIsRunning(false)
+      return
     }
+
+    setRows(data.map((entry) => ({ name: entry?.restaurant?.name ?? "Unknown", status: "pending" })))
+
+    let done = 0
+    let errors = 0
+
+    for (let i = 0; i < data.length; i++) {
+      if (abortRef.current) break
+
+      updateRow(i, { status: "running" })
+
+      try {
+        const res = await fetch("/api/import-restaurant", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data[i]),
+        })
+        const json = await res.json()
+
+        if (!res.ok || json.error) {
+          errors++
+          updateRow(i, { status: "error", error: json.error ?? `HTTP ${res.status}` })
+        } else {
+          done++
+          updateRow(i, {
+            status: "done",
+            categories: json.results?.categories ?? 0,
+            items: json.results?.items ?? 0,
+            options: json.results?.options ?? 0,
+            choices: json.results?.choices ?? 0,
+          })
+        }
+      } catch (err: any) {
+        errors++
+        updateRow(i, { status: "error", error: err.message })
+      }
+
+      setProgress(Math.round(((i + 1) / data.length) * 100))
+    }
+
+    setSummary({ done, errors, total: data.length })
+    setIsRunning(false)
   }
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        setJsonData(event.target?.result as string)
-      }
-      reader.readAsText(file)
-    }
-  }
+  const completed = rows.filter((r) => r.status === "done" || r.status === "error").length
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="max-w-4xl mx-auto">
+    <main className="min-h-screen bg-background p-8 font-sans">
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Restaurant Import</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Upload <code className="bg-muted px-1 py-0.5 rounded text-xs">foodnet_import_complete.json</code> — the
+            browser reads it locally and sends each restaurant individually to avoid server timeouts.
+          </p>
+        </div>
+
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="w-5 h-5" />
-              Import Restaurant Data
-            </CardTitle>
+            <CardTitle>Select File</CardTitle>
             <CardDescription>
-              Import restaurants with their categories, menu items, and options from JSON
+              Each restaurant is sent to{" "}
+              <code className="bg-muted px-1 py-0.5 rounded text-xs">/api/import-restaurant</code> one at a time.
+              59 restaurants takes roughly 1–2 minutes.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Quick Import Section */}
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <h3 className="font-semibold text-blue-900 mb-2">Quick Import</h3>
-              <p className="text-sm text-blue-700 mb-3">
-                Import all restaurant data from the pre-loaded JSON file
-              </p>
-              <Button 
-                onClick={handleQuickImport} 
-                disabled={quickLoading}
-                variant="default"
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {quickLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Importing All Data...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Import All Restaurants
-                  </>
-                )}
-              </Button>
-            </div>
-
-            <div className="relative py-2">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-muted-foreground">Or upload manually</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Upload JSON File
-              </label>
+          <CardContent>
+            <form onSubmit={handleImport} className="flex flex-wrap items-center gap-3">
               <input
+                ref={fileRef}
                 type="file"
-                accept=".json"
-                onChange={handleFileUpload}
-                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
+                accept=".json,application/json"
+                disabled={isRunning}
+                className="text-sm text-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-muted file:text-foreground hover:file:bg-muted/70 cursor-pointer disabled:opacity-50"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Or Paste JSON Data
-              </label>
-              <Textarea
-                value={jsonData}
-                onChange={(e) => setJsonData(e.target.value)}
-                placeholder='[{"id": "restaurant-1", "name": "My Restaurant", ...}]'
-                className="min-h-[300px] font-mono text-sm"
-              />
-            </div>
-
-            {result && (
-              <Alert variant={result.success ? "default" : "destructive"}>
-                {result.success ? (
-                  <CheckCircle className="h-4 w-4" />
-                ) : (
-                  <AlertCircle className="h-4 w-4" />
-                )}
-                <AlertDescription>
-                  {result.message}
-                  {result.details?.imported && (
-                    <ul className="mt-2 text-sm">
-                      {result.details.imported.map((r: any, i: number) => (
-                        <li key={i}>
-                          {r.name}: {r.categoriesCount} categories, {r.itemsCount} items
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <Button onClick={handleImport} disabled={loading} className="w-full">
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Importing...
-                </>
-              ) : (
-                <>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Import Data
-                </>
+              <Button type="submit" disabled={isRunning} className="gap-2">
+                {isRunning ? <><Loader2 className="h-4 w-4 animate-spin" /> Importing...</> : <><Upload className="h-4 w-4" /> Start Import</>}
+              </Button>
+              {isRunning && (
+                <Button type="button" variant="outline" onClick={() => { abortRef.current = true }}>
+                  Stop
+                </Button>
               )}
-            </Button>
+            </form>
           </CardContent>
         </Card>
 
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>API Endpoints</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 font-mono text-sm">
-            <div>
-              <p className="font-semibold text-slate-700">POST /api/import</p>
-              <p className="text-slate-500">Import restaurant data from JSON array</p>
-            </div>
-            <div>
-              <p className="font-semibold text-slate-700">GET /api/restaurants/[id]/menu</p>
-              <p className="text-slate-500">Get full menu for a restaurant by ID or slug</p>
-            </div>
-          </CardContent>
-        </Card>
+        {rows.length > 0 && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Progress</CardTitle>
+                <span className="text-sm tabular-nums text-muted-foreground">
+                  {completed} / {rows.length}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Progress value={progress} className="h-2" />
+
+              {summary && (
+                <p className={`text-sm font-medium ${summary.errors > 0 ? "text-amber-600" : "text-green-700"}`}>
+                  Done — {summary.done} succeeded, {summary.errors} failed out of {summary.total}
+                </p>
+              )}
+
+              <div className="max-h-[420px] overflow-y-auto divide-y divide-border rounded border">
+                {rows.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {r.status === "done" && <CheckCircle className="h-4 w-4 shrink-0 text-green-600" />}
+                      {r.status === "error" && <XCircle className="h-4 w-4 shrink-0 text-red-500" />}
+                      {r.status === "running" && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-blue-500" />}
+                      {r.status === "pending" && <span className="h-4 w-4 shrink-0 flex items-center justify-center text-muted-foreground">·</span>}
+                      <span className={`truncate font-medium ${r.status === "pending" ? "text-muted-foreground" : "text-foreground"}`}>
+                        {r.name}
+                      </span>
+                      {r.error && <span className="truncate text-xs text-red-500">{r.error}</span>}
+                    </div>
+                    {r.status === "done" && (
+                      <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
+                        {r.categories}c {r.items}i {r.options}o {r.choices}ch
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
-    </div>
+    </main>
   )
 }
