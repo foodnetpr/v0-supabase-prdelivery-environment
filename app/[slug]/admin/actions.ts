@@ -1008,6 +1008,48 @@ export async function deleteDeliveryZone(id: string) {
   return true
 }
 
+// Replace ALL delivery zones for a restaurant with a new set of tiers in one shot.
+// Each tier: { minDistance, maxDistance, baseFee }
+export async function bulkApplyDeliveryTiers(
+  restaurantId: string,
+  tiers: { minDistance: number; maxDistance: number; baseFee: number }[],
+) {
+  const supabase = getAdminClient()
+
+  // Delete existing zones
+  const { error: delError } = await supabase
+    .from("delivery_zones")
+    .delete()
+    .eq("restaurant_id", restaurantId)
+
+  if (delError) throw new Error(delError.message)
+
+  // Insert the new tiers (skip any with no base fee set)
+  const rows = tiers
+    .filter((t) => t.baseFee > 0)
+    .map((t, i) => ({
+      restaurant_id: restaurantId,
+      zone_name: `Tier ${i + 1} (${t.minDistance}–${t.maxDistance} mi)`,
+      min_distance: t.minDistance,
+      max_distance: t.maxDistance,
+      base_fee: t.baseFee,
+      per_item_surcharge: 0,
+      min_items_for_surcharge: 50,
+      display_order: i,
+      is_active: true,
+    }))
+
+  if (rows.length === 0) return []
+
+  const { data, error: insError } = await supabase
+    .from("delivery_zones")
+    .insert(rows)
+    .select()
+
+  if (insError) throw new Error(insError.message)
+  return data
+}
+
 // Transfer an order to a different branch
 export async function transferOrder(
   orderId: string,

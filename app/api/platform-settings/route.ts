@@ -72,6 +72,7 @@ export async function PUT(request: Request) {
           pop_reopen_at: body.pop_reopen_at,
           pop_block_message: body.pop_block_message,
           blocked_zip_codes: body.blocked_zip_codes ?? [],
+          delivery_fee_subsidy: body.delivery_fee_subsidy ?? 3.0,
           updated_at: new Date().toISOString(),
         })
         .eq("id", existing.id)
@@ -103,6 +104,7 @@ export async function PUT(request: Request) {
           pop_reopen_at: body.pop_reopen_at,
           pop_block_message: body.pop_block_message,
           blocked_zip_codes: body.blocked_zip_codes ?? [],
+          delivery_fee_subsidy: body.delivery_fee_subsidy ?? 3.0,
         })
         .select()
         .single()

@@ -621,7 +621,8 @@ export default function CustomerPortal({
 
   // Delivery fee calculation state
   const [deliveryFeeCalculation, setDeliveryFeeCalculation] = useState<{
-    fee: number
+    fee: number          // Full fee — used for order total & payment
+    displayedFee: number // Subsidy-reduced fee shown to customer
     distance: number
     zoneName: string
     itemSurcharge: number
@@ -629,6 +630,7 @@ export default function CustomerPortal({
     error?: string
   }>({
     fee: effectiveRestaurant.delivery_fee || 25,
+    displayedFee: effectiveRestaurant.delivery_fee || 25,
     distance: 0,
     zoneName: "Entrega Estandar",
     itemSurcharge: 0,
@@ -1258,13 +1260,14 @@ export default function CustomerPortal({
       if (result.success) {
         setDeliveryFeeCalculation({
           fee: result.fee,
+          displayedFee: result.displayedFee ?? result.fee,
           distance: result.distance,
           zoneName: result.zoneName,
           itemSurcharge: result.itemSurcharge,
           isCalculating: false,
         })
 
-        // Update the delivery fee in the cart
+        // Update the delivery fee in the cart — always use full fee for payment
         setCart((prevCart) => {
           const filtered = prevCart.filter((item) => item.type !== "delivery_fee")
           if (deliveryMethod === "delivery") {
@@ -4492,7 +4495,14 @@ const orderData = {
                           {deliveryFeeCalculation.distance > 0 && ` (${deliveryFeeCalculation.distance.toFixed(1)} mi)`}
                           :
                         </span>
-                        <span>${deliveryFeeCalculation.fee.toFixed(2)}</span>
+                        <span className="flex items-center gap-1.5">
+                          {deliveryFeeCalculation.displayedFee < deliveryFeeCalculation.fee && (
+                            <span className="line-through text-muted-foreground text-xs">
+                              ${deliveryFeeCalculation.fee.toFixed(2)}
+                            </span>
+                          )}
+                          <span>${deliveryFeeCalculation.displayedFee.toFixed(2)}</span>
+                        </span>
                       </div>
                     )}
                     {/* CHANGE: Tax label now falls back to 0% instead of 8.75% */}

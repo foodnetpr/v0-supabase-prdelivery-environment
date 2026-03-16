@@ -37,6 +37,7 @@ import {
   History,
   Plus,
   Trash2,
+  DollarSign,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -71,6 +72,7 @@ interface PlatformSettings {
   pop_reopen_at: string | null
   pop_block_message: string | null
   blocked_zip_codes: string[]
+  delivery_fee_subsidy: number
 }
 
 interface ScheduledBlock {
@@ -154,6 +156,7 @@ export function OperationsTab({
       pop_reopen_at: null,
       pop_block_message: null,
       blocked_zip_codes: [],
+      delivery_fee_subsidy: 3.0,
     }
   )
   const [scheduledBlocks, setScheduledBlocks] = useState(initialBlocks)
@@ -505,6 +508,58 @@ export function OperationsTab({
               )}
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Delivery Fee Subsidy */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5" />
+            Delivery Fee Subsidy
+          </CardTitle>
+          <CardDescription>
+            The subsidy is subtracted from the delivery fee shown to customers. The full fee is always charged and recorded in reporting. Currently <strong>${settings.delivery_fee_subsidy.toFixed(2)}</strong> off per order.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">$</span>
+              <Input
+                type="number"
+                min="0"
+                step="0.25"
+                value={settings.delivery_fee_subsidy}
+                onChange={(e) =>
+                  setSettings({ ...settings, delivery_fee_subsidy: Number(e.target.value) || 0 })
+                }
+                className="w-28"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Customer sees: full fee − subsidy (minimum $0.00 shown)
+            </p>
+          </div>
+          <Button
+            onClick={async () => {
+              setIsSaving(true)
+              try {
+                await fetch("/api/platform-settings", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(settings),
+                })
+              } finally {
+                setIsSaving(false)
+              }
+            }}
+            disabled={isSaving}
+            className="gap-2"
+          >
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save Subsidy
+          </Button>
         </CardContent>
       </Card>
 

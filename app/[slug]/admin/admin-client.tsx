@@ -69,6 +69,7 @@ import {
   createDeliveryZone,
   updateDeliveryZone,
   deleteDeliveryZone as deleteDeliveryZoneAction,
+  bulkApplyDeliveryTiers,
   updateMenuItemOrder,
   updatePackageDisplayOrder,
   copyItemOption, // Add copyItemOption import
@@ -428,6 +429,16 @@ export default function RestaurantAdminClient({
     min_items_for_surcharge: "50",
     is_active: true,
   })
+
+  // Tier grid — 10 tiers of 1 mile each (0–1, 1–2, … 9–10)
+  const DEFAULT_TIERS = Array.from({ length: 10 }, (_, i) => ({
+    minDistance: i,
+    maxDistance: i + 1,
+    baseFee: "",
+  }))
+  const [tierGrid, setTierGrid] = useState<{ minDistance: number; maxDistance: number; baseFee: string }[]>(DEFAULT_TIERS)
+  const [isBulkApplying, setIsBulkApplying] = useState(false)
+  const [showTierGrid, setShowTierGrid] = useState(false)
 
   // Added state for bulk import
   const [showBulkImportModal, setShowBulkImportModal] = useState(false) // Corrected state name
@@ -4413,28 +4424,123 @@ const pickupOrders = orders.filter((o: any) => o.order_type === "pickup" || o.de
                     </CardTitle>
                     <CardDescription>Configure distance-based delivery pricing tiers</CardDescription>
                   </div>
-                  <Button
-                    onClick={() => {
-                      setEditingZone(null)
-                      setZoneForm({
-                        zone_name: "",
-                        min_distance: "0",
-                        max_distance: "",
-                        base_fee: "",
-                        per_item_surcharge: "0",
-                        min_items_for_surcharge: "50",
-                        is_active: true,
-                      })
-                      setShowZoneModal(true)
-                    }}
-                    className="bg-[#5d1f1f] hover:bg-[#4a1818]"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Zone
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowTierGrid((v) => !v)}
+                    >
+                      {showTierGrid ? "Hide" : "Quick Setup — Tier Grid"}
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setEditingZone(null)
+                        setZoneForm({
+                          zone_name: "",
+                          min_distance: "0",
+                          max_distance: "",
+                          base_fee: "",
+                          per_item_surcharge: "0",
+                          min_items_for_surcharge: "50",
+                          is_active: true,
+                        })
+                        setShowZoneModal(true)
+                      }}
+                      className="bg-[#5d1f1f] hover:bg-[#4a1818]"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Zone
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-6">
+                {/* Tier Grid bulk setup */}
+                {showTierGrid && (
+                  <div className="border rounded-lg p-4 bg-slate-50 space-y-4">
+                    <div>
+                      <p className="text-sm font-semibold">Quick Setup — Tier Grid</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Enter a base fee for each distance tier. Clicking "Apply All Tiers" will replace all existing zones instantly. Leave a tier blank to skip it.
+                      </p>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left font-medium pb-2 pr-3 text-muted-foreground">Tier</th>
+                            <th className="text-left font-medium pb-2 pr-3 text-muted-foreground">Distance</th>
+                            <th className="text-left font-medium pb-2 text-muted-foreground">Base Fee ($)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {tierGrid.map((tier, i) => (
+                            <tr key={i}>
+                              <td className="py-1.5 pr-3 font-mono text-muted-foreground">T{i + 1}</td>
+                              <td className="py-1.5 pr-3 text-muted-foreground whitespace-nowrap">
+                                {tier.minDistance}–{tier.maxDistance} mi
+                              </td>
+                              <td className="py-1.5">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-muted-foreground">$</span>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    placeholder="0.00"
+                                    value={tier.baseFee}
+                                    onChange={(e) => {
+                                      const next = [...tierGrid]
+                                      next[i] = { ...next[i], baseFee: e.target.value }
+                                      setTierGrid(next)
+                                    }}
+                                    className="h-8 w-24"
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        disabled={isBulkApplying}
+                        onClick={async () => {
+                          if (!confirm("This will replace ALL existing delivery zones with these tiers. Continue?")) return
+                          setIsBulkApplying(true)
+                          try {
+                            await bulkApplyDeliveryTiers(
+                              restaurantId,
+                              tierGrid.map((t) => ({
+                                minDistance: t.minDistance,
+                                maxDistance: t.maxDistance,
+                                baseFee: Number.parseFloat(t.baseFee) || 0,
+                              })),
+                            )
+                            toast({ title: "Tiers applied successfully" })
+                            fetchDeliveryZones()
+                            setShowTierGrid(false)
+                          } catch (err: any) {
+                            toast({ title: "Error applying tiers", description: err.message, variant: "destructive" })
+                          } finally {
+                            setIsBulkApplying(false)
+                          }
+                        }}
+                        className="bg-[#5d1f1f] hover:bg-[#4a1818]"
+                      >
+                        {isBulkApplying ? "Applying..." : "Apply All Tiers"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => setTierGrid(DEFAULT_TIERS)}
+                      >
+                        Reset
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Existing zones list */}
                 {deliveryZones.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <MapPin className="h-12 w-12 mx-auto mb-4 text-gray-300" />

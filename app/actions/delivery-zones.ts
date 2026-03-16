@@ -11,7 +11,8 @@ interface CalculateDeliveryFeeParams {
 
 interface CalculateDeliveryFeeResult {
   success: boolean
-  fee: number
+  fee: number           // Full fee — used for order totals, reporting, payment
+  displayedFee: number  // Subsidy-reduced fee shown to the customer
   distance: number
   zoneName: string
   itemSurcharge: number
@@ -32,6 +33,7 @@ export async function calculateDeliveryFee(params: CalculateDeliveryFeeParams): 
       return {
         success: false,
         fee: 0,
+        displayedFee: 0,
         distance: 0,
         zoneName: "",
         itemSurcharge: 0,
@@ -39,9 +41,24 @@ export async function calculateDeliveryFee(params: CalculateDeliveryFeeParams): 
       }
     }
 
-    // Fetch delivery zones for this restaurant
+    // Fetch delivery zones + platform subsidy in parallel
     const supabase = await createServerClient()
-    const { data: zones, error } = await supabase
+    const [zonesResult, settingsResult] = await Promise.all([
+      supabase
+        .from("delivery_zones")
+        .select("*")
+        .eq("restaurant_id", restaurantId)
+        .eq("is_active", true)
+        .order("display_order", { ascending: true }),
+      supabase
+        .from("platform_settings")
+        .select("delivery_fee_subsidy")
+        .limit(1)
+        .single(),
+    ])
+
+    const subsidy = Number(settingsResult.data?.delivery_fee_subsidy ?? 3.0)
+    const { data: zones, error } = zonesResult
       .from("delivery_zones")
       .select("*")
       .eq("restaurant_id", restaurantId)
@@ -50,9 +67,11 @@ export async function calculateDeliveryFee(params: CalculateDeliveryFeeParams): 
 
     if (error || !zones || zones.length === 0) {
       // No zones configured, return default fee
+      const defaultFee = 25
       return {
         success: true,
-        fee: 25,
+        fee: defaultFee,
+        displayedFee: Math.max(0, defaultFee - subsidy),
         distance,
         zoneName: "Standard Delivery",
         itemSurcharge: 0,
@@ -67,6 +86,7 @@ export async function calculateDeliveryFee(params: CalculateDeliveryFeeParams): 
       return {
         success: false,
         fee: 0,
+        displayedFee: 0,
         distance,
         zoneName: "",
         itemSurcharge: 0,
@@ -86,6 +106,7 @@ export async function calculateDeliveryFee(params: CalculateDeliveryFeeParams): 
     return {
       success: true,
       fee: totalFee,
+      displayedFee: Math.max(0, totalFee - subsidy),
       distance,
       zoneName: matchingZone.zone_name,
       itemSurcharge,
@@ -95,6 +116,7 @@ export async function calculateDeliveryFee(params: CalculateDeliveryFeeParams): 
     return {
       success: false,
       fee: 0,
+      displayedFee: 0,
       distance: 0,
       zoneName: "",
       itemSurcharge: 0,
