@@ -41,6 +41,84 @@ export default function CustomerLoginPage() {
     }
   }
 
+  const handleAppleSignIn = async () => {
+    setSocialLoading("apple")
+    setError("")
+
+    try {
+      // Detect native Capacitor environment (iOS app)
+      const isNative =
+        typeof window !== "undefined" &&
+        (window as any).Capacitor?.isNativePlatform?.()
+
+      if (isNative) {
+        // Native iOS flow: use the @capacitor-community/apple-sign-in plugin
+        // which calls ASAuthorizationAppleIDProvider and returns a token Supabase can consume.
+        const { SignInWithApple } = await import("@capacitor-community/apple-sign-in")
+        const result = await SignInWithApple.authorize({
+          clientId: "ca.salecalle.marketplace.app",
+          redirectURI: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/callback`,
+          scopes: "email name",
+          state: Math.random().toString(36).substring(2),
+          nonce: Math.random().toString(36).substring(2),
+        })
+
+        // Exchange the Apple identity token with Supabase
+        const { data, error: supaError } = await supabase.auth.signInWithIdToken({
+          provider: "apple",
+          token: result.response.identityToken,
+        })
+
+        if (supaError) throw supaError
+
+        // Ensure customer record exists after native Apple sign-in
+        if (data.user) {
+          const { data: existing } = await supabase
+            .from("customers")
+            .select("id")
+            .eq("auth_user_id", data.user.id)
+            .single()
+
+          if (!existing) {
+            const fullName = [
+              result.response.givenName,
+              result.response.familyName,
+            ]
+              .filter(Boolean)
+              .join(" ")
+
+            await supabase.from("customers").insert({
+              auth_user_id: data.user.id,
+              email: data.user.email || result.response.email || "",
+              first_name: result.response.givenName || fullName.split(" ")[0] || "",
+              last_name: result.response.familyName || fullName.split(" ").slice(1).join(" ") || "",
+            })
+          }
+        }
+
+        router.push(redirectTo)
+        router.refresh()
+      } else {
+        // Web flow: redirect-based OAuth (same as Google/Facebook)
+        const { error: oauthError } = await supabase.auth.signInWithOAuth({
+          provider: "apple",
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+          },
+        })
+        if (oauthError) throw oauthError
+      }
+    } catch (err: any) {
+      // User cancelled Apple Sign In — don't show an error
+      if (err?.code === "1001" || err?.message?.includes("cancel")) {
+        setSocialLoading(null)
+        return
+      }
+      setError(err.message || "Error al iniciar sesion con Apple")
+      setSocialLoading(null)
+    }
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
@@ -104,6 +182,23 @@ export default function CustomerLoginPage() {
         <CardContent className="space-y-4">
           {/* Social Login Buttons */}
           <div className="space-y-3">
+            {/* Apple Sign In */}
+            <Button
+              type="button"
+              className="w-full flex items-center justify-center gap-3 h-11 bg-black text-white hover:bg-neutral-800"
+              disabled={socialLoading !== null || loading}
+              onClick={handleAppleSignIn}
+            >
+              {socialLoading === "apple" ? (
+                <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+              ) : (
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.42c1.39.07 2.36.74 3.18.8.96-.2 1.88-.89 3.16-.95 2.02.08 3.54 1.07 4.15 2.72-3.65 2.1-2.72 6.84.51 8.29zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
+                </svg>
+              )}
+              Continuar con Apple
+            </Button>
+
             <Button
               type="button"
               variant="outline"

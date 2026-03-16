@@ -5,11 +5,19 @@
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "build": "next build",
+    "build:mobile": "next build && next export",
     "dev": "next dev",
     "lint": "eslint .",
-    "start": "next start"
+    "start": "next start",
+    "cap:sync": "cap sync",
+    "cap:ios": "cap open ios"
   },
   "dependencies": {
+    "@capacitor/app": "^6.0.0",
+    "@capacitor/browser": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/ios": "^6.0.0",
+    "@capacitor-community/apple-sign-in": "^2.0.0",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "latest",
     "@radix-ui/react-alert-dialog": "latest",
@@ -73,6 +81,7 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
+    "@capacitor/cli": "^6.0.0",
     "@types/leaflet": "^1.9.8",
     "@tailwindcss/postcss": "^4.1.9",
     "@types/node": "^22",
