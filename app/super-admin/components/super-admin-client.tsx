@@ -226,7 +226,7 @@ export function SuperAdminClient({
     white_label: false,
     show_powered_by: true,
     payment_type: "ach" as "ach" | "pop" | "ath",
-    dispatch_fee: 0,
+    dispatch_fee_percent: 0,
     cart_disclaimer: "",
   })
 
@@ -376,7 +376,7 @@ export function SuperAdminClient({
       white_label: restaurant.white_label ?? false,
       show_powered_by: restaurant.show_powered_by ?? true,
       payment_type: (restaurant.payment_type as "ach" | "pop" | "ath") || "ach",
-      dispatch_fee: (restaurant as any).dispatch_fee ?? 0,
+      dispatch_fee_percent: (restaurant as any).dispatch_fee_percent ?? 0,
       cart_disclaimer: (restaurant as any).cart_disclaimer || "",
     })
     setShowEditModal(true)
@@ -1496,23 +1496,24 @@ export function SuperAdminClient({
                 </p>
               </div>
 
-              {/* Dispatch Fee */}
+              {/* Dispatch Fee % */}
               <div className="mt-4">
-                <Label htmlFor="edit-dispatch-fee" className="text-sm font-medium text-slate-700">Dispatch Fee ($)</Label>
+                <Label htmlFor="edit-dispatch-fee-percent" className="text-sm font-medium text-slate-700">Dispatch Fee (%)</Label>
                 <p className="text-xs text-slate-500 mt-1 mb-2">
-                  Cargo fijo por despacho que se muestra como línea en el carrito del cliente. El subsidio se aplica internamente.
+                  Porcentaje del subtotal cobrado como cargo de despacho y mostrado como línea en el carrito. El subsidio se aplica internamente y no es visible para el cliente.
                 </p>
                 <div className="flex items-center gap-1">
-                  <span className="text-sm text-slate-500">$</span>
                   <Input
-                    id="edit-dispatch-fee"
+                    id="edit-dispatch-fee-percent"
                     type="number"
                     min="0"
-                    step="0.25"
-                    value={editForm.dispatch_fee}
-                    onChange={(e) => setEditForm({ ...editForm, dispatch_fee: parseFloat(e.target.value) || 0 })}
+                    max="100"
+                    step="0.5"
+                    value={editForm.dispatch_fee_percent}
+                    onChange={(e) => setEditForm({ ...editForm, dispatch_fee_percent: parseFloat(e.target.value) || 0 })}
                     className="w-28"
                   />
+                  <span className="text-sm text-slate-500">%</span>
                 </div>
               </div>
 

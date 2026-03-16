@@ -24,8 +24,6 @@ export async function calculateDeliveryFee(params: CalculateDeliveryFeeParams): 
   try {
     const { restaurantId, deliveryAddress, restaurantAddress, itemCount } = params
 
-    console.log("[v0] calculateDeliveryFee called with:", { restaurantId, deliveryAddress, restaurantAddress, itemCount })
-
     // Calculate distance using Google Maps Distance Matrix API
     const distance = await calculateDistance(restaurantAddress, deliveryAddress)
 
@@ -59,22 +57,17 @@ export async function calculateDeliveryFee(params: CalculateDeliveryFeeParams): 
 
     const subsidy = Number(settingsResult.data?.delivery_fee_subsidy ?? 3.0)
     const { data: zones, error } = zonesResult
-      .from("delivery_zones")
-      .select("*")
-      .eq("restaurant_id", restaurantId)
-      .eq("is_active", true)
-      .order("display_order", { ascending: true })
 
     if (error || !zones || zones.length === 0) {
-      // No zones configured, return default fee
-      const defaultFee = 25
+      // No zones configured — delivery unavailable
       return {
-        success: true,
-        fee: defaultFee,
-        displayedFee: Math.max(0, defaultFee - subsidy),
+        success: false,
+        fee: 0,
+        displayedFee: 0,
         distance,
-        zoneName: "Standard Delivery",
+        zoneName: "",
         itemSurcharge: 0,
+        error: "Delivery zones not configured for this restaurant.",
       }
     }
 
@@ -272,13 +265,7 @@ async function calculateDistance(origin: string, destination: string): Promise<n
   try {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
-    console.log("[v0] calculateDistance called with origin:", origin, "destination:", destination)
-    console.log("[v0] API Key available:", !!apiKey, "Length:", apiKey?.length || 0)
-
-    if (!apiKey) {
-      console.error("[v0] Google Maps API key not configured")
-      return null
-    }
+    if (!apiKey) return null
 
     const url = new URL("https://maps.googleapis.com/maps/api/distancematrix/json")
     url.searchParams.append("origins", origin)
@@ -286,21 +273,13 @@ async function calculateDistance(origin: string, destination: string): Promise<n
     url.searchParams.append("units", "imperial")
     url.searchParams.append("key", apiKey)
 
-    console.log("[v0] Calling Google Maps API...")
     const response = await fetch(url.toString())
     const data = await response.json()
-    console.log("[v0] Google Maps API response:", JSON.stringify(data))
 
-    if (data.status !== "OK" || !data.rows || data.rows.length === 0) {
-      console.error("[v0] Google Maps API error:", data.status, data.error_message || "")
-      return null
-    }
+    if (data.status !== "OK" || !data.rows || data.rows.length === 0) return null
 
     const element = data.rows[0].elements[0]
-    if (element.status !== "OK") {
-      console.error("[v0] Distance calculation error:", element.status)
-      return null
-    }
+    if (element.status !== "OK") return null
 
     // Convert meters to miles
     const meters = element.distance.value

@@ -61,8 +61,7 @@ export async function createRestaurant(data: {
         marketplace_image_url: data.marketplace_image_url || null,
         cuisine_type: data.cuisine_type || null,
         area: data.area || null,
-        tax_rate: 7.0,
-        delivery_fee: 25.0,
+        tax_rate: 0.115,
         tip_option_1: 15,
         tip_option_2: 18,
         tip_option_3: 20,
@@ -554,7 +553,7 @@ export async function updateRestaurant(
     restaurant_discount_percent?: number // JunteReady internal discount
     delivery_discount_percent?: number // Delivery-specific discount
     pickup_discount_percent?: number // Pick-up-specific discount
-    dispatch_fee?: number // Per-order dispatch fee shown in cart
+    dispatch_fee_percent?: number // Dispatch fee as % of subtotal, shown in cart
     cart_disclaimer?: string // Bottom-of-cart note shown to customer
   },
 ) {

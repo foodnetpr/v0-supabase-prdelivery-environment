@@ -388,7 +388,7 @@ export default function CustomerPortal({
       packages_section_title: b.packages_section_title || restaurant.packages_section_title,
       email: b.email || restaurant.email,
       phone: b.phone || restaurant.phone,
-      dispatch_fee: (b as any).dispatch_fee ?? (restaurant as any).dispatch_fee ?? 0,
+      dispatch_fee_percent: (b as any).dispatch_fee_percent ?? (restaurant as any).dispatch_fee_percent ?? 0,
       cart_disclaimer: (b as any).cart_disclaimer ?? (restaurant as any).cart_disclaimer ?? "",
     }
   })()
@@ -1188,7 +1188,7 @@ export default function CustomerPortal({
   const subtotal = cart
     .filter((item) => item.type !== "delivery_fee")
     .reduce((total, cartItem) => total + (cartItem.finalPrice || 0), 0)
-  const taxRate = effectiveRestaurant.tax_rate ? effectiveRestaurant.tax_rate / 100 : 0
+  const taxRate = effectiveRestaurant.tax_rate ?? 0
   const taxAmount = subtotal * taxRate
   // Removed deliveryFee const as it's now dynamic
 
@@ -1205,8 +1205,8 @@ export default function CustomerPortal({
   const total = subtotal + taxAmount + (deliveryMethod === "delivery" ? deliveryFeeCalculation.fee : 0) + tipAmount // Use dynamic delivery fee here
 
   const calculateTax = () => {
-    const taxRate = effectiveRestaurant.tax_rate ? effectiveRestaurant.tax_rate / 100 : 0
-    return subtotal * taxRate
+  const taxRate = effectiveRestaurant.tax_rate ?? 0
+  return subtotal * taxRate
   }
 
   // Ref to track last calculation to prevent duplicate calls
@@ -3759,12 +3759,15 @@ const orderData = {
 
             {/* Cart Footer with Total */}
             {foodCartCount > 0 && (() => {
-              const taxRate = effectiveRestaurant.tax_rate ? effectiveRestaurant.tax_rate / 100 : 0
+              // tax_rate is stored as a decimal multiplier (0.115 = 11.5%) — no division needed
+              const taxRate = effectiveRestaurant.tax_rate ?? 0
               const deliveryFee = deliveryMethod === "delivery" ? deliveryFeeCalculation.displayedFee : 0
               const menuSubtotal = cart
                 .filter((i) => i.type !== "delivery_fee")
                 .reduce((s, i) => s + (i.totalPrice || 0), 0)
-              const dispatchFee = deliveryMethod === "delivery" ? Number((effectiveRestaurant as any).dispatch_fee || 0) : 0
+              // Dispatch fee = % of subtotal (dispatch_fee_percent stored as e.g. 5 = 5%)
+              const dispatchFeePercent = deliveryMethod === "delivery" ? Number((effectiveRestaurant as any).dispatch_fee_percent || 0) : 0
+              const dispatchFee = dispatchFeePercent > 0 ? Math.ceil((menuSubtotal * dispatchFeePercent / 100) / 0.05) * 0.05 : 0
               const ivuAmount = menuSubtotal * taxRate
               const tipAmount = deliveryForm.tipPercentage > 0
                 ? (menuSubtotal * deliveryForm.tipPercentage) / 100
@@ -4568,7 +4571,7 @@ const orderData = {
                     )}
                     {/* CHANGE: Tax label now falls back to 0% instead of 8.75% */}
                     <div className="flex justify-between text-sm">
-                      <span>IVU ({effectiveRestaurant.tax_rate || 0}%):</span>
+                      <span>IVU ({Math.round((effectiveRestaurant.tax_rate || 0) * 1000) / 10}%):</span>
                       <span>${taxAmount.toFixed(2)}</span>
                     </div>
                     {tipAmount > 0 && (
