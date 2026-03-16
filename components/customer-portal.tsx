@@ -2601,6 +2601,7 @@ const orderData = {
                 )}
 
                 {/* Item Options */}
+                {console.log("[v0] item_options for", selectedItem.name, ":", JSON.stringify(selectedItem.item_options?.map(o => ({ id: o.id, category: o.category, choices: o.item_option_choices?.length })), null, 2))}
                 {selectedItem.item_options && selectedItem.item_options.length > 0 && (
                   <div className="space-y-6 py-4 border-t">
                     {selectedItem.item_options
