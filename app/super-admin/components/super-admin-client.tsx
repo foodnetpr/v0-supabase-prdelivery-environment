@@ -1532,7 +1532,6 @@ export function SuperAdminClient({
                 />
               </div>
             </div>
-            </div>
 
             <div className="flex items-center gap-3">
               <Label htmlFor="edit-active">Status</Label>
