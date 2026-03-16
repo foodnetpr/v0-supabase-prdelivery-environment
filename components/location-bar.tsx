@@ -249,12 +249,20 @@ export function LocationBar({
     try {
       const response = await fetch(`/api/places/geocode?address=${encodeURIComponent(addressInput)}`)
       const data = await response.json()
-      
+
       if (data.lat && data.lng) {
+        // Reverse-geocode to get structured components from the resolved coords
+        const rgRes = await fetch(`/api/places/reverse-geocode?lat=${data.lat}&lng=${data.lng}`)
+        const geo = await rgRes.json()
+
         handleLocationSet({
-          address: addressInput,
+          address: geo.address || addressInput,
           lat: data.lat,
           lng: data.lng,
+          zip: geo.zip || "",
+          streetAddress: geo.street || "",
+          city: geo.city || "",
+          state: geo.state || "PR",
         })
       }
     } catch (error) {
@@ -265,17 +273,24 @@ export function LocationBar({
   const handleZipSelect = async (zip: string) => {
     const zipData = PUERTO_RICO_ZIP_CODES.find((z) => z.zip === zip)
     if (!zipData) return
-    
+
     try {
       const response = await fetch(`/api/places/geocode?address=${zip}, Puerto Rico`)
       const data = await response.json()
-      
+
       if (data.lat && data.lng) {
+        // Reverse-geocode the coords to get structured components
+        const rgRes = await fetch(`/api/places/reverse-geocode?lat=${data.lat}&lng=${data.lng}`)
+        const geo = await rgRes.json()
+
         handleLocationSet({
-          address: `${zipData.area}, PR ${zip}`,
+          address: geo.address || `${zipData.area}, PR ${zip}`,
           lat: data.lat,
           lng: data.lng,
-          zip: zip,
+          zip,
+          streetAddress: geo.street || "",
+          city: geo.city || zipData.area,
+          state: geo.state || "PR",
         })
       }
     } catch (error) {
