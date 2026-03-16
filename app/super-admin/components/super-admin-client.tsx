@@ -20,6 +20,7 @@ import {
   Loader2,
   Pencil,
   FileText,
+  Images,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -41,6 +42,7 @@ import { OperationsTab } from "./operations-tab"
 import { AdminUsersTab } from "./admin-users-tab"
 import { CuisineTypesTab } from "./cuisine-types-tab"
 import { ReportsTab } from "./reports-tab"
+import { PromoCardsTab } from "./promo-cards-tab"
 
 interface Restaurant {
   id: string
@@ -226,7 +228,7 @@ export function SuperAdminClient({
     payment_type: "ach" as "ach" | "pop" | "ath",
   })
 
-  const [activeTab, setActiveTab] = useState<"restaurants" | "marketing" | "operations" | "admin-users" | "cuisine-types" | "reports">("restaurants")
+  const [activeTab, setActiveTab] = useState<"restaurants" | "marketing" | "operations" | "admin-users" | "cuisine-types" | "reports" | "promo-cards">("restaurants")
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [marketplaceSettings, setMarketplaceSettings] = useState({
     id: initialSettings?.id || "",
@@ -525,6 +527,17 @@ export function SuperAdminClient({
             >
               <FileText className="h-4 w-4" />
               Reports
+            </button>
+            <button
+              onClick={() => setActiveTab("promo-cards")}
+              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
+                activeTab === "promo-cards"
+                  ? "border-slate-900 text-slate-900 bg-slate-50"
+                  : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+              }`}
+            >
+              <Images className="h-4 w-4" />
+              Promo Cards
             </button>
           </div>
         </div>
@@ -1051,6 +1064,11 @@ export function SuperAdminClient({
       {/* Reports Tab */}
       {activeTab === "reports" && (
         <ReportsTab restaurants={restaurants} />
+      )}
+
+      {/* Promo Cards Tab */}
+      {activeTab === "promo-cards" && (
+        <PromoCardsTab />
       )}
 
       {/* Create Restaurant Modal - keep existing */}

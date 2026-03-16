@@ -246,54 +246,32 @@ export function MarketplaceHome({
   )
 }
 
+interface PromoCardData {
+  id: string
+  title: string
+  subtitle: string | null
+  badge_text: string | null
+  badge_color: string
+  image_url: string | null
+  href: string | null
+  display_order: number
+  is_active: boolean
+}
+
 function PromoBar() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [showLeftArrow, setShowLeftArrow] = useState(false)
   const [showRightArrow, setShowRightArrow] = useState(true)
+  const [promos, setPromos] = useState<PromoCardData[]>([])
 
-  const promos = [
-    {
-      id: "1",
-      image: "/images/slide-shop.jpg",
-      badge: "Nuevo",
-      title: "Bebidas & Extras",
-      subtitle: "Agrega a tu orden",
-      badgeColor: "bg-blue-500",
-      href: "/shop",
-    },
-    {
-      id: "2",
-      image: "/images/slide-catering-2.jpg",
-      badge: "Nuevo",
-      title: "Menú Corporativo",
-      subtitle: "Desde $15/persona",
-      badgeColor: "bg-emerald-500",
-    },
-    {
-      id: "3",
-      image: "/images/slide-catering-3.jpg",
-      badge: "Popular",
-      title: "Fiestas y Celebraciones",
-      subtitle: "Paquetes especiales",
-      badgeColor: "bg-amber-500",
-    },
-    {
-      id: "4",
-      image: "/images/slide-catering-1.jpg",
-      badge: "2x1",
-      title: "Platos Principales",
-      subtitle: "Solo esta semana",
-      badgeColor: "bg-red-500",
-    },
-    {
-      id: "5",
-      image: "/images/slide-catering-2.jpg",
-      badge: "Gratis",
-      title: "Delivery Gratis",
-      subtitle: "En ordenes +$50",
-      badgeColor: "bg-blue-500",
-    },
-  ]
+  useEffect(() => {
+    fetch("/api/super-admin/promo-cards")
+      .then((r) => r.json())
+      .then((data: PromoCardData[]) =>
+        setPromos(data.filter((c) => c.is_active))
+      )
+      .catch(() => {})
+  }, [])
 
   const handleScroll = () => {
     if (!scrollRef.current) return
@@ -351,28 +329,32 @@ function PromoBar() {
           {promos.map((promo) => (
             <Link
               key={promo.id}
-              href={"href" in promo ? (promo as any).href : "#"}
+              href={promo.href ?? "#"}
               className="flex-shrink-0 w-[240px] sm:w-[300px] group"
             >
               <div className="relative aspect-[5/2] rounded-lg overflow-hidden bg-slate-100">
-                <Image
-                  src={promo.image}
-                  alt={promo.title}
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                />
+                {promo.image_url && (
+                  <Image
+                    src={promo.image_url}
+                    alt={promo.title}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                )}
                 {/* Gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                 {/* Badge pill */}
-                <div className={`absolute top-2 left-2 ${promo.badgeColor} text-white text-[10px] font-bold px-2 py-0.5 rounded`}>
-                  {promo.badge}
-                </div>
+                {promo.badge_text && (
+                  <div className={`absolute top-2 left-2 ${promo.badge_color} text-white text-[10px] font-bold px-2 py-0.5 rounded`}>
+                    {promo.badge_text}
+                  </div>
+                )}
                 {/* Text inside card */}
                 <div className="absolute bottom-2 left-2 right-2">
                   <h3 className="font-semibold text-sm text-white leading-tight">
                     {promo.title}
                   </h3>
-                  <p className="text-[10px] text-white/80">{promo.subtitle}</p>
+                  {promo.subtitle && <p className="text-[10px] text-white/80">{promo.subtitle}</p>}
                 </div>
               </div>
             </Link>
