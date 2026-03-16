@@ -46,6 +46,8 @@ export default function ImportPage() {
         return
       }
       parsedDataRef.current = parsed
+      // Expose to window for console testing
+      ;(window as any)._parsedData = parsed
       setFileLabel(`${file.name} — ${parsed.length} restaurants ready`)
       console.log("[v0] data length:", parsed.length, "first entry keys:", Object.keys(parsed[0] ?? {}))
     } catch {
