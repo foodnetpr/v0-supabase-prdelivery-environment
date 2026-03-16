@@ -1,4 +1,5 @@
 import type React from "react"
+import type { Viewport } from "next"
 import { Inter, Playfair_Display } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { Toaster } from "@/components/ui/toaster"
@@ -35,11 +36,10 @@ export default function RootLayout({
 }
 
 export const metadata = {
-  generator: 'v0.app'
+  generator: 'v0.app',
 }
 
-export const viewport = {
+export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
 }
