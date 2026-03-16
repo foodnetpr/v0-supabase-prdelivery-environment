@@ -275,6 +275,19 @@ interface CustomerPortalProps {
   customerAddresses?: CustomerAddress[]
   }
 
+// Convert internal option group codes to customer-friendly Spanish labels
+function formatOptionLabel(text: string): string {
+  if (!text) return ""
+  return text
+    .replace(/Modificador/gi, "¿Cómo desea su")
+    .replace(/Modicador/gi, "¿Cómo desea su")
+    .replace(/Side and app/gi, "Acompañamientos")
+    .replace(/EPN$/gi, "")
+    .replace(/\s+C$/gi, "")
+    .trim()
+    + (text.toLowerCase().includes("modica") || text.toLowerCase().includes("modifi") ? "?" : "")
+}
+
 export default function CustomerPortal({
   restaurant,
   categories,
@@ -2629,7 +2642,7 @@ const orderData = {
                             <div>
                               <div className="flex items-center justify-between">
                                 <Label className="text-base font-semibold">
-                                  {option.prompt || option.category}
+                                  {formatOptionLabel(option.prompt || option.category)}
                                 </Label>
                                 {option.is_required ? (
                                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium border border-gray-300 text-gray-600 bg-white">Requerido</span>

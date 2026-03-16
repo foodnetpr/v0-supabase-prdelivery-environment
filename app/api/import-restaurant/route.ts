@@ -190,7 +190,7 @@ export async function POST(request: Request) {
         optionRows.push({
           menu_item_id: itemId,
           category: opt.group_name || opt.name || `Option ${oi + 1}`,
-          prompt: opt.prompt || null,
+          prompt: opt.prompt || opt.group_name || null,
           is_required: opt.required || false,
           min_selection: opt.min_select || 0,
           max_selection: opt.max_select || 10,
