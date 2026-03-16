@@ -166,6 +166,10 @@ export function LocationBar({
               address: data.address,
               lat: latitude,
               lng: longitude,
+              zip: data.zip || "",
+              streetAddress: data.street || "",
+              city: data.city || "",
+              state: data.state || "PR",
             })
           } else {
             handleLocationSet({
