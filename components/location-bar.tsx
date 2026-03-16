@@ -258,8 +258,11 @@ export function LocationBar({
   if (isMobile) {
     return (
       <div className="flex flex-col gap-2">
-        {/* Row 1: Use Location Button */}
+        {/* Row 1: Delivery badge + Use Location Button */}
         <div className="flex items-center gap-2">
+          <span className="flex-shrink-0 bg-black text-white text-sm font-medium px-3 py-1.5 rounded-full">
+            Delivery
+          </span>
           <button
             onClick={handleUseMyLocation}
             disabled={isLoadingGeo}
@@ -329,6 +332,11 @@ export function LocationBar({
   // Desktop Layout
   return (
     <div className="flex items-center gap-2 flex-1">
+      {/* Delivery badge */}
+      <span className="flex-shrink-0 bg-black text-white text-sm font-medium px-3 py-1 rounded-full">
+        Delivery
+      </span>
+
       {/* 2. Use My Location Button - icon only */}
       <button
         onClick={handleUseMyLocation}
