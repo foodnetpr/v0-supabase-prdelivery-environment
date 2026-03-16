@@ -815,6 +815,37 @@ export default function CustomerPortal({
     setDietaryFilters((prev) => (prev.includes(filter) ? prev.filter((f) => f !== filter) : [...prev, filter]))
   }
 
+  // Returns true if item has no options, no sizes, and no bulk-order flag —
+  // i.e. it can be added directly to cart with qty=1, no dialog needed.
+  const isSimpleItem = (item: MenuItem): boolean => {
+    if (item.is_bulk_order) return false
+    if (item.sizes && item.sizes.length > 0) return false
+    if (item.item_options && item.item_options.length > 0) return false
+    return true
+  }
+
+  // Add a no-options item straight to the cart (qty 1) without opening the dialog.
+  const addSimpleItemToCart = (item: MenuItem) => {
+    const newCartItem = {
+      id: item.id,
+      name: item.name,
+      type: "item" as const,
+      basePrice: item.base_price,
+      finalPrice: item.base_price,
+      image_url: item.image_url,
+      selectedOptions: {} as Record<string, string>,
+      isAutomatic: false,
+      lead_time_hours: item.lead_time_hours || effectiveRestaurant.lead_time_hours || 24,
+      unitQuantity: 1,
+      pricingUnit: item.pricing_unit || undefined,
+      container_type: (item as any).container_type || "none",
+      containers_per_unit: (item as any).containers_per_unit || 1,
+      quantity: 1,
+    }
+    setCart((prev) => [...prev, newCartItem])
+    setCartVersion((v) => v + 1)
+  }
+
   const handleAddToCart = () => {
     if (selectedItem) {
       // Validate required options
@@ -2173,6 +2204,9 @@ const orderData = {
                           onSelect={() => {
                             if (item.is_bulk_order && !item.pricing_unit) {
                               setBulkOrderItem(item)
+                            } else if (isSimpleItem(item)) {
+                              // No options — add directly to cart, no dialog
+                              addSimpleItemToCart(item)
                             } else {
                               setSelectedItem(item)
                               setUnitQuantity(item.min_quantity || 1)
@@ -2380,112 +2414,34 @@ const orderData = {
               </div>
 
               <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
-                {/* Quantity Selector - shown for all items, hidden when counter option drives quantity */}
+                {/* Quantity Selector - compact stepper, hidden when counter option drives quantity */}
                 {!hasRequiredCounterOption(selectedItem) && (
                   <div className="space-y-2">
-                    <Label className="text-base font-semibold">Seleccionar cantidad:</Label>
-                    {manualQuantityMode ? (
-                      <input
-                        type="number"
-                        min={selectedItem.min_quantity || 1}
-                        value={manualQuantityInput}
-                        onChange={(e) => setManualQuantityInput(e.target.value)}
-                        onBlur={() => {
-                          const val = Number.parseInt(manualQuantityInput)
-                          if (val && val >= (selectedItem.min_quantity || 1)) {
-                            setUnitQuantity(val)
-                          }
-                          if (!val || val < (selectedItem.min_quantity || 1)) {
-                            setUnitQuantity(selectedItem.min_quantity || 1)
-                          }
-                          setManualQuantityMode(false)
+                    <Label className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Cantidad</Label>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const minQty = selectedItem.min_quantity || 1
+                          if (unitQuantity > minQty) setUnitQuantity(unitQuantity - 1)
                         }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            const val = Number.parseInt(manualQuantityInput)
-                            if (val && val >= (selectedItem.min_quantity || 1)) {
-                              setUnitQuantity(val)
-                            }
-                            setManualQuantityMode(false)
-                          }
-                        }}
-                        autoFocus
-                        className="w-full border border-gray-300 rounded-lg p-3 text-base bg-white focus:outline-none focus:ring-2 focus:ring-gray-400"
-                        placeholder={`Ingresa cantidad (min. ${selectedItem.min_quantity || 1})`}
-                      />
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const minQty = selectedItem.min_quantity || 1
-                            if (unitQuantity > minQty) setUnitQuantity(unitQuantity - 1)
-                          }}
-                          disabled={unitQuantity <= (selectedItem.min_quantity || 1)}
-                          className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary text-primary-foreground font-bold text-xl shrink-0 disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
-                          aria-label="Disminuir cantidad"
-                        >
-                          -
-                        </button>
-                        <select
-                          value={unitQuantity > 100 ? "manual" : unitQuantity}
-                          onChange={(e) => {
-                            if (e.target.value === "manual") {
-                              setManualQuantityInput(unitQuantity.toString())
-                              setManualQuantityMode(true)
-                            } else {
-                              setUnitQuantity(Number(e.target.value))
-                            }
-                          }}
-                          onDoubleClick={() => {
-                            setManualQuantityInput(unitQuantity.toString())
-                            setManualQuantityMode(true)
-                          }}
-                          className="flex-1 border border-gray-300 rounded-lg p-3 text-base text-center bg-white focus:outline-none focus:ring-2 focus:ring-gray-400 appearance-none cursor-pointer"
-                          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center' }}
-                        >
-                          {unitQuantity > 100 && (() => {
-                            const isStandard = !selectedItem.pricing_unit || selectedItem.pricing_unit === "each"
-                            const suffix = isPerPersonItem(selectedItem) ? " personas"
-                              : isStandard ? ""
-                              : ` ${getQuantityUnitLabel(selectedItem.pricing_unit, unitQuantity)}`
-                            return <option value="manual">{unitQuantity}{suffix}</option>
-                          })()}
-                          {Array.from(
-                            { length: Math.max(1, 101 - (selectedItem.min_quantity || 1)) },
-                            (_, i) => i + (selectedItem.min_quantity || 1)
-                          ).map((num) => {
-                            const isStandard = !selectedItem.pricing_unit || selectedItem.pricing_unit === "each"
-                            const unitLabel = isPerPersonItem(selectedItem)
-                              ? (num === 1 ? " persona" : " personas")
-                              : isStandard
-                              ? ""
-                              : ` ${getQuantityUnitLabel(selectedItem.pricing_unit, num)}`
-                            return (
-                              <option key={num} value={num}>
-                                {num}{unitLabel}
-                              </option>
-                            )
-                          })}
-                          <option value="manual">Mas de 100... (escribir cantidad)</option>
-                        </select>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (unitQuantity < 100) {
-                              setUnitQuantity(unitQuantity + 1)
-                            } else {
-                              setManualQuantityInput((unitQuantity + 1).toString())
-                              setUnitQuantity(unitQuantity + 1)
-                            }
-                          }}
-                          className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary text-primary-foreground font-bold text-xl shrink-0 hover:opacity-90 transition-opacity"
-                          aria-label="Aumentar cantidad"
-                        >
-                          +
-                        </button>
-                      </div>
-                    )}
+                        disabled={unitQuantity <= (selectedItem.min_quantity || 1)}
+                        className="flex items-center justify-center w-9 h-9 rounded-full border-2 border-gray-300 text-gray-700 font-bold text-lg disabled:opacity-30 disabled:cursor-not-allowed hover:border-gray-500 transition-colors"
+                        aria-label="Disminuir cantidad"
+                      >
+                        −
+                      </button>
+                      <span className="w-8 text-center text-lg font-semibold tabular-nums">{unitQuantity}</span>
+                      <button
+                        type="button"
+                        onClick={() => setUnitQuantity(unitQuantity + 1)}
+                        className="flex items-center justify-center w-9 h-9 rounded-full border-2 text-white font-bold text-lg hover:opacity-90 transition-opacity"
+                        style={{ backgroundColor: primaryColor, borderColor: primaryColor }}
+                        aria-label="Aumentar cantidad"
+                      >
+                        +
+                      </button>
+                    </div>
                     {(() => {
                       const serves = getEffectiveServes(selectedItem)
                       const isEachItem = !selectedItem.pricing_unit || selectedItem.pricing_unit === "each"
