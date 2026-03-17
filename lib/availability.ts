@@ -241,12 +241,16 @@ export async function getRestaurantsOpenStatus(restaurantIds: string[]): Promise
   const dayOfWeek = now.getDay()
   const currentTime = formatTimeForComparison(now)
   
+  console.log("[v0] getRestaurantsOpenStatus - dayOfWeek:", dayOfWeek, "currentTime:", currentTime)
+  
   // Fetch all hours for these restaurants for today
-  const { data: allHours } = await supabase
+  const { data: allHours, error } = await supabase
     .from("restaurant_hours")
     .select("*")
     .in("restaurant_id", restaurantIds)
     .eq("day_of_week", dayOfWeek)
+  
+  console.log("[v0] restaurant_hours query result:", allHours?.length, "records, error:", error?.message)
   
   const hoursMap = new Map<string, any>()
   allHours?.forEach(h => hoursMap.set(h.restaurant_id, h))
@@ -255,6 +259,11 @@ export async function getRestaurantsOpenStatus(restaurantIds: string[]): Promise
   
   for (const id of restaurantIds) {
     const hours = hoursMap.get(id)
+    
+    // Debug: Log KASE ASIAN BISTRO specifically
+    if (id === 'f14e1bd5-eaf0-4e0f-90ad-0330377ecdec') {
+      console.log("[v0] KASE hours found:", hours)
+    }
     
     if (!hours) {
       // No hours set = always open
