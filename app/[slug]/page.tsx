@@ -7,10 +7,10 @@ export default async function TenantPortalPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ reorder?: string }>
+  searchParams: Promise<{ reorder?: string; preorder?: string }>
 }) {
   const { slug } = await params
-  const { reorder } = await searchParams
+  const { reorder, preorder } = await searchParams
 
   if (slug === "admin" || slug === "auth" || slug === "api") {
     redirect(`/${slug}`)
@@ -271,6 +271,7 @@ export default async function TenantPortalPage({
         restaurantHours={restaurantHours || []}
         customer={customer}
         customerAddresses={customerAddresses}
+        isPreorder={preorder === "true"}
       />
     )
   } catch (error) {

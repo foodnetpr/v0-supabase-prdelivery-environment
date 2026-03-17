@@ -277,6 +277,7 @@ interface CustomerPortalProps {
   restaurantHours?: RestaurantHour[]
   customer?: Customer | null
   customerAddresses?: CustomerAddress[]
+  isPreorder?: boolean
   }
 
 // Convert internal option group codes to customer-friendly Spanish labels
@@ -308,6 +309,7 @@ export default function CustomerPortal({
   restaurantHours = [],
   customer,
   customerAddresses = [],
+  isPreorder = false,
   }: CustomerPortalProps) {
   // Branch selection state
   const isChain = (restaurant as any).is_chain && branches.length > 0
@@ -316,6 +318,10 @@ export default function CustomerPortal({
     !isChain && branches.length > 0 ? branches[0] : null
   )
   const [showBranchSelector, setShowBranchSelector] = useState(isChain)
+  
+  // Pre-order scheduling state
+  const [showPreorderDialog, setShowPreorderDialog] = useState(isPreorder)
+  const [scheduledDeliveryTime, setScheduledDeliveryTime] = useState<string | null>(null)
 
   // Helper to check if item is available now (day + daypart using restaurant_hours)
   const isAvailableNow = (item: MenuItem) => {
@@ -4940,6 +4946,134 @@ const orderData = {
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Pre-Order Scheduling Dialog */}
+      <Dialog open={showPreorderDialog} onOpenChange={setShowPreorderDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl">Ordenar por Adelantado</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-center text-slate-600 mb-6">
+              {restaurant.name} esta cerrado en este momento. Puedes programar tu orden para cuando abran.
+            </p>
+            
+            <div className="space-y-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
+                <p className="text-sm text-amber-800 font-medium mb-1">Proxima Apertura</p>
+                <p className="text-2xl font-bold text-amber-900">
+                  {(() => {
+                    // Calculate next opening time from restaurantHours
+                    const now = new Date()
+                    const prFormatter = new Intl.DateTimeFormat('en-US', {
+                      timeZone: 'America/Puerto_Rico',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: false,
+                    })
+                    const prParts = prFormatter.formatToParts(now)
+                    const prHour = prParts.find(p => p.type === 'hour')?.value || '00'
+                    const prMinute = prParts.find(p => p.type === 'minute')?.value || '00'
+                    const currentTime = `${prHour}:${prMinute}:00`
+                    
+                    const prDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Puerto_Rico' }))
+                    const dayOfWeek = prDate.getDay()
+                    
+                    const todayHours = restaurantHours.find(h => h.day_of_week === dayOfWeek)
+                    if (todayHours) {
+                      const shifts = [
+                        todayHours.breakfast_open,
+                        todayHours.lunch_open,
+                        todayHours.dinner_open,
+                      ].filter(Boolean)
+                      
+                      for (const openTime of shifts) {
+                        if (openTime && currentTime < openTime) {
+                          const [h, m] = openTime.split(':')
+                          const hour = parseInt(h)
+                          const ampm = hour >= 12 ? 'PM' : 'AM'
+                          const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour)
+                          return `${displayHour}:${m} ${ampm}`
+                        }
+                      }
+                    }
+                    return "Mañana"
+                  })()}
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Selecciona hora de entrega deseada
+                </label>
+                <select 
+                  className="w-full border border-slate-300 rounded-lg p-3 text-base"
+                  value={scheduledDeliveryTime || ""}
+                  onChange={(e) => setScheduledDeliveryTime(e.target.value)}
+                >
+                  <option value="">Seleccionar hora...</option>
+                  {(() => {
+                    // Generate time slots based on restaurant hours
+                    const options: JSX.Element[] = []
+                    const now = new Date()
+                    const prDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Puerto_Rico' }))
+                    const dayOfWeek = prDate.getDay()
+                    const todayHours = restaurantHours.find(h => h.day_of_week === dayOfWeek)
+                    
+                    if (todayHours) {
+                      const shifts = [
+                        { name: 'Almuerzo', open: todayHours.lunch_open, close: todayHours.lunch_close },
+                        { name: 'Cena', open: todayHours.dinner_open, close: todayHours.dinner_close },
+                      ]
+                      
+                      for (const shift of shifts) {
+                        if (shift.open && shift.close) {
+                          const [startH] = shift.open.split(':').map(Number)
+                          const [endH] = shift.close.split(':').map(Number)
+                          
+                          for (let h = startH; h < endH; h++) {
+                            for (const m of ['00', '30']) {
+                              const hour = h > 12 ? h - 12 : (h === 0 ? 12 : h)
+                              const ampm = h >= 12 ? 'PM' : 'AM'
+                              const timeStr = `${hour}:${m} ${ampm}`
+                              const value = `${h.toString().padStart(2, '0')}:${m}`
+                              options.push(
+                                <option key={value} value={value}>{timeStr}</option>
+                              )
+                            }
+                          }
+                        }
+                      }
+                    }
+                    return options.length > 0 ? options : <option disabled>No hay horarios disponibles</option>
+                  })()}
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter className="flex gap-2">
+            <button
+              onClick={() => setShowPreorderDialog(false)}
+              className="flex-1 px-4 py-3 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => {
+                if (scheduledDeliveryTime) {
+                  setShowPreorderDialog(false)
+                  // Continue to menu with scheduled time
+                }
+              }}
+              disabled={!scheduledDeliveryTime}
+              className="flex-1 px-4 py-3 bg-pink-500 text-white rounded-lg font-medium hover:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Continuar
+            </button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
