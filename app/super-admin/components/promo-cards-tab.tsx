@@ -114,10 +114,10 @@ export function PromoCardsTab() {
       const payload = {
         title: form.title.trim(),
         subtitle: form.subtitle.trim() || null,
-        badge_text: form.badge_text.trim() || null,
+        badge: form.badge_text.trim() || null,
         badge_color: form.badge_color,
         image_url: form.image_url || null,
-        href: form.href.trim() || null,
+        href: form.href.trim() || "#",
         is_active: form.is_active,
       }
 
