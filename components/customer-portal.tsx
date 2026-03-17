@@ -868,7 +868,7 @@ export default function CustomerPortal({
 
       // Calculate price - account for size selection and quantity
       const selectedSize = getSelectedSize(selectedItem)
-      const effectiveBasePrice = selectedSize ? selectedSize.price : (selectedItem.base_price || 0)
+      const effectiveBasePrice = selectedSize ? Number(selectedSize.price) : Number(selectedItem.base_price || 0)
       const showsQuantity = true // All items support quantity selection
       const isCounterItem = hasRequiredCounterOption(selectedItem)
       const counterTotal = isCounterItem ? getCounterTotal(selectedItem) : 0
@@ -895,13 +895,13 @@ export default function CustomerPortal({
           selection.forEach((choiceId) => {
             const choice = option.item_option_choices?.find((c) => c.id === choiceId)
             if (choice?.price_modifier) {
-              itemPrice += choice.price_modifier
+              itemPrice += Number(choice.price_modifier)
             }
           })
         } else if (selection && typeof selection === "string") {
           const choice = option.item_option_choices?.find((c) => c.id === selection)
           if (choice?.price_modifier) {
-            itemPrice += choice.price_modifier
+            itemPrice += Number(choice.price_modifier)
           }
         }
       })
@@ -916,7 +916,7 @@ export default function CustomerPortal({
           const parentChoice = option.item_option_choices?.find((c) => c.id === parentChoiceId)
           const subChoice = parentChoice?.sub_options?.find((s) => s.id === subChoiceId)
           if (subChoice?.price_modifier) {
-            itemPrice += subChoice.price_modifier
+            itemPrice += Number(subChoice.price_modifier)
           }
         }
       })

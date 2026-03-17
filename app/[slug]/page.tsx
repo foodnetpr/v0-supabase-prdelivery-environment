@@ -151,7 +151,7 @@ export default async function TenantPortalPage({
     // item_options and item_option_choices are already nested on each menuItem via the select above
     const menuItemsWithOptions = (menuItems || []).map((item) => ({
       ...item,
-      base_price: item.price,
+      base_price: Number(item.price) || 0,
       category: categories?.find((cat) => cat.id === item.category_id)?.name || "",
       item_options: (item.item_options || []).map((opt: any) => ({
         ...opt,
