@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Link from "next/link"
 import Image from "next/image"
 import { useState, useMemo, useEffect, useRef } from "react"
-import { ChevronLeft, ChevronRight, ArrowRight, Search, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, ArrowRight, Search, X, RotateCcw } from "lucide-react"
 import { type UserLocation, type OrderMode } from "./location-bar"
 import { CuisineBar } from "./cuisine-bar"
 import { GlobalNavbar } from "./global-navbar"
@@ -172,6 +172,12 @@ export function MarketplaceHome({
         searchQuery={searchQuery} 
         onSearchChange={setSearchQuery}
         resultCount={filteredRestaurants.length}
+        cuisineFilter={cuisineFilter}
+        onResetFilters={() => {
+          setCuisineFilter("all")
+          setLocationFilter("all")
+          setSearchQuery("")
+        }}
       />
 
       {/* Blocked zip code banner */}
@@ -279,11 +285,15 @@ interface PromoCardData {
 function PromoBar({ 
   searchQuery, 
   onSearchChange,
-  resultCount
+  resultCount,
+  cuisineFilter,
+  onResetFilters
 }: { 
   searchQuery: string
   onSearchChange: (query: string) => void
   resultCount: number
+  cuisineFilter: string
+  onResetFilters: () => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [showLeftArrow, setShowLeftArrow] = useState(false)
@@ -321,9 +331,21 @@ function PromoBar({
         {/* Section header */}
         <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2 className="text-base sm:text-lg font-bold text-slate-900">Ofertas y Promociones</h2>
-          {/* Restaurant search input */}
-          <div className="flex flex-col items-end gap-1">
-            <div className="flex items-center gap-2 px-3 py-1.5 border border-slate-200 rounded-lg bg-white hover:border-slate-300 focus-within:border-slate-400 focus-within:ring-1 focus-within:ring-slate-200 transition-colors min-w-[200px] sm:min-w-[280px]">
+          {/* Restaurant search and filter controls */}
+          <div className="flex items-center gap-2">
+            {/* Ver Todos button - shows when filters are active */}
+            {(cuisineFilter !== "all" || searchQuery) && (
+              <button
+                onClick={onResetFilters}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Ver Todos</span>
+              </button>
+            )}
+            {/* Search input */}
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-2 px-3 py-1.5 border border-slate-200 rounded-lg bg-white hover:border-slate-300 focus-within:border-slate-400 focus-within:ring-1 focus-within:ring-slate-200 transition-colors min-w-[200px] sm:min-w-[280px]">
               <Search className="w-4 h-4 text-slate-400 flex-shrink-0" />
               <input
                 type="text"
@@ -347,6 +369,7 @@ function PromoBar({
                 {resultCount} restaurante{resultCount !== 1 ? "s" : ""} encontrado{resultCount !== 1 ? "s" : ""}
               </span>
             )}
+            </div>
           </div>
         </div>
 
