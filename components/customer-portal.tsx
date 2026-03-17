@@ -2514,10 +2514,11 @@ const orderData = {
                   <div className="mt-1">
                     <p className="text-lg font-semibold">
                       ${(selectedItem.base_price || 0).toFixed(2)}
-                      <span className="text-base font-normal text-muted-foreground">
-                        {" "}/ por unidad
-                        {selectedItem.min_quantity && selectedItem.min_quantity > 1 && <>{" | "}Minimo {selectedItem.min_quantity} {selectedItem.min_quantity === 1 ? "Unidad" : "Unidades"}</>}
-                      </span>
+                      {selectedItem.min_quantity && selectedItem.min_quantity > 1 && (
+                        <span className="text-base font-normal text-muted-foreground">
+                          {" | "}Minimo {selectedItem.min_quantity} Unidades
+                        </span>
+                      )}
                     </p>
                     <p className="text-muted-foreground text-sm mt-1">{selectedItem.description}</p>
                   </div>
@@ -3865,7 +3866,7 @@ const orderData = {
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-medium text-gray-900 truncate">{addon.name}</p>
                               <p className="text-[11px] text-gray-500">
-                                <span className="font-semibold" style={{ color: primaryColor }}>${Number(addonPrice).toFixed(2)}</span>/{addon.unit || "por unidad"}
+                                <span className="font-semibold" style={{ color: primaryColor }}>${Number(addonPrice).toFixed(2)}</span>
                               </p>
                             </div>
                             <button
