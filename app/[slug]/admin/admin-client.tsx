@@ -297,6 +297,7 @@ export default function RestaurantAdminClient({
     name: "",
     description: "",
     header_image_url: "",
+    available_days: { sun: true, mon: true, tue: true, wed: true, thu: true, fri: true, sat: true } as Record<string, boolean>,
   })
   const [showItemTypeModal, setShowItemTypeModal] = useState(false)
   const [showOptionsModal, setShowOptionsModal] = useState(false)
@@ -1673,6 +1674,7 @@ export default function RestaurantAdminClient({
       name: category.name,
       description: category.description || "",
       header_image_url: category.header_image_url || "",
+      available_days: category.available_days || { sun: true, mon: true, tue: true, wed: true, thu: true, fri: true, sat: true },
     })
     setShowCategoryModal(true)
   }
@@ -1690,6 +1692,7 @@ export default function RestaurantAdminClient({
       header_image_url: categoryForm.header_image_url || null, // Ensure null if empty
       display_order: editingCategory?.display_order ?? categories.length,
       is_active: editingCategory ? editingCategory.is_active : true, // Keep existing active status or default to true
+      available_days: categoryForm.available_days,
     }
 
     try {
@@ -1711,7 +1714,7 @@ export default function RestaurantAdminClient({
 
       setShowCategoryModal(false)
       setEditingCategory(null)
-      setCategoryForm({ name: "", description: "", header_image_url: "" }) // Reset form
+      setCategoryForm({ name: "", description: "", header_image_url: "", available_days: { sun: true, mon: true, tue: true, wed: true, thu: true, fri: true, sat: true } }) // Reset form
       loadCategories()
       loadStats() // Reload stats to update category count
     } catch (error) {
@@ -1743,7 +1746,7 @@ export default function RestaurantAdminClient({
   }
 
   const resetCategoryForm = () => {
-    setCategoryForm({ name: "", description: "", header_image_url: "" })
+    setCategoryForm({ name: "", description: "", header_image_url: "", available_days: { sun: true, mon: true, tue: true, wed: true, thu: true, fri: true, sat: true } })
     setEditingCategory(null)
   }
   // End of category form handlers
@@ -2625,7 +2628,7 @@ payment_provider: branchForm.payment_provider || "stripe",
                   <Button
                     onClick={() => {
                       setEditingCategory(null)
-                      setCategoryForm({ name: "", description: "", header_image_url: "" })
+                      setCategoryForm({ name: "", description: "", header_image_url: "", available_days: { sun: true, mon: true, tue: true, wed: true, thu: true, fri: true, sat: true } })
                       setShowCategoryModal(true)
                     }}
                     className="bg-[#5d1f1f] hover:bg-[#4a1818]"
@@ -5804,6 +5807,37 @@ const pickupOrders = orders.filter((o: any) => o.order_type === "pickup" || o.de
                 onRemove={() => setCategoryForm({ ...categoryForm, header_image_url: "" })}
                 label="Category Header Image"
               />
+            </div>
+            <div>
+              <Label className="text-sm font-semibold uppercase tracking-wide mb-2 block">Visible on Days</Label>
+              <p className="text-xs text-muted-foreground mb-2">For daily specials, select which days this category should appear</p>
+              <div className="flex gap-1">
+                {[
+                  { key: "sun", label: "D" },
+                  { key: "mon", label: "L" },
+                  { key: "tue", label: "M" },
+                  { key: "wed", label: "W" },
+                  { key: "thu", label: "J" },
+                  { key: "fri", label: "V" },
+                  { key: "sat", label: "S" },
+                ].map((day) => (
+                  <button
+                    key={day.key}
+                    type="button"
+                    onClick={() => {
+                      const newDays = { ...categoryForm.available_days, [day.key]: !categoryForm.available_days[day.key] }
+                      setCategoryForm({ ...categoryForm, available_days: newDays })
+                    }}
+                    className={`w-8 h-8 rounded text-xs font-bold transition-colors ${
+                      categoryForm.available_days[day.key]
+                        ? "bg-emerald-500 text-white"
+                        : "bg-gray-200 text-gray-500"
+                    }`}
+                  >
+                    {day.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">

@@ -2157,6 +2157,14 @@ const orderData = {
                 <DropdownMenuSeparator />
                 {categories
                   .filter((cat) => cat.is_active)
+                  .filter((cat) => {
+                    // Filter by day of week
+                    const availableDays = cat.available_days as Record<string, boolean> | null
+                    if (!availableDays) return true
+                    const dayOfWeek = new Date().getDay()
+                    const days = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const
+                    return availableDays[days[dayOfWeek]] !== false
+                  })
                   .sort((a, b) => a.display_order - b.display_order)
                   .filter((category) => {
                     const categoryItems = effectiveMenuItems.filter(
@@ -2190,6 +2198,14 @@ const orderData = {
 
             {categories
               .filter((cat) => cat.name !== "SERVICE_PACKAGES" && cat.is_active)
+              .filter((cat) => {
+                // Filter by day of week
+                const availableDays = cat.available_days as Record<string, boolean> | null
+                if (!availableDays) return true
+                const dayOfWeek = new Date().getDay()
+                const days = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const
+                return availableDays[days[dayOfWeek]] !== false
+              })
               .sort((a, b) => a.display_order - b.display_order)
               .map((category) => (
                 <Button
@@ -2210,6 +2226,14 @@ const orderData = {
       <main className="container mx-auto px-4 py-6">
         {categories
           .filter((cat) => cat.is_active)
+          .filter((cat) => {
+            // Filter by day of week if available_days is set
+            const availableDays = cat.available_days as Record<string, boolean> | null
+            if (!availableDays) return true // No restriction = show all days
+            const dayOfWeek = new Date().getDay()
+            const days = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const
+            return availableDays[days[dayOfWeek]] !== false
+          })
           .sort((a, b) => a.display_order - b.display_order)
           .map((category) => {
             const categoryItems = effectiveMenuItems.filter(
