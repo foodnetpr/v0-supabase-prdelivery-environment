@@ -2101,22 +2101,19 @@ const orderData = {
                     Recogido
                   </Button>
                 </div>
-              ) : (
-                /* Show single badge when only one option is available */
+              ) : selectedBranch?.delivery_enabled ? (
+                /* Show Delivery badge when only delivery is enabled */
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium text-white" style={{ backgroundColor: primaryColor }}>
-                  {selectedBranch?.delivery_enabled ? (
-                    <>
-                      <Truck className="w-4 h-4" />
-                      Delivery
-                    </>
-                  ) : (
-                    <>
-                      <Package className="w-4 h-4" />
-                      Take-Out
-                    </>
-                  )}
+                  <Truck className="w-4 h-4" />
+                  Delivery
                 </div>
-              )}
+              ) : selectedBranch?.pickup_enabled ? (
+                /* Show Take-Out badge when only pickup is enabled */
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium text-white" style={{ backgroundColor: primaryColor }}>
+                  <Package className="w-4 h-4" />
+                  Take-Out
+                </div>
+              ) : null}
               {user ? (
                 <Button
                   variant="ghost"
