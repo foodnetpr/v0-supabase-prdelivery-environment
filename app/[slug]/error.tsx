@@ -1,6 +1,7 @@
-'use client'
+"use client"
 
-export default function Error({ error, reset }: { error: Error, reset: () => void }) {
+// Error boundary for restaurant pages
+export default function Error({ error, reset }: { error: Error; reset: () => void }) {
   return (
     <div style={{ padding: '2rem', textAlign: 'center', maxWidth: '600px', margin: '0 auto' }}>
       <h2 style={{ marginBottom: '1rem' }}>Something went wrong loading this restaurant</h2>
