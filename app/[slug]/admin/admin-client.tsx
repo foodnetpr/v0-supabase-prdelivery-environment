@@ -622,7 +622,9 @@ export default function RestaurantAdminClient({
 
   const loadRestaurantHours = async () => {
     try {
+      console.log("[v0] loadRestaurantHours called for restaurantId:", restaurantId)
       const data = await getRestaurantHours(restaurantId)
+      console.log("[v0] getRestaurantHours returned:", data)
       if (data.length > 0) {
         const merged = DEFAULT_RESTAURANT_HOURS.map((def) => {
           const found = data.find((d: any) => d.day_of_week === def.day_of_week)
@@ -636,11 +638,14 @@ export default function RestaurantAdminClient({
             dinner_close: found.dinner_close,
           } : def
         })
+        console.log("[v0] merged restaurantHours:", merged)
         setRestaurantHours(merged)
+      } else {
+        console.log("[v0] No restaurant hours data found, using defaults")
       }
       setRestaurantHoursLoaded(true)
     } catch (e) {
-      console.error("Failed to load restaurant hours:", e)
+      console.error("[v0] Failed to load restaurant hours:", e)
       setRestaurantHoursLoaded(true)
     }
   }
