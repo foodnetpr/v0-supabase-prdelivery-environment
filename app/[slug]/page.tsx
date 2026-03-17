@@ -73,7 +73,7 @@ export default async function TenantPortalPage({
       .eq("is_active", true)
       .order("display_order", { ascending: true, nullsFirst: false })
     
-    // Fetch item_options separately to avoid Supabase nested query limits
+    // Fetch item_options and item_option_choices separately to avoid Supabase nested query limits
     const menuItemIds = (menuItems || []).map((item) => item.id)
     const { data: itemOptions } = menuItemIds.length > 0 
       ? await supabase
