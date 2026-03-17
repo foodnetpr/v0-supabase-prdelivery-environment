@@ -826,12 +826,14 @@ export default function CustomerPortal({
   // Add a no-options item straight to the cart (qty 1) without opening the dialog.
   const addSimpleItemToCart = (item: MenuItem) => {
     if (isExternalDeliveryItem(item.name)) return
+    const itemPrice = Number(item.base_price) || 0
     const newCartItem = {
       id: item.id,
       name: item.name,
       type: "item" as const,
-      basePrice: item.base_price,
-      finalPrice: item.base_price,
+      basePrice: itemPrice,
+      finalPrice: itemPrice,
+      totalPrice: itemPrice,
       image_url: item.image_url,
       selectedOptions: {} as Record<string, string>,
       isAutomatic: false,
@@ -841,6 +843,7 @@ export default function CustomerPortal({
       container_type: (item as any).container_type || "none",
       containers_per_unit: (item as any).containers_per_unit || 1,
       quantity: 1,
+      item: item,
     }
     setCart((prev) => [...prev, newCartItem])
     setCartVersion((v) => v + 1)
@@ -3613,7 +3616,7 @@ const orderData = {
                           {/* Price */}
                           <div className="flex-shrink-0 text-right">
                             <span className="font-bold text-base" style={{ color: primaryColor }}>
-                              ${item.totalPrice?.toFixed(2)}
+                              ${(item.totalPrice ?? item.finalPrice ?? item.basePrice ?? 0).toFixed(2)}
                             </span>
                           </div>
                         </div>
