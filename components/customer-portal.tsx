@@ -2243,8 +2243,8 @@ const orderData = {
         </div>
       </div>
 
-      {/* Navigation - sticky floating menu below header */}
-      <nav className="sticky top-[52px] z-40 bg-background border-b shadow-sm">
+      {/* Navigation - sticky floating menu below header (responsive top offset for mobile/desktop navbar heights) */}
+      <nav className="sticky top-[88px] md:top-[52px] z-40 bg-background border-b shadow-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-2 overflow-x-auto">
             <DropdownMenu>
