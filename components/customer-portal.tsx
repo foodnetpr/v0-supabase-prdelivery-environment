@@ -18,6 +18,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Truck, Package, ShoppingCart, Filter, Check, Minus, Plus, MapPin, Pencil, Trash2, PlusCircle, MinusCircle, X, ChevronDown, ChevronLeft, List } from "lucide-react"
 import Image from "next/image"
+import Link from "next/link"
 import StripeCheckout from "./stripe-checkout"
 import SquareCheckout from "./square-checkout"
 import ATHMovilCheckout from "./athmovil-checkout"
