@@ -262,6 +262,8 @@ export default function RestaurantAdminClient({
   // Copy menu state
   const [allRestaurantsForCopy, setAllRestaurantsForCopy] = useState<{ id: string; name: string }[]>([])
   const [copyMenuSourceId, setCopyMenuSourceId] = useState("")
+  const [copyMenuTargetIds, setCopyMenuTargetIds] = useState<string[]>([])
+  const [copyMenuDirection, setCopyMenuDirection] = useState<"pull" | "push">("pull")
   const [copyMenuClearExisting, setCopyMenuClearExisting] = useState(true)
   const [isCopyingMenu, setIsCopyingMenu] = useState(false)
   const [copyMenuResult, setCopyMenuResult] = useState<{ success: boolean; message: string; results?: any } | null>(null)
@@ -1807,44 +1809,86 @@ export default function RestaurantAdminClient({
     }
   }
 
-  // Copy menu from another restaurant
+  // Copy menu from/to another restaurant
   const handleCopyMenu = async () => {
-    if (!copyMenuSourceId) return
+    if (copyMenuDirection === "pull" && !copyMenuSourceId) return
+    if (copyMenuDirection === "push" && copyMenuTargetIds.length === 0) return
     
-    const confirmed = window.confirm(
-      copyMenuClearExisting
-        ? "Esto BORRARA todo el menu actual y lo reemplazara con el menu del restaurante seleccionado. ¿Continuar?"
-        : "Esto agregara el menu del restaurante seleccionado al menu actual. ¿Continuar?"
-    )
-    if (!confirmed) return
+    const targetCount = copyMenuDirection === "push" ? copyMenuTargetIds.length : 1
+    const confirmMsg = copyMenuClearExisting
+      ? `Esto BORRARA el menu de ${targetCount} restaurante(s) y lo reemplazara. ¿Continuar?`
+      : `Esto agregara el menu a ${targetCount} restaurante(s). ¿Continuar?`
+    
+    if (!window.confirm(confirmMsg)) return
 
     setIsCopyingMenu(true)
     setCopyMenuResult(null)
 
     try {
-      const response = await fetch("/api/admin/copy-menu", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sourceRestaurantId: copyMenuSourceId,
-          targetRestaurantId: restaurantId,
-          clearExisting: copyMenuClearExisting,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        setCopyMenuResult({ success: false, message: data.error || "Error al copiar menu" })
-      } else {
-        setCopyMenuResult({
-          success: true,
-          message: "Menu copiado exitosamente",
-          results: data.results,
+      if (copyMenuDirection === "pull") {
+        // Pull: copy FROM another restaurant TO this one
+        const response = await fetch("/api/admin/copy-menu", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sourceRestaurantId: copyMenuSourceId,
+            targetRestaurantId: restaurantId,
+            clearExisting: copyMenuClearExisting,
+          }),
         })
-        // Reload menu data
-        loadCategories()
-        loadMenuItems()
+        const data = await response.json()
+        if (!response.ok) {
+          setCopyMenuResult({ success: false, message: data.error || "Error al copiar menu" })
+        } else {
+          setCopyMenuResult({
+            success: true,
+            message: "Menu copiado exitosamente",
+            results: data.results,
+          })
+          loadCategories()
+          loadMenuItems()
+        }
+      } else {
+        // Push: copy FROM this restaurant TO multiple others
+        let totalResults = { categories: 0, items: 0, options: 0, choices: 0 }
+        let errors: string[] = []
+        
+        for (const targetId of copyMenuTargetIds) {
+          const response = await fetch("/api/admin/copy-menu", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sourceRestaurantId: restaurantId,
+              targetRestaurantId: targetId,
+              clearExisting: copyMenuClearExisting,
+            }),
+          })
+          const data = await response.json()
+          if (!response.ok) {
+            const targetName = allRestaurantsForCopy.find(r => r.id === targetId)?.name || targetId
+            errors.push(`${targetName}: ${data.error}`)
+          } else if (data.results) {
+            totalResults.categories += data.results.categories
+            totalResults.items += data.results.items
+            totalResults.options += data.results.options
+            totalResults.choices += data.results.choices
+          }
+        }
+        
+        if (errors.length > 0) {
+          setCopyMenuResult({
+            success: false,
+            message: `Errores: ${errors.join(", ")}`,
+            results: totalResults,
+          })
+        } else {
+          setCopyMenuResult({
+            success: true,
+            message: `Menu copiado a ${copyMenuTargetIds.length} restaurante(s)`,
+            results: totalResults,
+          })
+        }
+        setCopyMenuTargetIds([])
       }
     } catch (error: any) {
       setCopyMenuResult({ success: false, message: error.message || "Error al copiar menu" })
@@ -4460,26 +4504,74 @@ const pickupOrders = orders.filter((o: any) => o.order_type === "pickup" || o.de
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Direction selector */}
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="copyDirection"
+                      checked={copyMenuDirection === "pull"}
+                      onChange={() => setCopyMenuDirection("pull")}
+                      className="accent-primary"
+                    />
+                    <span className="text-sm">Copiar DE otro restaurante</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="copyDirection"
+                      checked={copyMenuDirection === "push"}
+                      onChange={() => setCopyMenuDirection("push")}
+                      className="accent-primary"
+                    />
+                    <span className="text-sm">Copiar A otro(s) restaurante(s)</span>
+                  </label>
+                </div>
+
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
                   <div className="flex-1">
-                    <Label>Restaurante Origen</Label>
-                    <Select
-                      value={copyMenuSourceId}
-                      onValueChange={setCopyMenuSourceId}
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Seleccionar restaurante..." />
-                      </SelectTrigger>
-                      <SelectContent>
+                    <Label>
+                      {copyMenuDirection === "pull" ? "Restaurante Origen" : "Restaurantes Destino"}
+                    </Label>
+                    {copyMenuDirection === "pull" ? (
+                      <Select
+                        value={copyMenuSourceId}
+                        onValueChange={setCopyMenuSourceId}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Seleccionar restaurante..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allRestaurantsForCopy
+                            .filter((r) => r.id !== restaurantId)
+                            .map((r) => (
+                              <SelectItem key={r.id} value={r.id}>
+                                {r.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="mt-1 space-y-2 max-h-48 overflow-y-auto border rounded-md p-2">
                         {allRestaurantsForCopy
                           .filter((r) => r.id !== restaurantId)
                           .map((r) => (
-                            <SelectItem key={r.id} value={r.id}>
-                              {r.name}
-                            </SelectItem>
+                            <label key={r.id} className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 p-1 rounded">
+                              <Checkbox
+                                checked={copyMenuTargetIds.includes(r.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setCopyMenuTargetIds([...copyMenuTargetIds, r.id])
+                                  } else {
+                                    setCopyMenuTargetIds(copyMenuTargetIds.filter((id) => id !== r.id))
+                                  }
+                                }}
+                              />
+                              <span className="text-sm">{r.name}</span>
+                            </label>
                           ))}
-                      </SelectContent>
-                    </Select>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Checkbox
@@ -4494,7 +4586,7 @@ const pickupOrders = orders.filter((o: any) => o.order_type === "pickup" || o.de
                 </div>
                 <Button
                   onClick={handleCopyMenu}
-                  disabled={!copyMenuSourceId || isCopyingMenu}
+                  disabled={(copyMenuDirection === "pull" ? !copyMenuSourceId : copyMenuTargetIds.length === 0) || isCopyingMenu}
                   variant="outline"
                   className="gap-2"
                 >
@@ -4504,7 +4596,10 @@ const pickupOrders = orders.filter((o: any) => o.order_type === "pickup" || o.de
                     </>
                   ) : (
                     <>
-                      <Copy className="h-4 w-4" /> Copiar Menu
+                      <Copy className="h-4 w-4" /> 
+                      {copyMenuDirection === "pull" 
+                        ? "Copiar Menu" 
+                        : `Copiar a ${copyMenuTargetIds.length} restaurante(s)`}
                     </>
                   )}
                 </Button>
