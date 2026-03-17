@@ -59,12 +59,16 @@ export default async function TenantAdminPage({
     .eq("is_active", true)
     .order("display_order", { ascending: true })
 
-  // Fetch marketplace areas for the dropdown
-  const { data: marketplaceAreas, error: areasError } = await supabase
-    .from("marketplace_areas")
-    .select("id, name")
-    .eq("is_active", true)
-    .order("display_order", { ascending: true })
+  // Hardcoded marketplace areas (no database table exists yet)
+  const marketplaceAreas = [
+    { id: "area-metro", name: "Area Metro" },
+    { id: "bayamon", name: "Bayamon" },
+    { id: "caguas", name: "Caguas" },
+    { id: "carolina", name: "Carolina" },
+    { id: "guaynabo", name: "Guaynabo" },
+    { id: "san-juan", name: "San Juan" },
+    { id: "trujillo-alto", name: "Trujillo Alto" },
+  ]
   
   // Allow super admins to view as restaurant admin for testing/review
   const effectiveRole = (view === "restricted" && adminData.role === "super_admin")
