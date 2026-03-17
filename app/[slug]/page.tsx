@@ -156,8 +156,6 @@ export default async function TenantPortalPage({
       servicePackages = []
     }
 
-    const menuItemIds = (menuItems || []).map((item) => item.id)
-
     // Fetch item sizes (still needed separately — not nested above to keep ordering)
     const { data: itemSizes } =
       menuItemIds.length > 0
