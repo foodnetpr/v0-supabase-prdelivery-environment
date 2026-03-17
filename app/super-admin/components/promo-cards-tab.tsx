@@ -131,7 +131,11 @@ export function PromoCardsTab() {
           body: JSON.stringify(payload),
         }
       )
-      if (!res.ok) throw new Error("Failed to save")
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        console.log("[v0] Save error:", errorData)
+        throw new Error(errorData.error || `Failed to save (${res.status})`)
+      }
       setDialogOpen(false)
       await fetchCards()
     } catch (e: any) {
