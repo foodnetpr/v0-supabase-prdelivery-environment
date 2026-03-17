@@ -453,12 +453,88 @@ export default function CustomerPortal({
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [dietaryFilters, setDietaryFilters] = useState<string[]>([])
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null)
+  const [loadedItemOptions, setLoadedItemOptions] = useState<any[] | null>(null)
+  const [loadingItemOptions, setLoadingItemOptions] = useState(false)
   const [unitQuantity, setUnitQuantity] = useState<number>(1)
   const [selectedSizeId, setSelectedSizeId] = useState<string | null>(null)
   const [manualQuantityMode, setManualQuantityMode] = useState(false)
   const [manualQuantityInput, setManualQuantityInput] = useState("")
   const [itemNotes, setItemNotes] = useState("")
   const [showItemNotes, setShowItemNotes] = useState(false)
+  
+  // Lazy load item options when modal opens - fixes orphaned choices bug for Metropol
+  useEffect(() => {
+    if (!selectedItem) {
+      setLoadedItemOptions(null)
+      return
+    }
+    
+    const fetchItemOptions = async () => {
+      setLoadingItemOptions(true)
+      try {
+        const supabase = createBrowserClient()
+        
+        // Fetch options for this specific item
+        const { data: options, error: optionsError } = await supabase
+          .from("item_options")
+          .select("*")
+          .eq("menu_item_id", selectedItem.id)
+          .order("display_order", { ascending: true })
+        
+        if (optionsError) {
+          console.log("[v0] Error fetching item options:", optionsError)
+          setLoadedItemOptions([])
+          return
+        }
+        
+        if (!options || options.length === 0) {
+          console.log("[v0] No options found for item:", selectedItem.id, selectedItem.name)
+          setLoadedItemOptions([])
+          return
+        }
+        
+        // Fetch choices for these options
+        const optionIds = options.map((opt) => opt.id)
+        const { data: choices, error: choicesError } = await supabase
+          .from("item_option_choices")
+          .select("*")
+          .in("item_option_id", optionIds)
+          .order("display_order", { ascending: true })
+        
+        if (choicesError) {
+          console.log("[v0] Error fetching option choices:", choicesError)
+        }
+        
+        console.log("[v0] Fetched options for", selectedItem.name, ":", {
+          optionCount: options.length,
+          choiceCount: choices?.length || 0,
+          options: options.map(o => ({ id: o.id, category: o.category })),
+          choicesByOption: options.map(o => ({
+            optionId: o.id,
+            category: o.category,
+            choices: (choices || []).filter(c => c.item_option_id === o.id).length
+          }))
+        })
+        
+        // Assemble options with their choices
+        const optionsWithChoices = options.map((opt) => ({
+          ...opt,
+          item_option_choices: (choices || [])
+            .filter((choice) => choice.item_option_id === opt.id)
+            .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)),
+        }))
+        
+        setLoadedItemOptions(optionsWithChoices)
+      } catch (err) {
+        console.log("[v0] Exception fetching item options:", err)
+        setLoadedItemOptions([])
+      } finally {
+        setLoadingItemOptions(false)
+      }
+    }
+    
+    fetchItemOptions()
+  }, [selectedItem?.id])
 
   // Centralized unit label helpers (from lib/selling-units.ts)
   const getUnitLabel = getUnitLabelCentral
@@ -531,15 +607,24 @@ export default function CustomerPortal({
     return raw != null ? String(raw) : null
   }
 
+  // Helper to get options - use loadedItemOptions for selectedItem, or item.item_options for other items
+  const getItemOptions = (item: MenuItem): any[] => {
+    // If this is the currently selected item in modal, use lazy-loaded options
+    if (selectedItem && item.id === selectedItem.id && loadedItemOptions) {
+      return loadedItemOptions
+    }
+    return item.item_options || []
+  }
+
   // Check if item has ANY counter option that drives total quantity (e.g. Empanadillitas flavors)
   const hasRequiredCounterOption = (item: MenuItem): boolean => {
-    return (item.item_options || []).some((opt: any) => opt.display_type === "counter")
+    return getItemOptions(item).some((opt: any) => opt.display_type === "counter")
   }
 
   // Get the total quantity allocated across ALL counter choices
   const getCounterTotal = (item: MenuItem): number => {
     let total = 0
-    ;(item.item_options || []).forEach((option: any) => {
+    getItemOptions(item).forEach((option: any) => {
       if (option.display_type === "counter") {
         const selection = itemCustomizations[option.id]
         if (selection && typeof selection === "object" && !Array.isArray(selection)) {
@@ -559,7 +644,7 @@ export default function CustomerPortal({
     const minQty = item.min_quantity || 1
     const minFloor = basePrice * minQty
     let total = 0
-    ;(item.item_options || []).forEach((option: any) => {
+    getItemOptions(item).forEach((option: any) => {
       if (option.display_type === "counter") {
         const selection = itemCustomizations[option.id]
         if (selection && typeof selection === "object" && !Array.isArray(selection)) {
@@ -580,9 +665,10 @@ export default function CustomerPortal({
 
   // Calculate sum of all selected option price modifiers for live display
   const getOptionsTotal = (item: MenuItem): number => {
-    if (!item.item_options) return 0
+    const options = getItemOptions(item)
+    if (!options || options.length === 0) return 0
     let total = 0
-    item.item_options.forEach((option: any) => {
+    options.forEach((option: any) => {
       const selection = itemCustomizations[option.id]
       if (option.display_type === "counter" && selection && typeof selection === "object" && !Array.isArray(selection)) {
         // Counter choice prices are handled by getCounterItemTotal -- skip here to avoid double-counting
@@ -599,7 +685,7 @@ export default function CustomerPortal({
     // Sub-option selections
     Object.entries(subOptionSelections).forEach(([key, subChoiceId]) => {
       const parentChoiceId = key.split("_sub")[0]
-      item.item_options.forEach((option: any) => {
+      options.forEach((option: any) => {
         const parentChoice = option.item_option_choices?.find((c: any) => c.id === parentChoiceId)
         const subChoice = parentChoice?.sub_options?.find((s: any) => s.id === subChoiceId)
         if (subChoice?.price_modifier) total += subChoice.price_modifier
@@ -865,8 +951,8 @@ export default function CustomerPortal({
         setShowItemModal(false)
         return
       }
-      // Validate required options
-      for (const option of selectedItem.item_options || []) {
+      // Validate required options - use lazy loaded options
+      for (const option of loadedItemOptions || []) {
         if (option.is_required) {
           const selection = itemCustomizations[option.id]
           if (option.display_type === "counter") {
@@ -904,7 +990,7 @@ export default function CustomerPortal({
 
       // Add price modifiers from selected options
       Object.entries(itemCustomizations).forEach(([optionId, selection]) => {
-        const option = selectedItem.item_options?.find((opt) => opt.id === optionId)
+        const option = loadedItemOptions?.find((opt) => opt.id === optionId)
         if (!option) return
 
         if (option.display_type === "counter" && selection && typeof selection === "object" && !Array.isArray(selection)) {
@@ -927,7 +1013,7 @@ export default function CustomerPortal({
 
       // Add price modifiers from sub-options
       Object.entries(subOptionSelections).forEach(([parentOptionId, subChoiceId]) => {
-        const option = selectedItem.item_options?.find((opt) => opt.id === parentOptionId)
+        const option = loadedItemOptions?.find((opt) => opt.id === parentOptionId)
         if (!option) return
 
         const parentChoiceId = itemCustomizations[parentOptionId]
@@ -943,7 +1029,7 @@ export default function CustomerPortal({
       const selectedOptionsForDisplay: Record<string, string> = {}
 
       Object.entries(itemCustomizations).forEach(([optionId, selection]) => {
-        const option = selectedItem.item_options?.find((opt) => opt.id === optionId)
+        const option = loadedItemOptions?.find((opt) => opt.id === optionId)
         if (!option) return
 
         if (option.display_type === "counter" && selection && typeof selection === "object" && !Array.isArray(selection)) {
@@ -976,7 +1062,7 @@ export default function CustomerPortal({
       })
 
       Object.entries(subOptionSelections).forEach(([parentChoiceId, subChoiceId]) => {
-        for (const option of selectedItem.item_options || []) {
+        for (const option of loadedItemOptions || []) {
           const parentChoice = option.item_option_choices?.find((c) => c.id === parentChoiceId)
           if (parentChoice) {
             const subChoice = parentChoice.sub_options?.find((s) => s.id === subChoiceId)
@@ -2624,11 +2710,16 @@ const orderData = {
                   </div>
                 )}
 
-                {/* Item Options */}
-                {selectedItem.item_options && selectedItem.item_options.length > 0 && (
+                {/* Item Options - lazy loaded to fix Metropol orphaned choices bug */}
+                {loadingItemOptions && (
+                  <div className="py-4 border-t text-center text-muted-foreground text-sm">
+                    Cargando opciones...
+                  </div>
+                )}
+                {!loadingItemOptions && loadedItemOptions && loadedItemOptions.length > 0 && (
                   <div className="space-y-6 py-4 border-t">
-                    {selectedItem.item_options
-                      ?.sort((a, b) => a.display_order - b.display_order)
+                    {loadedItemOptions
+                      .sort((a, b) => a.display_order - b.display_order)
                       .map((option) => {
                         const isMultiSelect = option.max_selection && option.max_selection > 1
                         const currentSelection = itemCustomizations[option.id]
