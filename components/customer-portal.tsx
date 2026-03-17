@@ -2608,6 +2608,11 @@ const orderData = {
                 )}
 
                 {/* Item Options */}
+                {console.log('[v0] selectedItem options:', JSON.stringify(selectedItem.item_options?.map(o => ({
+                  id: o.id,
+                  category: o.category,
+                  choices_count: o.item_option_choices?.length
+                }))))}
 
                 {selectedItem.item_options && selectedItem.item_options.length > 0 && (
                   <div className="space-y-6 py-4 border-t">

@@ -149,6 +149,16 @@ export default async function TenantPortalPage({
         : { data: [] }
 
     // item_options and item_option_choices are already nested on each menuItem via the select above
+    console.log('[v0] Raw menuItems sample:', JSON.stringify(menuItems?.slice(0, 3).map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      item_options_count: item.item_options?.length,
+      item_options_sample: item.item_options?.slice(0, 2).map((opt: any) => ({
+        id: opt.id,
+        category: opt.category,
+        choices_count: opt.item_option_choices?.length
+      }))
+    }))))
     const menuItemsWithOptions = (menuItems || []).map((item) => ({
       ...item,
       base_price: Number(item.price) || 0,
