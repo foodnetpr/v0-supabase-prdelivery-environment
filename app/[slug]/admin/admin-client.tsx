@@ -690,8 +690,18 @@ export default function RestaurantAdminClient({
   }
 
   const loadMenuItems = async () => {
-    const { data } = await supabase.from("menu_items").select("*").eq("restaurant_id", restaurantId).order("display_order")
-    setMenuItems(data || [])
+    const { data } = await supabase
+      .from("menu_items")
+      .select("*, item_options(id)")
+      .eq("restaurant_id", restaurantId)
+      .order("display_order")
+    // Add option_count to each item for display
+    const itemsWithOptionCount = (data || []).map(item => ({
+      ...item,
+      option_count: item.item_options?.length || 0,
+      item_options: undefined // Remove the nested data, we only needed the count
+    }))
+    setMenuItems(itemsWithOptionCount)
   }
 
   const loadServicePackages = async () => {
@@ -2906,9 +2916,19 @@ payment_provider: branchForm.payment_provider || "stripe",
                                         </div>
                                       </div>
                                       <div className="flex gap-2 mt-3">
-                                        <Button size="sm" variant="outline" onClick={() => handleManageOptions(item)}>
+                                        <Button 
+                                          size="sm" 
+                                          variant="outline" 
+                                          onClick={() => handleManageOptions(item)}
+                                          className={item.option_count > 0 ? "border-green-500 text-green-700" : ""}
+                                        >
                                           <Settings className="h-3 w-3 mr-1" />
                                           Options
+                                          {item.option_count > 0 && (
+                                            <span className="ml-1.5 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                                              {item.option_count}
+                                            </span>
+                                          )}
                                         </Button>
                                         <Button size="sm" variant="outline" onClick={() => handleManageSizes(item)}>
                                           <Settings className="h-3 w-3 mr-1" />
