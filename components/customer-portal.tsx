@@ -317,21 +317,22 @@ export default function CustomerPortal({
 
   // Helper to check if item is available now (day + daypart using restaurant_hours)
   const isAvailableNow = (item: MenuItem) => {
-    const now = new Date()
-    const dayOfWeek = now.getDay() // 0=Sunday, 1=Monday, etc.
-    const days = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const
-    const today = days[dayOfWeek]
-    
-    // Check day availability from item's available_days
-    const availableDays = item.available_days as Record<string, boolean> | null
-    if (availableDays && availableDays[today] === false) return false
-    
-    // Check daypart availability
-    const daypart = (item as any).availability_daypart || "all"
-    if (daypart === "all") return true
-    
-    // Get today's meal period hours from restaurant_hours
-    const todayHours = restaurantHours.find(h => h.day_of_week === dayOfWeek)
+    try {
+      const now = new Date()
+      const dayOfWeek = now.getDay() // 0=Sunday, 1=Monday, etc.
+      const days = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const
+      const today = days[dayOfWeek]
+      
+      // Check day availability from item's available_days
+      const availableDays = item.available_days as Record<string, boolean> | null
+      if (availableDays && availableDays[today] === false) return false
+      
+      // Check daypart availability
+      const daypart = (item as any).availability_daypart || "all"
+      if (daypart === "all") return true
+      
+      // Get today's meal period hours from restaurant_hours
+      const todayHours = (restaurantHours || []).find(h => h.day_of_week === dayOfWeek)
     
     // If no hours defined for today, fall back to restaurant defaults
     const r = restaurant as any
@@ -357,6 +358,10 @@ export default function CustomerPortal({
       case "breakfast_dinner": return inBreakfast || inDinner
       case "lunch_dinner": return inLunch || inDinner
       default: return true
+    }
+    } catch (e) {
+      console.error("[v0] isAvailableNow error:", e)
+      return true // Default to available if error
     }
   }
 
@@ -843,7 +848,6 @@ export default function CustomerPortal({
       container_type: (item as any).container_type || "none",
       containers_per_unit: (item as any).containers_per_unit || 1,
       quantity: 1,
-      item: item,
     }
     setCart((prev) => [...prev, newCartItem])
     setCartVersion((v) => v + 1)
