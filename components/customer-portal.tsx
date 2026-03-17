@@ -768,6 +768,20 @@ export default function CustomerPortal({
   
   // Internal shop modal state
   const [showInternalShopModal, setShowInternalShopModal] = useState(false)
+  const [isInternalShopAvailable, setIsInternalShopAvailable] = useState(true)
+  
+  // Check internal shop availability on mount
+  useEffect(() => {
+    fetch("/api/internal-shop/availability")
+      .then(res => res.json())
+      .then(data => {
+        setIsInternalShopAvailable(data.available)
+      })
+      .catch(() => {
+        setIsInternalShopAvailable(false)
+      })
+  }, [])
+  
   const [showSquareCheckout, setShowSquareCheckout] = useState(false)
   const [showATHMovilCheckout, setShowATHMovilCheckout] = useState(false)
   const [showPaymentSelector, setShowPaymentSelector] = useState(false) // For "both" payment provider option
@@ -2212,15 +2226,17 @@ const orderData = {
             </div>
             {/* Bottom row on mobile: Delivery/Pickup toggle + Account + Cart (desktop only cart here) */}
             <div className="flex items-center justify-center gap-2 md:gap-4 md:justify-end">
-              {/* Bebidas y Extras - FoodNet Shop button */}
-              <Button
-                size="sm"
-                onClick={() => setShowInternalShopModal(true)}
-                className="gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white"
-              >
-                <Coffee className="w-4 h-4" />
-                <span className="hidden sm:inline text-xs font-medium">Bebidas y Extras</span>
-              </Button>
+              {/* Bebidas y Extras - FoodNet Shop button (only show when available) */}
+              {isInternalShopAvailable && (
+                <Button
+                  size="sm"
+                  onClick={() => setShowInternalShopModal(true)}
+                  className="gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white"
+                >
+                  <Coffee className="w-4 h-4" />
+                  <span className="hidden sm:inline text-xs font-medium">Bebidas y Extras</span>
+                </Button>
+              )}
 
               {/* Delivery/Pickup toggle - hidden until we have pickup restaurants */}
               {user ? (

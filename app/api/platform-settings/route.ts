@@ -32,6 +32,13 @@ export async function GET() {
           emergency_block_reason: null,
           pop_reopen_at: null,
           pop_block_message: null,
+          // Internal shop defaults
+          is_internal_shop_open: true,
+          internal_shop_reopen_at: null,
+          internal_shop_link_to_pop: false,
+          internal_shop_standalone_enabled: false,
+          internal_shop_delivery_fee: 3.00,
+          internal_shop_min_order: 0,
         })
       }
       throw error
@@ -73,6 +80,13 @@ export async function PUT(request: Request) {
           pop_block_message: body.pop_block_message,
           blocked_zip_codes: body.blocked_zip_codes ?? [],
           delivery_fee_subsidy: body.delivery_fee_subsidy ?? 3.0,
+          // Internal shop fields
+          is_internal_shop_open: body.is_internal_shop_open,
+          internal_shop_reopen_at: body.internal_shop_reopen_at,
+          internal_shop_link_to_pop: body.internal_shop_link_to_pop,
+          internal_shop_standalone_enabled: body.internal_shop_standalone_enabled,
+          internal_shop_delivery_fee: body.internal_shop_delivery_fee,
+          internal_shop_min_order: body.internal_shop_min_order,
           updated_at: new Date().toISOString(),
         })
         .eq("id", existing.id)
@@ -105,6 +119,13 @@ export async function PUT(request: Request) {
           pop_block_message: body.pop_block_message,
           blocked_zip_codes: body.blocked_zip_codes ?? [],
           delivery_fee_subsidy: body.delivery_fee_subsidy ?? 3.0,
+          // Internal shop fields
+          is_internal_shop_open: body.is_internal_shop_open ?? true,
+          internal_shop_reopen_at: body.internal_shop_reopen_at,
+          internal_shop_link_to_pop: body.internal_shop_link_to_pop ?? false,
+          internal_shop_standalone_enabled: body.internal_shop_standalone_enabled ?? false,
+          internal_shop_delivery_fee: body.internal_shop_delivery_fee ?? 3.00,
+          internal_shop_min_order: body.internal_shop_min_order ?? 0,
         })
         .select()
         .single()

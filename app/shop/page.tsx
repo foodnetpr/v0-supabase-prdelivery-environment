@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
+import { redirect } from "next/navigation"
 import { ShopClient } from "./shop-client"
+import { isInternalShopAvailable } from "@/lib/availability"
 import type { Metadata } from "next"
 
 export const dynamic = "force-dynamic"
@@ -10,6 +12,12 @@ export const metadata: Metadata = {
 }
 
 export default async function ShopPage() {
+  // Check if shop is available - redirect to home if closed
+  const shopAvailable = await isInternalShopAvailable()
+  if (!shopAvailable) {
+    redirect("/")
+  }
+
   const supabase = await createClient()
 
   const { data: items } = await supabase

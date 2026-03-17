@@ -329,4 +329,61 @@ export async function getRestaurantsOpenStatus(restaurantIds: string[]): Promise
   return results
 }
 
+/**
+ * Check if the FoodNet Internal Shop is currently available
+ * Returns false if:
+ * - is_internal_shop_open is false (manually closed)
+ * - internal_shop_link_to_pop is true AND is_pop_blocked is true
+ * - Platform emergency block is active
+ */
+export async function isInternalShopAvailable(): Promise<boolean> {
+  const platform = await getPlatformSettings()
+  
+  if (!platform) {
+    return false
+  }
+  
+  // Check if shop is manually closed
+  if (!(platform as any).is_internal_shop_open) {
+    return false
+  }
+  
+  // Check if linked to POP and POP is blocked
+  if ((platform as any).internal_shop_link_to_pop && platform.is_pop_blocked) {
+    return false
+  }
+  
+  // Check platform-wide emergency block
+  if (platform.emergency_block_active) {
+    return false
+  }
+  
+  return true
+}
+
+/**
+ * Get internal shop settings for standalone order handling
+ */
+export async function getInternalShopSettings(): Promise<{
+  isOpen: boolean
+  standaloneEnabled: boolean
+  deliveryFee: number
+  minOrder: number
+} | null> {
+  const platform = await getPlatformSettings()
+  
+  if (!platform) {
+    return null
+  }
+  
+  const isOpen = await isInternalShopAvailable()
+  
+  return {
+    isOpen,
+    standaloneEnabled: (platform as any).internal_shop_standalone_enabled ?? false,
+    deliveryFee: (platform as any).internal_shop_delivery_fee ?? 3.00,
+    minOrder: (platform as any).internal_shop_min_order ?? 0,
+  }
+}
+
 export type { PlatformSettings, Restaurant }

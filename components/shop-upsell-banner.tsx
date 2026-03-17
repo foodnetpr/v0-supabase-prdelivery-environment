@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ShoppingBag, ChevronRight, X, Sparkles } from "lucide-react"
 import { useInternalShopCart } from "@/hooks/use-internal-shop-cart"
 import { InternalShopModal } from "./internal-shop-modal"
@@ -13,7 +13,23 @@ interface ShopUpsellBannerProps {
 export function ShopUpsellBanner({ variant = "full", className = "" }: ShopUpsellBannerProps) {
   const [showModal, setShowModal] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const [isShopAvailable, setIsShopAvailable] = useState(true)
   const { totalItems, subtotal } = useInternalShopCart()
+
+  // Check shop availability on mount
+  useEffect(() => {
+    fetch("/api/internal-shop/availability")
+      .then(res => res.json())
+      .then(data => {
+        setIsShopAvailable(data.available)
+      })
+      .catch(() => {
+        setIsShopAvailable(false)
+      })
+  }, [])
+
+  // Don't show if shop is unavailable
+  if (!isShopAvailable) return null
 
   // Don't show if dismissed (unless they have items)
   if (dismissed && totalItems === 0) return null

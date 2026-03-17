@@ -38,6 +38,9 @@ import {
   Plus,
   Trash2,
   DollarSign,
+  Coffee,
+  Link,
+  Package,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { bulkApplyTiersToAllRestaurants } from "@/app/super-admin/actions"
@@ -74,6 +77,13 @@ interface PlatformSettings {
   pop_block_message: string | null
   blocked_zip_codes: string[]
   delivery_fee_subsidy: number
+  // Internal shop controls
+  is_internal_shop_open: boolean
+  internal_shop_reopen_at: string | null
+  internal_shop_link_to_pop: boolean
+  internal_shop_standalone_enabled: boolean
+  internal_shop_delivery_fee: number
+  internal_shop_min_order: number
 }
 
 interface ScheduledBlock {
@@ -140,24 +150,31 @@ export function OperationsTab({
     initialSettings || {
       id: "",
       is_platform_open: true,
-      is_pop_blocked: false,
-      operating_hours_start: "11:00",
-      operating_hours_end: "20:30",
-      operating_days: {
-        sunday: true,
-        monday: true,
-        tuesday: true,
-        wednesday: true,
-        thursday: true,
-        friday: true,
-        saturday: true,
-      },
-      emergency_block_active: false,
-      emergency_block_reason: null,
-      pop_reopen_at: null,
-      pop_block_message: null,
-      blocked_zip_codes: [],
-      delivery_fee_subsidy: 3.0,
+is_pop_blocked: false,
+    operating_hours_start: "11:00",
+    operating_hours_end: "20:30",
+    operating_days: {
+      sunday: true,
+      monday: true,
+      tuesday: true,
+      wednesday: true,
+      thursday: true,
+      friday: true,
+      saturday: true,
+    },
+    emergency_block_active: false,
+    emergency_block_reason: null,
+    pop_reopen_at: null,
+    pop_block_message: null,
+    blocked_zip_codes: [],
+    delivery_fee_subsidy: 3.0,
+    // Internal shop defaults
+    is_internal_shop_open: true,
+    internal_shop_reopen_at: null,
+    internal_shop_link_to_pop: false,
+    internal_shop_standalone_enabled: false,
+    internal_shop_delivery_fee: 3.00,
+    internal_shop_min_order: 0,
     }
   )
   const [scheduledBlocks, setScheduledBlocks] = useState(initialBlocks)
@@ -933,6 +950,175 @@ export function OperationsTab({
                 </div>
               )
             })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* FoodNet Shop Control */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Coffee className="h-5 w-5 text-cyan-600" />
+            FoodNet Shop (Bebidas y Extras)
+          </CardTitle>
+          <CardDescription>
+            Control the availability of the internal shop. When closed, the shop button and upsell banners will be hidden from customers.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Main Toggle */}
+          <div className="flex items-center justify-between p-4 rounded-lg border bg-card">
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "w-10 h-10 rounded-full flex items-center justify-center",
+                settings.is_internal_shop_open ? "bg-cyan-100" : "bg-gray-100"
+              )}>
+                <Coffee className={cn("h-5 w-5", settings.is_internal_shop_open ? "text-cyan-600" : "text-gray-400")} />
+              </div>
+              <div>
+                <p className="font-semibold">Shop Abierto</p>
+                <p className="text-sm text-muted-foreground">
+                  {settings.is_internal_shop_open ? "Clientes pueden ver y ordenar del shop" : "Shop oculto para clientes"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Badge variant={settings.is_internal_shop_open ? "default" : "secondary"} className={cn(
+                "text-sm py-1 px-3",
+                settings.is_internal_shop_open ? "bg-cyan-600" : ""
+              )}>
+                {settings.is_internal_shop_open ? "Abierto" : "Cerrado"}
+              </Badge>
+              <Switch
+                checked={settings.is_internal_shop_open}
+                onCheckedChange={(checked) => {
+                  setSettings({ ...settings, is_internal_shop_open: checked })
+                  // Auto-save
+                  fetch("/api/platform-settings", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ...settings, is_internal_shop_open: checked }),
+                  })
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Reopen At */}
+          {!settings.is_internal_shop_open && (
+            <div className="p-4 rounded-lg border bg-amber-50 border-amber-200 space-y-3">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <Clock className="h-4 w-4 text-amber-600" />
+                Reapertura Programada (Opcional)
+              </Label>
+              <Input
+                type="datetime-local"
+                value={settings.internal_shop_reopen_at ? new Date(settings.internal_shop_reopen_at).toISOString().slice(0, 16) : ""}
+                onChange={(e) => {
+                  const newVal = e.target.value ? new Date(e.target.value).toISOString() : null
+                  setSettings({ ...settings, internal_shop_reopen_at: newVal })
+                }}
+                className="max-w-xs"
+              />
+              {settings.internal_shop_reopen_at && (
+                <p className="text-sm text-amber-700">
+                  El shop reabrirá automáticamente: {formatDateTime(settings.internal_shop_reopen_at)}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Link to POP */}
+          <div className="flex items-center justify-between p-4 rounded-lg border">
+            <div className="flex items-center gap-3">
+              <Link className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="font-medium">Vincular a POP</p>
+                <p className="text-sm text-muted-foreground">
+                  Cerrar shop automáticamente cuando todos los POP están bloqueados
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={settings.internal_shop_link_to_pop}
+              onCheckedChange={(checked) => {
+                setSettings({ ...settings, internal_shop_link_to_pop: checked })
+                fetch("/api/platform-settings", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ ...settings, internal_shop_link_to_pop: checked }),
+                })
+              }}
+            />
+          </div>
+
+          {/* Standalone Orders */}
+          <div className="space-y-4 p-4 rounded-lg border">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Package className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="font-medium">Permitir Órdenes Solo Shop</p>
+                  <p className="text-sm text-muted-foreground">
+                    Clientes pueden ordenar solo del shop sin comida de restaurante
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={settings.internal_shop_standalone_enabled}
+                onCheckedChange={(checked) => {
+                  setSettings({ ...settings, internal_shop_standalone_enabled: checked })
+                  fetch("/api/platform-settings", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ...settings, internal_shop_standalone_enabled: checked }),
+                  })
+                }}
+              />
+            </div>
+
+            {settings.internal_shop_standalone_enabled && (
+              <div className="grid grid-cols-2 gap-4 pt-3 border-t">
+                <div className="space-y-2">
+                  <Label className="text-sm">Delivery Fee (Shop)</Label>
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground">$</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={settings.internal_shop_delivery_fee}
+                      onChange={(e) => setSettings({ ...settings, internal_shop_delivery_fee: parseFloat(e.target.value) || 0 })}
+                      className="w-24"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm">Orden Mínima</Label>
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground">$</span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={settings.internal_shop_min_order}
+                      onChange={(e) => setSettings({ ...settings, internal_shop_min_order: parseFloat(e.target.value) || 0 })}
+                      className="w-24"
+                    />
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <Button
+                    size="sm"
+                    onClick={savePlatformSettings}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Guardar Configuración
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
