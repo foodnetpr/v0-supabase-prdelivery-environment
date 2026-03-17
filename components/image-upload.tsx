@@ -3,17 +3,26 @@
 import type React from "react"
 
 import { useState, useRef } from "react"
-import { Upload, X, Loader2, RefreshCw, ImageOff } from "lucide-react"
-import { upload } from "@vercel/blob/client"
+import { Upload, Loader2, RefreshCw, ImageOff } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 interface ImageUploadProps {
   value: string
   onChange: (url: string) => void
   onRemove?: () => void
   label?: string
+  bucket?: string
+  folder?: string
 }
 
-export function ImageUpload({ value, onChange, onRemove, label = "Image" }: ImageUploadProps) {
+export function ImageUpload({ 
+  value, 
+  onChange, 
+  onRemove, 
+  label = "Image",
+  bucket = "images",
+  folder = "uploads"
+}: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -40,17 +49,32 @@ export function ImageUpload({ value, onChange, onRemove, label = "Image" }: Imag
     setIsUploading(true)
 
     try {
+      const supabase = createClient()
+      
+      // Generate unique filename
       const timestamp = Date.now()
       const fileExtension = file.name.split(".").pop()
-      const baseName = file.name.replace(`.${fileExtension}`, "")
-      const uniqueFileName = `${baseName}-${timestamp}.${fileExtension}`
+      const baseName = file.name.replace(/[^a-zA-Z0-9]/g, "-").replace(`.${fileExtension}`, "")
+      const uniqueFileName = `${folder}/${baseName}-${timestamp}.${fileExtension}`
 
-      const blob = await upload(uniqueFileName, file, {
-        access: "public",
-        handleUploadUrl: "/api/upload",
-      })
+      // Upload to Supabase Storage
+      const { data, error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(uniqueFileName, file, {
+          cacheControl: "3600",
+          upsert: false,
+        })
 
-      onChange(blob.url)
+      if (uploadError) {
+        throw new Error(uploadError.message)
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(data.path)
+
+      onChange(urlData.publicUrl)
     } catch (err) {
       console.error("[v0] Upload error:", err)
       const message = err instanceof Error ? err.message : "Unknown error"
