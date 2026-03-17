@@ -761,6 +761,8 @@ export default function CustomerPortal({
     subtotal: internalShopSubtotal, 
     tax: internalShopTax,
     clearCart: clearInternalShopCart,
+    updateQuantity: updateShopItemQuantity,
+    removeItem: removeShopItem,
   } = useInternalShopCart()
   const [showSquareCheckout, setShowSquareCheckout] = useState(false)
   const [showATHMovilCheckout, setShowATHMovilCheckout] = useState(false)
@@ -3600,7 +3602,7 @@ const orderData = {
             {/* Scrollable body + footer share the remaining height */}
             <div className="flex flex-col flex-1 min-h-0">
 
-                {foodCartCount === 0 ? (
+                {foodCartCount === 0 && internalShopItems.length === 0 ? (
                   <div className="py-12 px-5 text-center text-muted-foreground">
                     <div
                       className="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center"
@@ -3613,6 +3615,7 @@ const orderData = {
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto space-y-3 min-h-0 py-4 px-5">
+              {/* Restaurant Items */}
               {cart
                 .filter((item) => item.type !== "delivery_fee")
                 .map((item, index) => ({ item, originalIndex: index }))
@@ -3825,6 +3828,76 @@ const orderData = {
                 )
               })}
 
+              {/* Internal Shop Items (FoodNet Shop) */}
+              {internalShopItems.length > 0 && (
+                <div className="border-t pt-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded-full">FoodNet Shop</span>
+                    <span className="text-xs text-gray-500">Bebidas y Extras</span>
+                  </div>
+                  {internalShopItems.map((shopItem) => (
+                    <div
+                      key={`shop-${shopItem.id}`}
+                      className="rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow-md"
+                      style={{ borderLeftWidth: "3px", borderLeftColor: "#06b6d4" }}
+                    >
+                      <div className="flex gap-3">
+                        {shopItem.image_url && (
+                          <div className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden shadow-sm bg-gray-100">
+                            <Image
+                              src={shopItem.image_url}
+                              alt={shopItem.name}
+                              width={56}
+                              height={56}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+                        {!shopItem.image_url && (
+                          <div className="flex-shrink-0 w-14 h-14 rounded-lg bg-cyan-50 flex items-center justify-center">
+                            <Package className="w-6 h-6 text-cyan-400" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="font-semibold text-sm">{shopItem.name}</h4>
+                            <button
+                              onClick={() => removeShopItem(shopItem.id)}
+                              className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                              aria-label="Remover item"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">${shopItem.price.toFixed(2)} c/u</p>
+                          <div className="flex items-center justify-between mt-2">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => updateShopItemQuantity(shopItem.id, -1)}
+                                disabled={shopItem.quantity <= 1}
+                                className="w-6 h-6 rounded-full flex items-center justify-center bg-cyan-500 text-white transition-opacity disabled:opacity-40"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="w-5 text-center font-semibold text-sm">{shopItem.quantity}</span>
+                              <button
+                                onClick={() => updateShopItemQuantity(shopItem.id, 1)}
+                                className="w-6 h-6 rounded-full flex items-center justify-center bg-cyan-500 text-white hover:opacity-90"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+                            <span className="font-bold text-sm" style={{ color: "#06b6d4" }}>
+                              ${(shopItem.price * shopItem.quantity).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {effectiveMenuItems.filter((item) => item.is_cart_upsell).length > 0 && (
                 <div className="border-t pt-6 space-y-3">
                   <h3 className="font-semibold text-sm">Agregar a Tu Orden</h3>
@@ -4025,7 +4098,7 @@ const orderData = {
           )}
 
             {/* Cart Footer with Total */}
-            {foodCartCount > 0 && (() => {
+            {(foodCartCount > 0 || internalShopItems.length > 0) && (() => {
               // tax_rate is stored as a decimal multiplier (0.115 = 11.5%) — no division needed
               const taxRate = effectiveRestaurant.tax_rate ?? 0
               const menuSubtotal = cart
@@ -4045,7 +4118,9 @@ const orderData = {
               const tipAmount = deliveryForm.tipPercentage > 0
                 ? (menuSubtotal * deliveryForm.tipPercentage) / 100
                 : Number(deliveryForm.customTip || 0)
-              const orderTotal = menuSubtotal + deliveryFee + dispatchFee + ivuAmount + tipAmount
+              // Include internal shop items in total (separate accounting)
+              const shopTotal = internalShopSubtotal + internalShopTax
+              const orderTotal = menuSubtotal + deliveryFee + dispatchFee + ivuAmount + tipAmount + shopTotal
               const tipPresets = [10, 15, 18, 20]
 
               return (
@@ -4063,11 +4138,27 @@ const orderData = {
                   <div className="px-5 pt-4 pb-2 space-y-2">
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Detalles de la Orden</p>
 
-                    {/* Subtotal */}
+                    {/* Restaurant Subtotal */}
                     <div className="flex justify-between text-sm text-gray-700">
-                      <span>Subtotal</span>
+                      <span>{internalShopItems.length > 0 ? "Subtotal Restaurante" : "Subtotal"}</span>
                       <span>${menuSubtotal.toFixed(2)}</span>
                     </div>
+
+                    {/* Internal Shop Subtotal (separate accounting) */}
+                    {internalShopItems.length > 0 && (
+                      <>
+                        <div className="flex justify-between text-sm text-gray-700">
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-cyan-600">FoodNet Shop</span>
+                          </span>
+                          <span>${internalShopSubtotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-gray-500">
+                          <span className="text-xs pl-2">IVU Shop (11.5%)</span>
+                          <span className="text-xs">${internalShopTax.toFixed(2)}</span>
+                        </div>
+                      </>
+                    )}
 
                     {/* Delivery fee */}
                     {deliveryMethod === "delivery" && (
@@ -4100,7 +4191,7 @@ const orderData = {
                     {/* IVU (Puerto Rico sales tax) */}
                     {taxRate > 0 && (
                       <div className="flex justify-between text-sm text-gray-700">
-                        <span>IVU</span>
+                        <span>{internalShopItems.length > 0 ? "IVU Restaurante" : "IVU"}</span>
                         <span>${ivuAmount.toFixed(2)}</span>
                       </div>
                     )}

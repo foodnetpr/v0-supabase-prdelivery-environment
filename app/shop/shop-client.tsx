@@ -340,9 +340,15 @@ export function ShopClient({ initialItems }: ShopClientProps) {
                   <span>Total</span>
                   <span>${total.toFixed(2)}</span>
                 </div>
-                <p className="text-xs text-gray-400 text-center pt-2">
-                  Los artículos se guardan por 24 horas. Se agregan a tu pedido cuando ordenes en un restaurante.
+                <p className="text-xs text-gray-500 text-center pt-2">
+                  Estos artículos se agregarán automáticamente cuando ordenes en un restaurante.
                 </p>
+                <a
+                  href="/"
+                  className="block w-full py-2.5 px-4 text-center text-white font-semibold text-sm rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors"
+                >
+                  Ordenar Comida
+                </a>
               </div>
             )}
           </div>
