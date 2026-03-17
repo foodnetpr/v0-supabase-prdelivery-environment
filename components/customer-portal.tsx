@@ -4014,9 +4014,7 @@ const orderData = {
               const tipAmount = deliveryForm.tipPercentage > 0
                 ? (menuSubtotal * deliveryForm.tipPercentage) / 100
                 : Number(deliveryForm.customTip || 0)
-              console.log("[v0] Tip calculation - tipPercentage:", deliveryForm.tipPercentage, "customTip:", deliveryForm.customTip, "tipAmount:", tipAmount)
               const orderTotal = menuSubtotal + deliveryFee + dispatchFee + ivuAmount + tipAmount
-              console.log("[v0] Order total:", orderTotal, "menuSubtotal:", menuSubtotal, "deliveryFee:", deliveryFee, "dispatchFee:", dispatchFee, "ivuAmount:", ivuAmount, "tipAmount:", tipAmount)
               const tipPresets = [10, 15, 18, 20]
 
               return (

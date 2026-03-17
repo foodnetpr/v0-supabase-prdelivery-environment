@@ -144,11 +144,24 @@ export function MarketplaceHome({
       return matchesSearch && matchesCuisine && matchesLocation && isInZone
     })
 
-    // Sort by distance
+    // Sort: open restaurants first (by distance), then closed/pre-order restaurants (alphabetically)
     return [...filtered].sort((a, b) => {
-      const dA = a.calculatedDistance ?? Infinity
-      const dB = b.calculatedDistance ?? Infinity
-      return dA - dB
+      const aIsOpen = a.isOpen !== false
+      const bIsOpen = b.isOpen !== false
+      
+      // Open restaurants come first
+      if (aIsOpen && !bIsOpen) return -1
+      if (!aIsOpen && bIsOpen) return 1
+      
+      // Among open restaurants, sort by distance
+      if (aIsOpen && bIsOpen) {
+        const dA = a.calculatedDistance ?? Infinity
+        const dB = b.calculatedDistance ?? Infinity
+        return dA - dB
+      }
+      
+      // Among closed restaurants, sort alphabetically
+      return a.name.localeCompare(b.name)
     })
   }, [restaurantsWithDistance, cuisineFilter, locationFilter, searchQuery])
 
