@@ -2077,43 +2077,7 @@ const orderData = {
             </div>
             {/* Bottom row on mobile: Delivery/Pickup toggle + Account + Cart (desktop only cart here) */}
             <div className="flex items-center justify-center gap-4 md:justify-end">
-              {/* Only show toggle if BOTH delivery and pickup are enabled */}
-              {selectedBranch?.delivery_enabled && selectedBranch?.pickup_enabled ? (
-                <div className="flex items-center bg-muted rounded-full p-1">
-                  <Button
-                    variant={deliveryMethod === "delivery" ? "default" : "ghost"}
-                    size="sm"
-                    className={`rounded-full`}
-                    style={deliveryMethod === "delivery" ? { backgroundColor: primaryColor } : {}}
-                    onClick={() => setDeliveryMethod("delivery")}
-                  >
-                    <Truck className="w-4 h-4 mr-2" />
-                    Entrega
-                  </Button>
-                  <Button
-                    variant={deliveryMethod === "pickup" ? "default" : "ghost"}
-                    size="sm"
-                    className={`rounded-full`}
-                    style={deliveryMethod === "pickup" ? { backgroundColor: primaryColor } : {}}
-                    onClick={() => setDeliveryMethod("pickup")}
-                  >
-                    <Package className="w-4 h-4 mr-2" />
-                    Recogido
-                  </Button>
-                </div>
-              ) : selectedBranch?.delivery_enabled ? (
-                /* Show Delivery badge when only delivery is enabled */
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium text-white" style={{ backgroundColor: primaryColor }}>
-                  <Truck className="w-4 h-4" />
-                  Delivery
-                </div>
-              ) : selectedBranch?.pickup_enabled ? (
-                /* Show Take-Out badge when only pickup is enabled */
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium text-white" style={{ backgroundColor: primaryColor }}>
-                  <Package className="w-4 h-4" />
-                  Take-Out
-                </div>
-              ) : null}
+              {/* Delivery/Pickup toggle - hidden until we have pickup restaurants */}
               {user ? (
                 <Button
                   variant="ghost"
