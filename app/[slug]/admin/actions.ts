@@ -60,12 +60,70 @@ export async function updateCategory(
   return { success: true }
 }
 
-export async function deleteCategory(categoryId: string) {
+// Restaurant Meal Period Hours (Breakfast/Lunch/Dinner)
+export type RestaurantHourEntry = {
+  day_of_week: number
+  breakfast_open: string | null
+  breakfast_close: string | null
+  lunch_open: string | null
+  lunch_close: string | null
+  dinner_open: string | null
+  dinner_close: string | null
+}
+
+export async function getRestaurantHours(restaurantId: string) {
   const supabase = getAdminClient()
-  const { error } = await supabase.from("categories").delete().eq("id", categoryId)
+  const { data, error } = await supabase
+    .from("restaurant_hours")
+    .select("*")
+    .eq("restaurant_id", restaurantId)
+    .order("day_of_week", { ascending: true })
+  
   if (error) throw new Error(error.message)
+  return data || []
+}
+
+export async function saveRestaurantHours(
+  restaurantId: string,
+  hours: RestaurantHourEntry[]
+) {
+  const supabase = getAdminClient()
+
+  // Delete existing hours for this restaurant
+  const { error: deleteError } = await supabase
+    .from("restaurant_hours")
+    .delete()
+    .eq("restaurant_id", restaurantId)
+
+  if (deleteError) {
+    console.error("Error deleting old restaurant hours:", deleteError)
+    return { success: false, error: deleteError.message }
+  }
+
+  // Insert new hours
+  const rows = hours.map((h) => ({
+    restaurant_id: restaurantId,
+    day_of_week: h.day_of_week,
+    breakfast_open: h.breakfast_open,
+    breakfast_close: h.breakfast_close,
+    lunch_open: h.lunch_open,
+    lunch_close: h.lunch_close,
+    dinner_open: h.dinner_open,
+    dinner_close: h.dinner_close,
+  }))
+
+  const { error: insertError } = await supabase
+    .from("restaurant_hours")
+    .insert(rows)
+
+  if (insertError) {
+    console.error("Error inserting restaurant hours:", insertError)
+    return { success: false, error: insertError.message }
+  }
+
   return { success: true }
 }
+
 
 // ---- Item Sizes CRUD ----
 

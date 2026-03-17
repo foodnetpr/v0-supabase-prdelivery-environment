@@ -100,6 +100,9 @@ import {
   getOperatingHours,
   saveOperatingHours,
   type OperatingHourEntry,
+  getRestaurantHours,
+  saveRestaurantHours,
+  type RestaurantHourEntry,
   type AvailableDays,
   type AvailabilityDaypart,
 } from "./actions"
@@ -231,6 +234,20 @@ export default function RestaurantAdminClient({
   const [operatingHours, setOperatingHours] = useState<OperatingHourEntry[]>(DEFAULT_HOURS)
   const [operatingHoursLoaded, setOperatingHoursLoaded] = useState(false)
   const [savingHours, setSavingHours] = useState(false)
+
+  // Restaurant meal period hours (Breakfast/Lunch/Dinner)
+  const DEFAULT_RESTAURANT_HOURS: RestaurantHourEntry[] = Array.from({ length: 7 }, (_, i) => ({
+    day_of_week: i,
+    breakfast_open: null,
+    breakfast_close: null,
+    lunch_open: "11:30",
+    lunch_close: "15:00",
+    dinner_open: "15:00",
+    dinner_close: "20:30",
+  }))
+  const [restaurantHours, setRestaurantHours] = useState<RestaurantHourEntry[]>(DEFAULT_RESTAURANT_HOURS)
+  const [restaurantHoursLoaded, setRestaurantHoursLoaded] = useState(false)
+  const [savingRestaurantHours, setSavingRestaurantHours] = useState(false)
 
   // Category and Item Type form states
   // Removed redundant categoryForm and setCategoryForm declarations here.
@@ -602,11 +619,37 @@ export default function RestaurantAdminClient({
     }
   }
 
+  const loadRestaurantHours = async () => {
+    try {
+      const data = await getRestaurantHours(restaurantId)
+      if (data.length > 0) {
+        const merged = DEFAULT_RESTAURANT_HOURS.map((def) => {
+          const found = data.find((d: any) => d.day_of_week === def.day_of_week)
+          return found ? {
+            day_of_week: found.day_of_week,
+            breakfast_open: found.breakfast_open,
+            breakfast_close: found.breakfast_close,
+            lunch_open: found.lunch_open,
+            lunch_close: found.lunch_close,
+            dinner_open: found.dinner_open,
+            dinner_close: found.dinner_close,
+          } : def
+        })
+        setRestaurantHours(merged)
+      }
+      setRestaurantHoursLoaded(true)
+    } catch (e) {
+      console.error("Failed to load restaurant hours:", e)
+      setRestaurantHoursLoaded(true)
+    }
+  }
+
   useEffect(() => {
   fetchData() // Use the renamed function
   fetchDeliveryZones()
   loadBranches()
   loadOperatingHours()
+  loadRestaurantHours()
   // Load all restaurants for copy menu feature
   supabase.from("restaurants").select("id, name").order("name").then(({ data }) => {
     setAllRestaurantsForCopy(data || [])
@@ -1981,6 +2024,38 @@ export default function RestaurantAdminClient({
     } finally {
       setSavingHours(false)
     }
+  }
+
+  const handleSaveRestaurantHours = async () => {
+    setSavingRestaurantHours(true)
+    try {
+      const result = await saveRestaurantHours(restaurantId, restaurantHours)
+      if (result.success) {
+        toast({ title: "Horario de comidas guardado exitosamente" })
+      } else {
+        toast({ title: "Error guardando horario", description: result.error, variant: "destructive" })
+      }
+    } catch (e: any) {
+      toast({ title: "Error guardando horario", description: e.message, variant: "destructive" })
+    } finally {
+      setSavingRestaurantHours(false)
+    }
+  }
+
+  // Copy one day's hours to all days
+  const copyRestaurantHoursToAll = (sourceDayIndex: number) => {
+    const sourceDay = restaurantHours[sourceDayIndex]
+    const updated = restaurantHours.map((day) => ({
+      ...day,
+      breakfast_open: sourceDay.breakfast_open,
+      breakfast_close: sourceDay.breakfast_close,
+      lunch_open: sourceDay.lunch_open,
+      lunch_close: sourceDay.lunch_close,
+      dinner_open: sourceDay.dinner_open,
+      dinner_close: sourceDay.dinner_close,
+    }))
+    setRestaurantHours(updated)
+    toast({ title: `Horario de ${DAY_NAMES[sourceDayIndex]} copiado a todos los dias` })
   }
 
   // Removed the old handleServicePackagesToggle function from here.
@@ -4616,7 +4691,7 @@ const pickupOrders = orders.filter((o: any) => o.order_type === "pickup" || o.de
               </CardContent>
             </Card>
 
-            {/* Operating Hours Section */}
+            {/* Operating Hours Section - Meal Periods */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -4624,61 +4699,186 @@ const pickupOrders = orders.filter((o: any) => o.order_type === "pickup" || o.de
                   Horario de Operacion
                 </CardTitle>
                 <CardDescription>
-                  Define los dias y horas en que el restaurante acepta pedidos. Los dias cerrados no estaran disponibles para los clientes.
+                  Define los horarios de Desayuno, Almuerzo y Cena para cada dia. Use "Cerrado" para indicar que el periodo no esta disponible.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {operatingHoursLoaded ? (
+              <CardContent className="space-y-4">
+                {restaurantHoursLoaded ? (
                   <>
-                    <div className="space-y-2">
-                      {operatingHours.map((day, idx) => (
-                        <div key={day.day_of_week} className="flex items-center gap-3 p-3 rounded-lg border bg-background">
-                          <div className="w-24 font-medium text-sm">{DAY_NAMES[day.day_of_week]}</div>
-                          <Switch
-                            checked={day.is_open}
-                            onCheckedChange={(checked) => {
-                              const updated = [...operatingHours]
-                              updated[idx] = { ...updated[idx], is_open: checked }
-                              setOperatingHours(updated)
-                            }}
-                          />
-                          <span className={`text-xs w-14 ${day.is_open ? "text-green-600 font-medium" : "text-red-500 font-medium"}`}>
-                            {day.is_open ? "Abierto" : "Cerrado"}
-                          </span>
-                          {day.is_open && (
-                            <div className="flex items-center gap-2 ml-auto">
-                              <Input
-                                type="time"
-                                value={day.open_time}
-                                onChange={(e) => {
-                                  const updated = [...operatingHours]
-                                  updated[idx] = { ...updated[idx], open_time: e.target.value }
-                                  setOperatingHours(updated)
-                                }}
-                                className="w-32 text-sm"
-                              />
-                              <span className="text-muted-foreground text-sm">a</span>
-                              <Input
-                                type="time"
-                                value={day.close_time}
-                                onChange={(e) => {
-                                  const updated = [...operatingHours]
-                                  updated[idx] = { ...updated[idx], close_time: e.target.value }
-                                  setOperatingHours(updated)
-                                }}
-                                className="w-32 text-sm"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                    {/* Warning banner */}
+                    <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-3 text-sm text-cyan-800">
+                      Los horarios de cada periodo no pueden superponerse. Si ve un error, verifique que los horarios no se solapen.
                     </div>
+                    
+                    {/* Table header */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-2 px-2 w-24"></th>
+                            <th className="text-center py-2 px-2" colSpan={2}>Desayuno</th>
+                            <th className="text-center py-2 px-2" colSpan={2}>Almuerzo</th>
+                            <th className="text-center py-2 px-2" colSpan={2}>Cena</th>
+                            <th className="py-2 px-2 w-24"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {restaurantHours.map((day, idx) => (
+                            <tr key={day.day_of_week} className="border-b hover:bg-muted/30">
+                              <td className="py-3 px-2 font-medium">{DAY_NAMES[day.day_of_week]}</td>
+                              
+                              {/* Breakfast */}
+                              <td className="py-3 px-1">
+                                <Select
+                                  value={day.breakfast_open || "closed"}
+                                  onValueChange={(val) => {
+                                    const updated = [...restaurantHours]
+                                    updated[idx] = { ...updated[idx], breakfast_open: val === "closed" ? null : val }
+                                    setRestaurantHours(updated)
+                                  }}
+                                >
+                                  <SelectTrigger className="w-24 h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="closed">Cerrado</SelectItem>
+                                    {Array.from({ length: 24 }, (_, h) => [`${h.toString().padStart(2, "0")}:00`, `${h.toString().padStart(2, "0")}:30`]).flat().map((t) => (
+                                      <SelectItem key={`bo-${t}`} value={t}>{t.replace(":", ":")} {parseInt(t) < 12 ? "AM" : "PM"}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              <td className="py-3 px-1">
+                                <Select
+                                  value={day.breakfast_close || "closed"}
+                                  onValueChange={(val) => {
+                                    const updated = [...restaurantHours]
+                                    updated[idx] = { ...updated[idx], breakfast_close: val === "closed" ? null : val }
+                                    setRestaurantHours(updated)
+                                  }}
+                                  disabled={!day.breakfast_open}
+                                >
+                                  <SelectTrigger className="w-24 h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="closed">Cerrado</SelectItem>
+                                    {Array.from({ length: 24 }, (_, h) => [`${h.toString().padStart(2, "0")}:00`, `${h.toString().padStart(2, "0")}:30`]).flat().map((t) => (
+                                      <SelectItem key={`bc-${t}`} value={t}>{t.replace(":", ":")} {parseInt(t) < 12 ? "AM" : "PM"}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              
+                              {/* Lunch */}
+                              <td className="py-3 px-1">
+                                <Select
+                                  value={day.lunch_open || "closed"}
+                                  onValueChange={(val) => {
+                                    const updated = [...restaurantHours]
+                                    updated[idx] = { ...updated[idx], lunch_open: val === "closed" ? null : val }
+                                    setRestaurantHours(updated)
+                                  }}
+                                >
+                                  <SelectTrigger className="w-24 h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="closed">Cerrado</SelectItem>
+                                    {Array.from({ length: 24 }, (_, h) => [`${h.toString().padStart(2, "0")}:00`, `${h.toString().padStart(2, "0")}:30`]).flat().map((t) => (
+                                      <SelectItem key={`lo-${t}`} value={t}>{t.replace(":", ":")} {parseInt(t) < 12 ? "AM" : "PM"}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              <td className="py-3 px-1">
+                                <Select
+                                  value={day.lunch_close || "closed"}
+                                  onValueChange={(val) => {
+                                    const updated = [...restaurantHours]
+                                    updated[idx] = { ...updated[idx], lunch_close: val === "closed" ? null : val }
+                                    setRestaurantHours(updated)
+                                  }}
+                                  disabled={!day.lunch_open}
+                                >
+                                  <SelectTrigger className="w-24 h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="closed">Cerrado</SelectItem>
+                                    {Array.from({ length: 24 }, (_, h) => [`${h.toString().padStart(2, "0")}:00`, `${h.toString().padStart(2, "0")}:30`]).flat().map((t) => (
+                                      <SelectItem key={`lc-${t}`} value={t}>{t.replace(":", ":")} {parseInt(t) < 12 ? "AM" : "PM"}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              
+                              {/* Dinner */}
+                              <td className="py-3 px-1">
+                                <Select
+                                  value={day.dinner_open || "closed"}
+                                  onValueChange={(val) => {
+                                    const updated = [...restaurantHours]
+                                    updated[idx] = { ...updated[idx], dinner_open: val === "closed" ? null : val }
+                                    setRestaurantHours(updated)
+                                  }}
+                                >
+                                  <SelectTrigger className="w-24 h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="closed">Cerrado</SelectItem>
+                                    {Array.from({ length: 24 }, (_, h) => [`${h.toString().padStart(2, "0")}:00`, `${h.toString().padStart(2, "0")}:30`]).flat().map((t) => (
+                                      <SelectItem key={`do-${t}`} value={t}>{t.replace(":", ":")} {parseInt(t) < 12 ? "AM" : "PM"}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              <td className="py-3 px-1">
+                                <Select
+                                  value={day.dinner_close || "closed"}
+                                  onValueChange={(val) => {
+                                    const updated = [...restaurantHours]
+                                    updated[idx] = { ...updated[idx], dinner_close: val === "closed" ? null : val }
+                                    setRestaurantHours(updated)
+                                  }}
+                                  disabled={!day.dinner_open}
+                                >
+                                  <SelectTrigger className="w-24 h-8 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="closed">Cerrado</SelectItem>
+                                    {Array.from({ length: 24 }, (_, h) => [`${h.toString().padStart(2, "0")}:00`, `${h.toString().padStart(2, "0")}:30`]).flat().map((t) => (
+                                      <SelectItem key={`dc-${t}`} value={t}>{t.replace(":", ":")} {parseInt(t) < 12 ? "AM" : "PM"}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </td>
+                              
+                              {/* Copy To All button */}
+                              <td className="py-3 px-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs bg-cyan-500 text-white hover:bg-cyan-600 border-0"
+                                  onClick={() => copyRestaurantHoursToAll(idx)}
+                                >
+                                  Copy To All
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    
                     <Button
-                      onClick={handleSaveOperatingHours}
-                      disabled={savingHours}
+                      onClick={handleSaveRestaurantHours}
+                      disabled={savingRestaurantHours}
                       className="bg-[#5d1f1f] hover:bg-[#4a1818]"
                     >
-                      {savingHours ? "Guardando..." : "Guardar Horario"}
+                      {savingRestaurantHours ? "Guardando..." : "Guardar Horario"}
                     </Button>
                   </>
                 ) : (
