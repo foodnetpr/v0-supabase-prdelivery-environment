@@ -41,6 +41,44 @@ export default function PhoneOrderForm({
   const [athMovilPhone, setAthMovilPhone] = useState("")
   const [paymentProcessed, setPaymentProcessed] = useState(false)
 
+  // Calculate default date (today) and time (45 min from now) in Puerto Rico timezone
+  const getDefaultDateTime = () => {
+    const now = new Date()
+    const prFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Puerto_Rico',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+    const prParts = prFormatter.formatToParts(now)
+    const year = prParts.find(p => p.type === 'year')?.value || ''
+    const month = prParts.find(p => p.type === 'month')?.value || ''
+    const day = prParts.find(p => p.type === 'day')?.value || ''
+    const hour = parseInt(prParts.find(p => p.type === 'hour')?.value || '0')
+    const minute = parseInt(prParts.find(p => p.type === 'minute')?.value || '0')
+    
+    // Add 45 minutes
+    let newMinute = minute + 45
+    let newHour = hour
+    if (newMinute >= 60) {
+      newMinute -= 60
+      newHour += 1
+    }
+    if (newHour >= 24) {
+      newHour -= 24
+    }
+    
+    const defaultDate = `${year}-${month}-${day}`
+    const defaultTime = `${newHour.toString().padStart(2, '0')}:${newMinute.toString().padStart(2, '0')}`
+    
+    return { defaultDate, defaultTime }
+  }
+  
+  const { defaultDate, defaultTime } = getDefaultDateTime()
+
   // Customer info
   const [customerInfo, setCustomerInfo] = useState({
     name: "",
@@ -53,8 +91,8 @@ export default function PhoneOrderForm({
     city: "",
     state: "PR",
     zip: "",
-    eventDate: "",
-    eventTime: "",
+    eventDate: defaultDate,
+    eventTime: defaultTime,
     specialInstructions: "",
   })
 
