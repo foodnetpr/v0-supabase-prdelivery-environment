@@ -28,7 +28,7 @@ interface PromoCard {
   id: string
   title: string
   subtitle: string | null
-  badge_text: string | null
+  badge: string | null
   badge_color: string
   image_url: string | null
   href: string | null
@@ -96,7 +96,7 @@ export function PromoCardsTab() {
     setForm({
       title: card.title,
       subtitle: card.subtitle ?? "",
-      badge_text: card.badge_text ?? "",
+      badge_text: card.badge ?? "",
       badge_color: card.badge_color,
       image_url: card.image_url ?? "",
       href: card.href ?? "",
@@ -275,11 +275,11 @@ export function PromoCardsTab() {
                         No image
                       </div>
                     )}
-                    {card.badge_text && (
+                    {card.badge && (
                       <span
                         className={`absolute top-1 left-1 ${card.badge_color} text-white text-[8px] font-bold px-1.5 py-0.5 rounded`}
                       >
-                        {card.badge_text}
+                        {card.badge}
                       </span>
                     )}
                   </div>
