@@ -120,6 +120,7 @@ export function PromoCardsTab() {
         href: form.href.trim() || "#",
         is_active: form.is_active,
       }
+      console.log("[v0] Saving promo card with payload:", payload)
 
       const res = await fetch(
         editingCard
@@ -353,9 +354,13 @@ export function PromoCardsTab() {
               <Label>Card Image</Label>
               <ImageUpload
                 value={form.image_url}
-                onChange={(url) => setForm((f) => ({ ...f, image_url: url }))}
+                onChange={(url) => {
+                  console.log("[v0] Image uploaded, URL:", url)
+                  setForm((f) => ({ ...f, image_url: url }))
+                }}
                 onRemove={() => setForm((f) => ({ ...f, image_url: "" }))}
                 label="Promo Image"
+                folder="promo-cards"
               />
               <p className="text-xs text-slate-400">Recommended: 600 × 240 px (5:2 ratio). Max 5 MB.</p>
             </div>
