@@ -364,11 +364,6 @@ function PromoBar({
                 </button>
               )}
             </div>
-            {searchQuery && (
-              <span className="text-xs text-slate-500">
-                {resultCount} restaurante{resultCount !== 1 ? "s" : ""} encontrado{resultCount !== 1 ? "s" : ""}
-              </span>
-            )}
             </div>
           </div>
         </div>
