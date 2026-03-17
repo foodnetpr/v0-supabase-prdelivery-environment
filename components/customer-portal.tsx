@@ -2273,7 +2273,7 @@ const orderData = {
                   <ChevronDown className="w-4 h-4 ml-1" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-y-auto">
+              <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-y-auto z-[60]">
                 <DropdownMenuLabel className="text-xs text-muted-foreground">Ir a categoria</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {categories
