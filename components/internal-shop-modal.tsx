@@ -103,23 +103,34 @@ export function InternalShopModal({ isOpen, onClose, onContinue }: InternalShopM
       
       {/* Modal */}
       <div className="relative w-full max-w-3xl max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col m-4">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-cyan-500 to-teal-500">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-              <ShoppingBag className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h2 className="font-bold text-white text-lg">Bebidas y Extras</h2>
-              <p className="text-white/80 text-sm">Agrega a tu orden</p>
-            </div>
-          </div>
+        {/* Banner Image */}
+        <div className="relative w-full h-32 sm:h-40">
+          <Image
+            src="/images/shop-banner.jpg"
+            alt="Bebidas y Extras"
+            fill
+            className="object-cover"
+            priority
+          />
+          {/* Close button overlay */}
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center transition-colors z-10"
           >
             <X className="w-5 h-5 text-white" />
           </button>
+          {/* Title overlay */}
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                <ShoppingBag className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="font-bold text-white text-lg">Bebidas y Extras</h2>
+                <p className="text-white/80 text-sm">Agrega a tu orden</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Category pills */}
