@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Phone, Search, Building2, X, ShoppingCart, Minus, Plus, Trash2, ChevronRight, ChevronLeft, LogOut, Menu, User, MapPin, Clock, CalendarIcon } from "lucide-react"
 import Link from "next/link"
+import { calculateDeliveryFee } from "@/app/actions/delivery-zones"
 
 // Dynamic import for payment components
 const StripeCheckout = dynamic(() => import("@/components/stripe-checkout"), { ssr: false })
@@ -25,6 +26,16 @@ interface Restaurant {
   cuisine_types: string[] | null
   area: string | null
   tax_rate: number | null
+  delivery_fee: number | null
+  delivery_base_fee: number | null
+  dispatch_fee_percent: number | null
+  address: string | null
+  city: string | null
+  state: string | null
+  athmovil_public_token: string | null
+  athmovil_ecommerce_id: string | null
+  athmovil_enabled: boolean | null
+  stripe_account_id: string | null
 }
 
 interface ItemOption {
@@ -115,6 +126,11 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
   // Payment method state
   const [paymentMethod, setPaymentMethod] = useState<"stripe" | "ath_movil">("stripe")
   const [showPaymentModal, setShowPaymentModal] = useState(false)
+  
+  // Delivery fee state (calculated from delivery zones)
+  const [calculatedDeliveryFee, setCalculatedDeliveryFee] = useState<number>(0)
+  const [deliveryDistance, setDeliveryDistance] = useState<number>(0)
+  const [isCalculatingFee, setIsCalculatingFee] = useState(false)
   
   // Get default date/time based on delivery type
   const defaultDateTime = getDefaultDateTime("delivery")
@@ -371,10 +387,62 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0)
   
-  // Fee calculations from selected restaurant (default to $3.00 if not set)
-  const DELIVERY_FEE = selectedRestaurant?.delivery_fee ?? selectedRestaurant?.delivery_base_fee ?? 3.00
+  // Delivery fee comes from calculated delivery zones (or 0 if not calculated yet)
+  const DELIVERY_FEE = calculatedDeliveryFee
   const DISPATCH_FEE_PERCENT = selectedRestaurant?.dispatch_fee_percent ?? 0
   const DISPATCH_FEE = subtotal * (DISPATCH_FEE_PERCENT / 100)
+  
+  // Calculate delivery fee when address changes
+  useEffect(() => {
+    const calculateFee = async () => {
+      if (!selectedRestaurant || customerInfo.deliveryType !== "delivery") {
+        setCalculatedDeliveryFee(0)
+        setDeliveryDistance(0)
+        return
+      }
+      
+      // Need full address to calculate
+      if (!customerInfo.address || !customerInfo.city) {
+        setCalculatedDeliveryFee(0)
+        setDeliveryDistance(0)
+        return
+      }
+      
+      setIsCalculatingFee(true)
+      try {
+        // Get restaurant address from the selected branch or restaurant
+        const restaurantAddress = selectedRestaurant.address || 
+          `${selectedRestaurant.city || ""}, ${selectedRestaurant.state || "PR"}`
+        
+        const deliveryAddress = `${customerInfo.address}, ${customerInfo.city}, PR ${customerInfo.zip || ""}`
+        
+        const result = await calculateDeliveryFee({
+          restaurantId: selectedRestaurant.id,
+          deliveryAddress,
+          restaurantAddress,
+          itemCount: totalItems,
+        })
+        
+        if (result.success) {
+          setCalculatedDeliveryFee(result.fee)
+          setDeliveryDistance(result.distance)
+        } else {
+          // Default fee if calculation fails
+          setCalculatedDeliveryFee(selectedRestaurant.delivery_fee ?? 5.89)
+          setDeliveryDistance(0)
+        }
+      } catch (error) {
+        console.error("Error calculating delivery fee:", error)
+        setCalculatedDeliveryFee(selectedRestaurant.delivery_fee ?? 5.89)
+      } finally {
+        setIsCalculatingFee(false)
+      }
+    }
+    
+    // Debounce the calculation
+    const timer = setTimeout(calculateFee, 500)
+    return () => clearTimeout(timer)
+  }, [selectedRestaurant, customerInfo.address, customerInfo.city, customerInfo.zip, customerInfo.deliveryType, totalItems])
   
   // Process Order
   const processOrder = async () => {
@@ -969,7 +1037,10 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                   {/* Delivery Fee */}
                   {customerInfo.deliveryType === "delivery" && (
                     <div className="flex justify-between text-xs mb-1">
-                      <span className="text-rose-500">Delivery</span>
+                      <span className="text-rose-500">
+                        Delivery{deliveryDistance > 0 ? ` (${deliveryDistance.toFixed(1)} mi)` : ""}
+                        {isCalculatingFee && <span className="ml-1 text-slate-400">...</span>}
+                      </span>
                       <span className="text-slate-900">${(deliveryFee + dispatchFee).toFixed(2)}</span>
                     </div>
                   )}
@@ -1054,11 +1125,14 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
             {paymentMethod === "stripe" ? (
               <StripeCheckout
                 orderData={{
+                  restaurantId: selectedRestaurant.id,
+                  branchId: customerInfo.selectedBranch || null,
                   cart: cart.map(item => ({
                     id: item.itemId,
                     name: item.name,
-                    price: item.price,
+                    price: item.price * item.quantity,
                     quantity: item.quantity,
+                    totalPrice: item.price * item.quantity,
                     selectedOptions: item.selectedOptions,
                     notes: item.notes,
                   })),
@@ -1075,6 +1149,8 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                   })(),
                   orderType: customerInfo.deliveryType,
                   eventDetails: {
+                    restaurantId: selectedRestaurant.id,
+                    branchId: customerInfo.selectedBranch || null,
                     name: customerInfo.name,
                     phone: customerInfo.phone,
                     address: customerInfo.address,
@@ -1088,7 +1164,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                   customerEmail: "",
                   customerPhone: customerInfo.phone,
                   smsConsent: true,
-                  stripeAccountId: null,
+                  stripeAccountId: selectedRestaurant.stripe_account_id || null,
                   customerId: null,
                 }}
                 onSuccess={() => {
