@@ -921,15 +921,16 @@ const line2 = customerInfo.streetAddress2 ? `, ${customerInfo.streetAddress2}` :
                     <Label className="text-[10px] text-amber-700 font-medium">Direccion *</Label>
                     <AddressAutocomplete
                       value={customerInfo.streetAddress}
-                      onChange={(val) => setCustomerInfo({...customerInfo, streetAddress: val})}
+                      onChange={(val) => setCustomerInfo(prev => ({...prev, streetAddress: val}))}
                       onAddressSelected={(components) => {
-                        setCustomerInfo({
-                          ...customerInfo,
+                        console.log("[v0] CSR onAddressSelected received:", components)
+                        setCustomerInfo(prev => ({
+                          ...prev,
                           streetAddress: components.streetAddress,
-                          city: components.city || customerInfo.city,
+                          city: components.city || prev.city,
                           state: components.state || "PR",
-                          zip: components.zip || customerInfo.zip,
-                        })
+                          zip: components.zip || prev.zip,
+                        }))
                       }}
                       placeholder="Numero, Calle..."
                       className="h-7 text-xs mt-0.5"

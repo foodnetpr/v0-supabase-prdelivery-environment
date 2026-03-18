@@ -143,13 +143,29 @@ export function AddressAutocomplete({
         setInputValue(streetAddress)
         onChange(streetAddress)
 
+        console.log("[v0] Place details response:", data)
+        console.log("[v0] Parsed address components:", {
+          streetAddress,
+          city: data.city,
+          state: data.state,
+          zip: data.zip,
+        })
+
         if (onAddressSelected) {
+          console.log("[v0] Calling onAddressSelected with:", {
+            streetAddress,
+            city: data.city || "",
+            state: data.state || "PR",
+            zip: data.zip || "",
+          })
           onAddressSelected({
             streetAddress,
             city: data.city || "",
             state: data.state || "PR",
             zip: data.zip || "",
           })
+        } else {
+          console.log("[v0] onAddressSelected callback is not defined!")
         }
 
         // Trigger distance calculation after form state has updated
