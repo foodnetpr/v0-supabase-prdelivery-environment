@@ -124,7 +124,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
   const [orderSuccess, setOrderSuccess] = useState<string | null>(null)
   
   // Payment method state
-  const [paymentMethod, setPaymentMethod] = useState<"stripe" | "ath_movil">("stripe")
+  const [paymentMethod, setPaymentMethod] = useState<"stripe" | "ath_movil" | "cash" | "saved_card">("stripe")
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   
   // Delivery fee state (calculated from delivery zones)
@@ -155,6 +155,16 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null)
   const [isSearchingCustomers, setIsSearchingCustomers] = useState(false)
+  const [customerPaymentMethods, setCustomerPaymentMethods] = useState<any[]>([])
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null)
+  const [customerAddresses, setCustomerAddresses] = useState<any[]>([])
+  const [isNewCustomer, setIsNewCustomer] = useState(false)
+  
+  // Read-back confirmation state
+  const [showReadbackModal, setShowReadbackModal] = useState(false)
+  
+  // Available restaurants filtered by delivery zone
+  const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>(restaurants)
   
   // Update time when delivery type changes
   useEffect(() => {
@@ -479,6 +489,17 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
             postal_code,
             is_default,
             delivery_instructions
+          ),
+          customer_payment_methods (
+            id,
+            card_brand,
+            card_last_four,
+            card_exp_month,
+            card_exp_year,
+            provider,
+            provider_customer_id,
+            provider_payment_method_id,
+            is_default
           )
         `)
         .or(`phone.ilike.%${searchTerm}%,first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%`)
@@ -488,6 +509,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
       
       setCustomerSearchResults(data || [])
       setShowCustomerDropdown((data || []).length > 0)
+      setIsNewCustomer((data || []).length === 0)
     } catch (error) {
       console.error("Error searching customers:", error)
       setCustomerSearchResults([])
@@ -512,9 +534,120 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
       specialInstructions: defaultAddress?.delivery_instructions || customerInfo.specialInstructions,
     })
     setSelectedCustomerId(customer.id)
+    setCustomerAddresses(customer.customer_addresses || [])
+    setCustomerPaymentMethods(customer.customer_payment_methods || [])
+    
+    // Auto-select default payment method if available
+    const defaultPayment = customer.customer_payment_methods?.find((pm: any) => pm.is_default)
+    if (defaultPayment) {
+      setSelectedPaymentMethodId(defaultPayment.id)
+    }
+    
     setShowCustomerDropdown(false)
     setCustomerSearchResults([])
+    setIsNewCustomer(false)
   }
+  
+  // Save new customer to database
+  const saveNewCustomer = async () => {
+    if (!customerInfo.name || !customerInfo.phone) return null
+    
+    try {
+      const nameParts = customerInfo.name.trim().split(" ")
+      const firstName = nameParts[0] || ""
+      const lastName = nameParts.slice(1).join(" ") || ""
+      const normalizedPhone = customerInfo.phone.replace(/\D/g, "")
+      
+      // Check if customer already exists
+      const { data: existing } = await supabase
+        .from("customers")
+        .select("id")
+        .or(`phone.ilike.%${normalizedPhone}%`)
+        .single()
+      
+      if (existing) {
+        setSelectedCustomerId(existing.id)
+        return existing.id
+      }
+      
+      // Create new customer
+      const { data: newCustomer, error } = await supabase
+        .from("customers")
+        .insert({
+          first_name: firstName,
+          last_name: lastName,
+          phone: normalizedPhone,
+          email: customerInfo.email || null,
+        })
+        .select("id")
+        .single()
+      
+      if (error) throw error
+      
+      if (newCustomer) {
+        setSelectedCustomerId(newCustomer.id)
+        setIsNewCustomer(false)
+        
+        // If delivery address provided, save it
+        if (customerInfo.deliveryType === "delivery" && customerInfo.address) {
+          await supabase
+            .from("customer_addresses")
+            .insert({
+              customer_id: newCustomer.id,
+              address_line_1: customerInfo.address,
+              city: customerInfo.city,
+              state: "PR",
+              postal_code: customerInfo.zip,
+              delivery_instructions: customerInfo.specialInstructions || null,
+              is_default: true,
+            })
+        }
+        
+        return newCustomer.id
+      }
+      return null
+    } catch (error) {
+      console.error("Error saving customer:", error)
+      return null
+    }
+  }
+  
+  // Filter restaurants by delivery zone when customer address changes
+  useEffect(() => {
+    const filterByDeliveryZone = async () => {
+      if (!customerInfo.address || !customerInfo.city || customerInfo.deliveryType !== "delivery") {
+        setFilteredRestaurants(restaurants)
+        return
+      }
+      
+      const deliveryAddress = `${customerInfo.address}, ${customerInfo.city}, PR ${customerInfo.zip || ""}`
+      
+      // Check each restaurant's delivery zones
+      const available: Restaurant[] = []
+      for (const restaurant of restaurants) {
+        if (!restaurant.address) {
+          available.push(restaurant) // Include if no address configured
+          continue
+        }
+        
+        const result = await calculateDeliveryFee({
+          restaurantId: restaurant.id,
+          deliveryAddress,
+          restaurantAddress: restaurant.address,
+          itemCount: 1,
+        })
+        
+        if (result.success) {
+          available.push(restaurant)
+        }
+      }
+      
+      setFilteredRestaurants(available.length > 0 ? available : restaurants) // Fallback to all if none match
+    }
+    
+    const timer = setTimeout(filterByDeliveryZone, 800)
+    return () => clearTimeout(timer)
+  }, [customerInfo.address, customerInfo.city, customerInfo.zip, customerInfo.deliveryType, restaurants])
   
   // Debounced customer search when phone changes
   useEffect(() => {
@@ -722,7 +855,10 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                   className="h-7 text-xs mt-0.5"
                 />
                 {selectedCustomerId && (
-                  <p className="text-[9px] text-green-600 mt-0.5">Cliente encontrado</p>
+                  <p className="text-[9px] text-green-600 mt-0.5">Cliente registrado</p>
+                )}
+                {isNewCustomer && !selectedCustomerId && customerInfo.phone.length >= 7 && (
+                  <p className="text-[9px] text-amber-600 mt-0.5">Nuevo cliente</p>
                 )}
               </div>
               
@@ -837,7 +973,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                     onClick={() => {
                       setPaymentMethod("stripe")
                       if (cart.length > 0 && customerInfo.name && customerInfo.phone && selectedRestaurant) {
-                        setShowPaymentModal(true)
+                        setShowReadbackModal(true) // Go through read-back first
                       }
                     }}
                     disabled={cart.length === 0 || !customerInfo.name || !customerInfo.phone || !selectedRestaurant}
@@ -878,7 +1014,63 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                       )}
                     </span>
                   </button>
+                  
+                  {/* Cash on Delivery button */}
+                  <button
+                    onClick={() => {
+                      setPaymentMethod("cash")
+                      if (cart.length > 0 && customerInfo.name && customerInfo.phone && selectedRestaurant) {
+                        // For cash, go directly to read-back confirmation
+                        setShowReadbackModal(true)
+                      }
+                    }}
+                    disabled={cart.length === 0 || !customerInfo.name || !customerInfo.phone || !selectedRestaurant || customerInfo.deliveryType !== "delivery"}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      paymentMethod === "cash"
+                        ? "bg-green-600 text-white border-green-600"
+                        : "bg-white text-slate-700 border-slate-300 hover:border-green-400"
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span className="text-[10px] font-medium">Efectivo</span>
+                  </button>
+                  
+                  {/* Card-on-File (only if customer has saved cards) */}
+                  {customerPaymentMethods.length > 0 && (
+                    <div className="border-t border-slate-200 pt-1.5 mt-1">
+                      <p className="text-[9px] text-slate-500 mb-1">Tarjetas guardadas:</p>
+                      {customerPaymentMethods.map((pm) => (
+                        <button
+                          key={pm.id}
+                          onClick={() => {
+                            setSelectedPaymentMethodId(pm.id)
+                            setPaymentMethod("saved_card")
+                            if (cart.length > 0 && customerInfo.name && customerInfo.phone && selectedRestaurant) {
+                              setShowReadbackModal(true)
+                            }
+                          }}
+                          disabled={cart.length === 0 || !customerInfo.name || !customerInfo.phone || !selectedRestaurant}
+                          className={`w-full flex items-center gap-2 px-2 py-1 rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-1 ${
+                            selectedPaymentMethodId === pm.id && paymentMethod === "saved_card"
+                              ? "bg-indigo-100 text-indigo-700 border-indigo-300"
+                              : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300"
+                          }`}
+                        >
+                          <span className="text-[10px] font-medium uppercase">{pm.card_brand}</span>
+                          <span className="text-[10px]">•••• {pm.card_last_four}</span>
+                          <span className="text-[9px] text-slate-400 ml-auto">{pm.card_exp_month}/{pm.card_exp_year}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
+                {customerInfo.deliveryType !== "delivery" && (
+                  <p className="text-[9px] text-slate-400 mt-1">
+                    Efectivo solo disponible para delivery
+                  </p>
+                )}
                 {(cart.length === 0 || !customerInfo.name || !customerInfo.phone) && (
                   <p className="text-[9px] text-amber-600 mt-1">
                     {cart.length === 0 
@@ -1313,6 +1505,302 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                 onCancel={() => setShowPaymentModal(false)}
               />
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Read-back Confirmation Modal */}
+      {showReadbackModal && selectedRestaurant && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-slate-200 bg-amber-50 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-amber-800">Confirmar Orden</h3>
+                <p className="text-xs text-amber-600">Lea al cliente para confirmar</p>
+              </div>
+              <button
+                onClick={() => setShowReadbackModal(false)}
+                className="p-1 hover:bg-amber-200 rounded"
+              >
+                <X className="w-4 h-4 text-amber-600" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Customer Info */}
+              <div className="bg-slate-50 rounded-lg p-3">
+                <h4 className="text-xs font-semibold text-slate-700 mb-2">Cliente</h4>
+                <div className="text-sm space-y-1">
+                  <p><span className="text-slate-500">Nombre:</span> <strong>{customerInfo.name}</strong></p>
+                  <p><span className="text-slate-500">Telefono:</span> <strong>{customerInfo.phone}</strong></p>
+                  {customerInfo.email && <p><span className="text-slate-500">Email:</span> {customerInfo.email}</p>}
+                </div>
+              </div>
+
+              {/* Delivery Info */}
+              <div className="bg-slate-50 rounded-lg p-3">
+                <h4 className="text-xs font-semibold text-slate-700 mb-2">
+                  {customerInfo.deliveryType === "delivery" ? "Delivery" : "Pickup"}
+                </h4>
+                <div className="text-sm space-y-1">
+                  <p><span className="text-slate-500">Restaurante:</span> <strong>{selectedRestaurant.name}</strong></p>
+                  {customerInfo.deliveryType === "delivery" && (
+                    <p><span className="text-slate-500">Direccion:</span> <strong>{customerInfo.address}, {customerInfo.city} {customerInfo.zip}</strong></p>
+                  )}
+                  <p><span className="text-slate-500">Fecha:</span> <strong>{customerInfo.eventDate}</strong> a las <strong>{customerInfo.eventTime}</strong></p>
+                  {customerInfo.specialInstructions && (
+                    <p><span className="text-slate-500">Notas:</span> {customerInfo.specialInstructions}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Order Items */}
+              <div className="bg-slate-50 rounded-lg p-3">
+                <h4 className="text-xs font-semibold text-slate-700 mb-2">Items ({totalItems})</h4>
+                <div className="space-y-2">
+                  {cart.map((item) => (
+                    <div key={item.id} className="flex justify-between text-sm">
+                      <span>
+                        <strong>{item.quantity}x</strong> {item.name}
+                        {item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
+                          <span className="text-slate-400 text-xs ml-1">
+                            ({Object.values(item.selectedOptions).filter(v => v).join(", ")})
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-medium">${(item.price * item.quantity).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Totals */}
+              <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span>${subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>IVU (11.5%):</span>
+                    <span>${(subtotal * IVU_RATE).toFixed(2)}</span>
+                  </div>
+                  {customerInfo.deliveryType === "delivery" && (
+                    <div className="flex justify-between">
+                      <span>Delivery:</span>
+                      <span>${(DELIVERY_FEE + DISPATCH_FEE).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {(customTip || tipPercentage > 0) && (
+                    <div className="flex justify-between">
+                      <span>Propina:</span>
+                      <span>${(customTip ? parseFloat(customTip) || 0 : (subtotal * tipPercentage / 100)).toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold text-lg pt-1 border-t border-amber-300">
+                    <span>Total:</span>
+                    <span>${(() => {
+                      const deliveryFee = customerInfo.deliveryType === "delivery" ? DELIVERY_FEE + DISPATCH_FEE : 0
+                      const ivu = subtotal * IVU_RATE
+                      const tipAmount = customTip ? parseFloat(customTip) || 0 : (subtotal * tipPercentage / 100)
+                      return (subtotal + deliveryFee + ivu + tipAmount).toFixed(2)
+                    })()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment Method */}
+              <div className="bg-slate-50 rounded-lg p-3">
+                <h4 className="text-xs font-semibold text-slate-700 mb-1">Metodo de Pago</h4>
+                <p className="text-sm font-medium">
+                  {paymentMethod === "cash" && "Efectivo (Pago al recibir)"}
+                  {paymentMethod === "saved_card" && customerPaymentMethods.find(pm => pm.id === selectedPaymentMethodId) && (
+                    <>Tarjeta guardada: {customerPaymentMethods.find(pm => pm.id === selectedPaymentMethodId)?.card_brand?.toUpperCase()} •••• {customerPaymentMethods.find(pm => pm.id === selectedPaymentMethodId)?.card_last_four}</>
+                  )}
+                  {paymentMethod === "stripe" && "Tarjeta de credito"}
+                  {paymentMethod === "ath_movil" && "ATH Movil"}
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex gap-2">
+              <button
+                onClick={() => setShowReadbackModal(false)}
+                className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors text-sm"
+              >
+                Editar Orden
+              </button>
+              <button
+                onClick={async () => {
+                  // Save new customer if needed
+                  let customerId = selectedCustomerId
+                  if (!customerId && customerInfo.name && customerInfo.phone) {
+                    customerId = await saveNewCustomer()
+                  }
+                  
+                  if (paymentMethod === "cash") {
+                    // Process cash order directly
+                    try {
+                      const deliveryFee = customerInfo.deliveryType === "delivery" ? DELIVERY_FEE + DISPATCH_FEE : 0
+                      const ivu = subtotal * IVU_RATE
+                      const tipAmount = customTip ? parseFloat(customTip) || 0 : (subtotal * tipPercentage / 100)
+                      const total = subtotal + deliveryFee + ivu + tipAmount
+                      
+                      const response = await fetch("/api/csr/process-cash-order", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          restaurantId: selectedRestaurant.id,
+                          customerId,
+                          cart: cart.map(item => ({
+                            id: item.itemId,
+                            name: item.name,
+                            price: item.price,
+                            quantity: item.quantity,
+                            selectedOptions: item.selectedOptions,
+                          })),
+                          subtotal,
+                          tax: ivu,
+                          deliveryFee,
+                          tip: tipAmount,
+                          total,
+                          orderType: customerInfo.deliveryType,
+                          eventDetails: {
+                            name: customerInfo.name,
+                            email: customerInfo.email,
+                            phone: customerInfo.phone,
+                            eventDate: customerInfo.eventDate,
+                            eventTime: customerInfo.eventTime,
+                            address: customerInfo.address,
+                            city: customerInfo.city,
+                            state: "PR",
+                            zip: customerInfo.zip,
+                            specialInstructions: customerInfo.specialInstructions,
+                          },
+                        }),
+                      })
+                      
+                      const result = await response.json()
+                      if (result.success) {
+                        setShowReadbackModal(false)
+                        setOrderSuccess(`Orden #${result.orderNumber} creada - Pago en efectivo`)
+                        setCart([])
+                        setCustomerInfo({
+                          phone: "",
+                          name: "",
+                          email: "",
+                          address: "",
+                          city: "",
+                          zip: "",
+                          deliveryType: "delivery",
+                          eventDate: getDefaultDateTime("delivery").date,
+                          eventTime: getDefaultDateTime("delivery").time,
+                          specialInstructions: "",
+                          selectedBranch: "",
+                        })
+                        setSelectedCustomerId(null)
+                        setCustomerPaymentMethods([])
+                        setTimeout(() => setOrderSuccess(null), 5000)
+                      } else {
+                        alert("Error: " + result.error)
+                      }
+                    } catch (error) {
+                      console.error("Cash order error:", error)
+                      alert("Error procesando orden")
+                    }
+                  } else if (paymentMethod === "saved_card" && selectedPaymentMethodId) {
+                    // Process saved card payment
+                    try {
+                      const pm = customerPaymentMethods.find(p => p.id === selectedPaymentMethodId)
+                      if (!pm) {
+                        alert("No se encontro el metodo de pago")
+                        return
+                      }
+                      
+                      const deliveryFee = customerInfo.deliveryType === "delivery" ? DELIVERY_FEE + DISPATCH_FEE : 0
+                      const ivu = subtotal * IVU_RATE
+                      const tipAmount = customTip ? parseFloat(customTip) || 0 : (subtotal * tipPercentage / 100)
+                      const total = subtotal + deliveryFee + ivu + tipAmount
+                      
+                      const response = await fetch("/api/csr/process-saved-card", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          restaurantId: selectedRestaurant.id,
+                          customerId,
+                          stripeCustomerId: pm.provider_customer_id,
+                          paymentMethodId: pm.provider_payment_method_id,
+                          stripeAccountId: selectedRestaurant.stripe_account_id,
+                          cart: cart.map(item => ({
+                            id: item.itemId,
+                            name: item.name,
+                            price: item.price,
+                            quantity: item.quantity,
+                            selectedOptions: item.selectedOptions,
+                          })),
+                          subtotal,
+                          tax: ivu,
+                          deliveryFee,
+                          tip: tipAmount,
+                          total,
+                          orderType: customerInfo.deliveryType,
+                          eventDetails: {
+                            name: customerInfo.name,
+                            email: customerInfo.email,
+                            phone: customerInfo.phone,
+                            eventDate: customerInfo.eventDate,
+                            eventTime: customerInfo.eventTime,
+                            address: customerInfo.address,
+                            city: customerInfo.city,
+                            state: "PR",
+                            zip: customerInfo.zip,
+                            specialInstructions: customerInfo.specialInstructions,
+                          },
+                        }),
+                      })
+                      
+                      const result = await response.json()
+                      if (result.success) {
+                        setShowReadbackModal(false)
+                        setOrderSuccess(`Orden #${result.orderNumber} completada`)
+                        setCart([])
+                        setCustomerInfo({
+                          phone: "",
+                          name: "",
+                          email: "",
+                          address: "",
+                          city: "",
+                          zip: "",
+                          deliveryType: "delivery",
+                          eventDate: getDefaultDateTime("delivery").date,
+                          eventTime: getDefaultDateTime("delivery").time,
+                          specialInstructions: "",
+                          selectedBranch: "",
+                        })
+                        setSelectedCustomerId(null)
+                        setCustomerPaymentMethods([])
+                        setTimeout(() => setOrderSuccess(null), 5000)
+                      } else {
+                        alert("Error: " + result.error)
+                      }
+                    } catch (error) {
+                      console.error("Saved card error:", error)
+                      alert("Error procesando pago")
+                    }
+                  } else {
+                    // For Stripe/ATH, close read-back and open payment modal
+                    setShowReadbackModal(false)
+                    setShowPaymentModal(true)
+                  }
+                }}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+              >
+                {paymentMethod === "cash" ? "Confirmar Orden (Efectivo)" : 
+                 paymentMethod === "saved_card" ? "Cobrar Tarjeta Guardada" :
+                 "Proceder al Pago"}
+              </button>
+            </div>
           </div>
         </div>
       )}
