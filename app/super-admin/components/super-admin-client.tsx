@@ -43,6 +43,7 @@ import { AdminUsersTab } from "./admin-users-tab"
 import { CuisineTypesTab } from "./cuisine-types-tab"
 import { ReportsTab } from "./reports-tab"
 import { PromoCardsTab } from "./promo-cards-tab"
+import { SuperAdminSidebar } from "./super-admin-sidebar"
 
 interface Restaurant {
   id: string
@@ -430,132 +431,45 @@ export function SuperAdminClient({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-slate-900 rounded-lg">
-                <Building2 className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-slate-900">Super Admin</h1>
-                <p className="text-sm text-slate-500">Manage all restaurant instances</p>
+      {/* Sidebar Navigation */}
+      <SuperAdminSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {/* Main Content Area - offset by sidebar width */}
+      <div className="md:ml-64 min-h-screen transition-all duration-300">
+        {/* Top Header Bar */}
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+          <div className="px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex items-center justify-between">
+              <div className="md:hidden w-10" /> {/* Spacer for mobile menu button */}
+              <h2 className="text-lg font-semibold text-slate-900 capitalize">
+                {activeTab === "restaurants" && "Restaurantes"}
+                {activeTab === "marketing" && "Marketing & Sales"}
+                {activeTab === "operations" && "Operations"}
+                {activeTab === "admin-users" && "Admin Users"}
+                {activeTab === "cuisine-types" && "Tipos de Cocina"}
+                {activeTab === "reports" && "Reports"}
+                {activeTab === "promo-cards" && "Promo Cards"}
+              </h2>
+              <div className="flex items-center gap-3">
+                {activeTab === "restaurants" && (
+                  <>
+                    <Button onClick={() => setShowSettingsModal(true)} variant="outline" className="gap-2">
+                      <Settings className="h-4 w-4" />
+                      <span className="hidden sm:inline">Configuración del Mercado</span>
+                    </Button>
+                    <Button onClick={() => setShowCreateModal(true)} className="gap-2">
+                      <Plus className="h-4 w-4" />
+                      <span className="hidden sm:inline">New Restaurant</span>
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              {activeTab === "restaurants" && (
-                <>
-                  <Button onClick={() => setShowSettingsModal(true)} variant="outline" className="gap-2">
-                    <Settings className="h-4 w-4" />
-                    Configuración del Mercado
-                  </Button>
-                  <Button onClick={() => setShowCreateModal(true)} className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    New Restaurant
-                  </Button>
-                </>
-              )}
-            </div>
           </div>
-          {/* Tab Navigation */}
-          <div className="flex gap-1 mt-4 -mb-px">
-            <button
-              onClick={() => setActiveTab("restaurants")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-                activeTab === "restaurants"
-                  ? "border-slate-900 text-slate-900 bg-slate-50"
-                  : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-              }`}
-            >
-              <Building2 className="h-4 w-4" />
-              Restaurantes
-            </button>
-            <button
-              onClick={() => setActiveTab("marketing")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-                activeTab === "marketing"
-                  ? "border-slate-900 text-slate-900 bg-slate-50"
-                  : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-              }`}
-            >
-              <Megaphone className="h-4 w-4" />
-              Marketing & Sales
-            </button>
-            <button
-              onClick={() => setActiveTab("operations")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-                activeTab === "operations"
-                  ? "border-slate-900 text-slate-900 bg-slate-50"
-                  : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-              }`}
-            >
-              <Clock className="h-4 w-4" />
-              Operations
-            </button>
-            <button
-              onClick={() => setActiveTab("admin-users")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-                activeTab === "admin-users"
-                  ? "border-slate-900 text-slate-900 bg-slate-50"
-                  : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-              }`}
-            >
-              <Users className="h-4 w-4" />
-              Admin Users
-            </button>
-            <button
-              onClick={() => setActiveTab("cuisine-types")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-                activeTab === "cuisine-types"
-                  ? "border-slate-900 text-slate-900 bg-slate-50"
-                  : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-              }`}
-            >
-              <UtensilsCrossed className="h-4 w-4" />
-              Tipos de Cocina
-            </button>
-            <Link
-              href="/super-admin/internal-shop"
-              className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 transition-colors"
-            >
-              <ShoppingCart className="h-4 w-4" />
-              Internal Shop
-            </Link>
-            <Link
-              href="/csr"
-              className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 border-transparent text-rose-600 hover:text-rose-700 hover:border-rose-300 hover:bg-rose-50 transition-colors"
-            >
-              <Phone className="h-4 w-4" />
-              CSR Portal
-            </Link>
-            <button
-              onClick={() => setActiveTab("reports")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-                activeTab === "reports"
-                  ? "border-slate-900 text-slate-900 bg-slate-50"
-                  : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-              }`}
-            >
-              <FileText className="h-4 w-4" />
-              Reports
-            </button>
-            <button
-              onClick={() => setActiveTab("promo-cards")}
-              className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-                activeTab === "promo-cards"
-                  ? "border-slate-900 text-slate-900 bg-slate-50"
-                  : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-              }`}
-            >
-              <Images className="h-4 w-4" />
-              Promo Cards
-            </button>
-          </div>
-        </div>
-      </header>
+        </header>
 
       {activeTab === "restaurants" && (
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <Card>
@@ -1081,6 +995,7 @@ export function SuperAdminClient({
       {activeTab === "promo-cards" && (
         <PromoCardsTab />
       )}
+      </div>{/* End main content wrapper */}
 
       {/* Create Restaurant Modal - keep existing */}
       <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
