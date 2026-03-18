@@ -8,7 +8,7 @@ export default async function HomePage() {
   // Fetch all marketplace restaurants with coordinates for client-side filtering
   const { data: restaurants, error } = await supabase
     .from("restaurants")
-    .select("id, name, slug, logo_url, marketplace_image_url, primary_color, cuisine_type, cuisine_types, city, state, area, latitude, longitude, delivery_radius_miles, delivery_zip_codes, delivery_enabled")
+    .select("id, name, slug, logo_url, marketplace_image_url, primary_color, cuisine_type, city, state, area, latitude, longitude, delivery_radius, delivery_zip_codes, delivery_enabled")
     .eq("is_active", true)
     .eq("show_in_marketplace", true)
     .order("name")
