@@ -371,8 +371,8 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0)
   
-  // Fee calculations from selected restaurant
-  const DELIVERY_FEE = selectedRestaurant?.delivery_fee ?? selectedRestaurant?.delivery_base_fee ?? 0
+  // Fee calculations from selected restaurant (default to $3.00 if not set)
+  const DELIVERY_FEE = selectedRestaurant?.delivery_fee ?? selectedRestaurant?.delivery_base_fee ?? 3.00
   const DISPATCH_FEE_PERCENT = selectedRestaurant?.dispatch_fee_percent ?? 0
   const DISPATCH_FEE = subtotal * (DISPATCH_FEE_PERCENT / 100)
   
@@ -756,7 +756,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                     <span className="text-[10px] font-medium">Stripe (Tarjeta)</span>
                   </button>
                   
-                  {/* ATH Movil button - always available */}
+                  {/* ATH Movil button - always available but shows warning if not configured */}
                   <button
                     onClick={() => {
                       setPaymentMethod("ath_movil")
@@ -774,7 +774,12 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                     <div className="w-4 h-4 bg-orange-500 rounded flex items-center justify-center text-white text-[8px] font-bold">
                       ATH
                     </div>
-                    <span className="text-[10px] font-medium">ATH Movil</span>
+                    <span className="text-[10px] font-medium">
+                      ATH Movil
+                      {selectedRestaurant && !selectedRestaurant.athmovil_public_token && (
+                        <span className="text-amber-500 ml-1">(!)</span>
+                      )}
+                    </span>
                   </button>
                 </div>
                 {(cart.length === 0 || !customerInfo.name || !customerInfo.phone) && (
@@ -1146,6 +1151,8 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                   },
                   restaurantName: selectedRestaurant.name,
                   branchName: "",
+                  athmovilPublicToken: selectedRestaurant.athmovil_public_token,
+                  athmovilEcommerceId: selectedRestaurant.athmovil_ecommerce_id,
                 }}
                 onSuccess={() => {
                   setShowPaymentModal(false)
