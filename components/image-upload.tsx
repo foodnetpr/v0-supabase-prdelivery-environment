@@ -58,12 +58,34 @@ export function ImageUpload({
       const uniqueFileName = `${folder}/${baseName}-${timestamp}.${fileExtension}`
 
       // Upload to Supabase Storage
-      const { data, error: uploadError } = await supabase.storage
+      let { data, error: uploadError } = await supabase.storage
         .from(bucket)
         .upload(uniqueFileName, file, {
           cacheControl: "3600",
           upsert: false,
         })
+
+      // If bucket not found, try to create it and retry
+      if (uploadError?.message?.includes("Bucket not found") || uploadError?.message?.includes("not found")) {
+        console.log("[v0] Bucket not found, attempting to create...")
+        const createResponse = await fetch("/api/storage/create-bucket", { method: "POST" })
+        const createResult = await createResponse.json()
+        
+        if (createResponse.ok) {
+          console.log("[v0] Bucket created, retrying upload...")
+          // Retry the upload
+          const retryResult = await supabase.storage
+            .from(bucket)
+            .upload(uniqueFileName, file, {
+              cacheControl: "3600",
+              upsert: false,
+            })
+          data = retryResult.data
+          uploadError = retryResult.error
+        } else {
+          throw new Error(createResult.error || "Failed to create storage bucket")
+        }
+      }
 
       if (uploadError) {
         throw new Error(uploadError.message)
@@ -72,7 +94,7 @@ export function ImageUpload({
       // Get public URL
       const { data: urlData } = supabase.storage
         .from(bucket)
-        .getPublicUrl(data.path)
+        .getPublicUrl(data!.path)
 
       onChange(urlData.publicUrl)
     } catch (err) {
