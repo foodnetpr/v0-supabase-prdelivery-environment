@@ -652,26 +652,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                 </>
               )}
 
-              {customerInfo.deliveryType === "pickup" && branches.length > 0 && (
-                <div>
-                  <Label className="text-[10px] text-amber-700 font-medium">Sucursal</Label>
-                  <Select
-                    value={customerInfo.selectedBranch}
-                    onValueChange={(v) => setCustomerInfo({...customerInfo, selectedBranch: v})}
-                  >
-                    <SelectTrigger className="h-7 text-xs mt-0.5">
-                      <SelectValue placeholder="Seleccionar" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {branches.map((b) => (
-                        <SelectItem key={b.id} value={b.id} className="text-xs">
-                          {b.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              {/* Branch selector removed - each restaurant is a unit */}
 
               <div className="grid grid-cols-2 gap-1">
                 <div>
@@ -712,16 +693,11 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                   <button
                     onClick={() => {
                       setPaymentMethod("stripe")
-                      // Validate branch is selected if restaurant has branches
-                      if (branches.length > 0 && !customerInfo.selectedBranch) {
-                        alert("Por favor selecciona una sucursal antes de procesar el pago")
-                        return
-                      }
                       if (cart.length > 0 && customerInfo.name && customerInfo.phone && selectedRestaurant) {
                         setShowPaymentModal(true)
                       }
                     }}
-                    disabled={cart.length === 0 || !customerInfo.name || !customerInfo.phone || !selectedRestaurant || (branches.length > 0 && !customerInfo.selectedBranch)}
+                    disabled={cart.length === 0 || !customerInfo.name || !customerInfo.phone || !selectedRestaurant}
                     className={`flex items-center gap-2 px-2 py-1.5 rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       paymentMethod === "stripe"
                         ? "bg-indigo-600 text-white border-indigo-600"
@@ -738,16 +714,11 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                   <button
                     onClick={() => {
                       setPaymentMethod("ath_movil")
-                      // Validate branch is selected if restaurant has branches
-                      if (branches.length > 0 && !customerInfo.selectedBranch) {
-                        alert("Por favor selecciona una sucursal antes de procesar el pago")
-                        return
-                      }
                       if (cart.length > 0 && customerInfo.name && customerInfo.phone && selectedRestaurant) {
                         setShowPaymentModal(true)
                       }
                     }}
-                    disabled={cart.length === 0 || !customerInfo.name || !customerInfo.phone || !selectedRestaurant || (branches.length > 0 && !customerInfo.selectedBranch)}
+                    disabled={cart.length === 0 || !customerInfo.name || !customerInfo.phone || !selectedRestaurant}
                     className={`flex items-center gap-2 px-2 py-1.5 rounded border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       paymentMethod === "ath_movil"
                         ? "bg-orange-500 text-white border-orange-500"
@@ -765,15 +736,11 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                     </span>
                   </button>
                 </div>
-                {(cart.length === 0 || !customerInfo.name || !customerInfo.phone || (branches.length > 0 && !customerInfo.selectedBranch)) && (
+                {(cart.length === 0 || !customerInfo.name || !customerInfo.phone) && (
                   <p className="text-[9px] text-amber-600 mt-1">
                     {cart.length === 0 
                       ? "Agrega items al carrito" 
-                      : !customerInfo.name || !customerInfo.phone 
-                        ? "Completa nombre y telefono"
-                        : branches.length > 0 && !customerInfo.selectedBranch
-                          ? "Selecciona una sucursal"
-                          : ""}
+                      : "Completa nombre y telefono"}
                   </p>
                 )}
                 {!selectedRestaurant && (
@@ -1015,21 +982,15 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                   </div>
                   
                   <Button
-                    onClick={() => {
-                      if (branches.length > 0 && !customerInfo.selectedBranch) {
-                        alert("Por favor selecciona una sucursal antes de procesar el pago")
-                        return
-                      }
-                      setShowPaymentModal(true)
-                    }}
+                    onClick={() => setShowPaymentModal(true)}
                     className="w-full h-8 text-xs bg-rose-500 hover:bg-rose-600 mt-2"
-                    disabled={cart.length === 0 || !customerInfo.name || !customerInfo.phone || !selectedRestaurant || (branches.length > 0 && !customerInfo.selectedBranch)}
+                    disabled={cart.length === 0 || !customerInfo.name || !customerInfo.phone || !selectedRestaurant}
                   >
                     Procesar Pago
                   </Button>
-                  {(cart.length === 0 || !customerInfo.name || !customerInfo.phone || (branches.length > 0 && !customerInfo.selectedBranch)) && (
+                  {(cart.length === 0 || !customerInfo.name || !customerInfo.phone) && (
                     <p className="text-[10px] text-amber-600 text-center mt-1">
-                      {cart.length === 0 ? "Agrega items" : !customerInfo.name || !customerInfo.phone ? "Completa info del cliente" : "Selecciona sucursal"}
+                      {cart.length === 0 ? "Agrega items" : "Completa info del cliente"}
                     </p>
                   )}
                   {orderSuccess && (
@@ -1053,7 +1014,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
               <StripeCheckout
                 orderData={{
                   restaurantId: selectedRestaurant.id,
-                  branchId: customerInfo.selectedBranch || null,
+                  branchId: null, // Not using branches - each restaurant is a unit
                   cart: cart.map(item => ({
                     id: item.itemId,
                     name: item.name,
@@ -1077,7 +1038,6 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                   orderType: customerInfo.deliveryType,
                   eventDetails: {
                     restaurantId: selectedRestaurant.id,
-                    branchId: customerInfo.selectedBranch || null,
                     name: customerInfo.name,
                     phone: customerInfo.phone,
                     address: customerInfo.address,
@@ -1119,7 +1079,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
               <ATHMovilCheckout
                 orderData={{
                   restaurantId: selectedRestaurant.id,
-                  branchId: customerInfo.selectedBranch || null,
+                  branchId: null, // Not using branches - each restaurant is a unit
                   cart: cart.map(item => ({
                     id: item.itemId,
                     menu_item_id: item.itemId,
@@ -1154,7 +1114,6 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                     specialInstructions: customerInfo.specialInstructions,
                   },
                   restaurantName: selectedRestaurant.name,
-                  branchName: "",
                   athmovilPublicToken: selectedRestaurant.athmovil_public_token,
                   athmovilEcommerceId: selectedRestaurant.athmovil_ecommerce_id,
                   order_source: "csr",
