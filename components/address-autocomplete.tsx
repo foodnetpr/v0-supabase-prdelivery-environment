@@ -292,7 +292,7 @@ export function AddressAutocomplete({
         </div>
       )}
 
-      {/* No results found - show helpful message */}
+      {/* No results found - show helpful message with guidance */}
       {showDropdown && noResultsFound && predictions.length === 0 && !isLoading && (
         <div
           ref={dropdownRef}
@@ -311,6 +311,26 @@ export function AddressAutocomplete({
               </div>
             </div>
           </div>
+          
+          {/* Guidance for what to include */}
+          <div className="p-3 bg-blue-50 border-b border-blue-100">
+            <p className="text-xs font-medium text-blue-800 mb-1.5">Al ingresar manualmente, incluye:</p>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-blue-700">
+              <div className="flex items-center gap-1">
+                <span className="text-blue-400">•</span> Numero de casa/edificio
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-blue-400">•</span> Nombre de calle
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-blue-400">•</span> Urbanizacion/residencial
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-blue-400">•</span> Apt/oficina/suite
+              </div>
+            </div>
+          </div>
+          
           <button
             type="button"
             onClick={() => {
@@ -331,22 +351,57 @@ export function AddressAutocomplete({
         </div>
       )}
 
-      {/* Manual mode indicator and toggle */}
+      {/* Manual mode indicator, toggle, and guidance */}
       {isManualMode ? (
-        <div className="flex items-center gap-2 mt-1.5">
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-            Modo manual
-          </span>
-          <button
-            type="button"
-            onClick={handleSwitchToAuto}
-            className="text-xs text-gray-400 hover:text-gray-600 underline transition-colors"
-          >
-            Activar autocompletado
-          </button>
+        <div className="mt-2 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Modo manual
+            </span>
+            <button
+              type="button"
+              onClick={handleSwitchToAuto}
+              className="text-xs text-gray-400 hover:text-gray-600 underline transition-colors"
+            >
+              Activar autocompletado
+            </button>
+          </div>
+          
+          {/* Manual mode guidance panel */}
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start gap-2">
+              <svg className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div>
+                <p className="text-xs font-medium text-blue-800 mb-1">Para asegurar la entrega, incluye:</p>
+                <ul className="text-[11px] text-blue-700 space-y-0.5">
+                  <li className="flex items-start gap-1">
+                    <span className="text-blue-400">•</span>
+                    <span>Numero de casa o edificio</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <span className="text-blue-400">•</span>
+                    <span>Nombre de calle o numero</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <span className="text-blue-400">•</span>
+                    <span>Urbanizacion, residencial o condominio</span>
+                  </li>
+                  <li className="flex items-start gap-1">
+                    <span className="text-blue-400">•</span>
+                    <span>Apartamento, oficina o suite (si aplica)</span>
+                  </li>
+                </ul>
+                <p className="text-[10px] text-blue-600 mt-1.5 italic">
+                  Usa el campo "Apt, Urb, Suite" para detalles adicionales como codigos de acceso o instrucciones especiales.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       ) : (
         <button
