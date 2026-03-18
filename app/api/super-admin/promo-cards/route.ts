@@ -22,25 +22,41 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const supabase = createServiceClient()
-  const body = await req.json()
+  try {
+    const supabase = createServiceClient()
+    const body = await req.json()
 
-  // Assign next display_order
-  const { data: existing } = await supabase
-    .from("promo_cards")
-    .select("display_order")
-    .order("display_order", { ascending: false })
-    .limit(1)
-    .single()
+    console.log("[v0] Promo cards POST - body:", body)
 
-  const nextOrder = existing ? existing.display_order + 1 : 1
+    // Assign next display_order
+    const { data: existing, error: existingError } = await supabase
+      .from("promo_cards")
+      .select("display_order")
+      .order("display_order", { ascending: false })
+      .limit(1)
+      .single()
 
-  const { data, error } = await supabase
-    .from("promo_cards")
-    .insert({ ...body, display_order: nextOrder })
-    .select()
-    .single()
+    if (existingError && existingError.code !== "PGRST116") {
+      console.log("[v0] Error fetching existing promo cards:", existingError)
+    }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
+    const nextOrder = existing ? existing.display_order + 1 : 1
+
+    const { data, error } = await supabase
+      .from("promo_cards")
+      .insert({ ...body, display_order: nextOrder })
+      .select()
+      .single()
+
+    console.log("[v0] Insert result:", { data, error })
+
+    if (error) {
+      console.log("[v0] Promo card insert error:", error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    return NextResponse.json(data)
+  } catch (err) {
+    console.error("[v0] Promo cards POST exception:", err)
+    return NextResponse.json({ error: "Server error" }, { status: 500 })
+  }
 }
