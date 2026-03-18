@@ -6,7 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Link from "next/link"
 import Image from "next/image"
 import { useState, useMemo, useEffect, useRef } from "react"
-import { ChevronLeft, ChevronRight, ArrowRight, Search, X, RotateCcw } from "lucide-react"
+import { ChevronLeft, ChevronRight, ArrowRight, Search, X, RotateCcw, Coffee } from "lucide-react"
+import { InternalShopModal } from "./internal-shop-modal"
 import { type UserLocation, type OrderMode } from "./location-bar"
 import { CuisineBar } from "./cuisine-bar"
 import { GlobalNavbar } from "./global-navbar"
@@ -316,6 +317,8 @@ function PromoBar({
   const [showLeftArrow, setShowLeftArrow] = useState(false)
   const [showRightArrow, setShowRightArrow] = useState(true)
   const [promos, setPromos] = useState<PromoCardData[]>([])
+  const [isShopAvailable, setIsShopAvailable] = useState(false)
+  const [showShopModal, setShowShopModal] = useState(false)
 
   useEffect(() => {
     fetch("/api/super-admin/promo-cards")
@@ -324,6 +327,12 @@ function PromoBar({
         setPromos(data.filter((c) => c.is_active))
       )
       .catch(() => {})
+    
+    // Check if internal shop is available
+    fetch("/api/internal-shop/availability")
+      .then((r) => r.json())
+      .then((data) => setIsShopAvailable(data.available))
+      .catch(() => setIsShopAvailable(false))
   }, [])
 
   const handleScroll = () => {
@@ -347,7 +356,19 @@ function PromoBar({
       <div className="px-4 mx-auto max-w-7xl">
         {/* Section header */}
         <div className="flex items-center justify-between mb-3 sm:mb-4">
-          <h2 className="text-base sm:text-lg font-bold text-slate-900">Ofertas y Promociones</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-base sm:text-lg font-bold text-slate-900">Ofertas y Promociones</h2>
+            {/* Bebidas y Extras button - only show when shop is open */}
+            {isShopAvailable && (
+              <button
+                onClick={() => setShowShopModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors shadow-sm"
+              >
+                <Coffee className="w-4 h-4" />
+                <span className="hidden sm:inline">Bebidas y Extras</span>
+              </button>
+            )}
+          </div>
           {/* Restaurant search and filter controls */}
           <div className="flex items-center gap-2">
             {/* Ver Todos button - shows when filters are active */}
@@ -422,6 +443,12 @@ function PromoBar({
           ))}
         </div>
       </div>
+
+      {/* Internal Shop Modal */}
+      <InternalShopModal
+        isOpen={showShopModal}
+        onClose={() => setShowShopModal(false)}
+      />
     </section>
   )
 }
