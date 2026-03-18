@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Phone, Search, Building2, X, ShoppingCart, Minus, Plus, Trash2, ChevronRight, LogOut, Menu, User, MapPin, Clock, CalendarIcon } from "lucide-react"
+import { Phone, Search, Building2, X, ShoppingCart, Minus, Plus, Trash2, ChevronRight, ChevronLeft, LogOut, Menu, User, MapPin, Clock, CalendarIcon } from "lucide-react"
 import Link from "next/link"
 
 interface Restaurant {
@@ -53,6 +53,22 @@ interface CSRPortalClientProps {
   restaurants: Restaurant[]
 }
 
+// Calculate default time: today's date and current time + offset
+function getDefaultDateTime(deliveryType: "delivery" | "pickup") {
+  const now = new Date()
+  const offsetMinutes = deliveryType === "delivery" ? 45 : 20
+  now.setMinutes(now.getMinutes() + offsetMinutes)
+  
+  // Round to nearest 5 minutes
+  const minutes = Math.ceil(now.getMinutes() / 5) * 5
+  now.setMinutes(minutes)
+  
+  const date = now.toISOString().split("T")[0]
+  const time = now.toTimeString().slice(0, 5)
+  
+  return { date, time }
+}
+
 export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
   const supabase = createClient()
   const [searchTerm, setSearchTerm] = useState("")
@@ -61,7 +77,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
   const [branches, setBranches] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   
-  // Left slideout - Restaurant selector
+  // Left slideout - Restaurant selector (visible by default)
   const [isRestaurantPanelOpen, setIsRestaurantPanelOpen] = useState(true)
   
   // Right slideout - Cart
@@ -77,6 +93,9 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
   const [itemCustomizations, setItemCustomizations] = useState<Record<string, string | string[]>>({})
   const [loadingOptions, setLoadingOptions] = useState(false)
   
+  // Get default date/time based on delivery type
+  const defaultDateTime = getDefaultDateTime("delivery")
+  
   // Customer info state
   const [customerInfo, setCustomerInfo] = useState({
     phone: "",
@@ -85,11 +104,17 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
     city: "",
     zip: "",
     deliveryType: "delivery" as "delivery" | "pickup",
-    eventDate: new Date().toISOString().split("T")[0],
-    eventTime: "12:00",
+    eventDate: defaultDateTime.date,
+    eventTime: defaultDateTime.time,
     specialInstructions: "",
     selectedBranch: "",
   })
+  
+  // Update time when delivery type changes
+  useEffect(() => {
+    const { date, time } = getDefaultDateTime(customerInfo.deliveryType)
+    setCustomerInfo(prev => ({ ...prev, eventDate: date, eventTime: time }))
+  }, [customerInfo.deliveryType])
 
   // Filter restaurants by search
   const filteredRestaurants = restaurants.filter((r) =>
@@ -102,7 +127,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
   const selectRestaurant = async (restaurant: Restaurant) => {
     setLoading(true)
     setSelectedRestaurant(restaurant)
-    setIsRestaurantPanelOpen(false)
+    // Keep restaurant panel visible by default - user can hide manually
 
     try {
       const { data: items } = await supabase
@@ -376,10 +401,19 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
       {/* Main Layout - Everything visible at once */}
       <div className="flex h-[calc(100vh-40px)]">
         
-        {/* LEFT SLIDEOUT: Restaurant Selector */}
-        <div className={`bg-white border-r border-slate-200 transition-all duration-300 overflow-hidden flex-shrink-0 ${
+        {/* LEFT SLIDEOUT: Restaurant Selector (visible by default with collapse arrow) */}
+        <div className={`bg-white border-r border-slate-200 transition-all duration-300 overflow-hidden flex-shrink-0 relative ${
           isRestaurantPanelOpen ? "w-48" : "w-0"
         }`}>
+          {/* Collapse arrow */}
+          {isRestaurantPanelOpen && (
+            <button
+              onClick={() => setIsRestaurantPanelOpen(false)}
+              className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-6 h-12 bg-white border border-slate-200 rounded-r-lg flex items-center justify-center hover:bg-slate-50 shadow-sm"
+            >
+              <ChevronLeft className="w-4 h-4 text-slate-500" />
+            </button>
+          )}
           <div className="w-48 h-full flex flex-col">
             <div className="p-2 border-b border-slate-200">
               <div className="relative">
@@ -410,6 +444,16 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
             </div>
           </div>
         </div>
+
+        {/* Expand arrow when restaurant panel is collapsed */}
+        {!isRestaurantPanelOpen && (
+          <button
+            onClick={() => setIsRestaurantPanelOpen(true)}
+            className="w-6 h-12 bg-white border border-slate-200 rounded-r-lg flex items-center justify-center hover:bg-slate-50 shadow-sm self-center flex-shrink-0"
+          >
+            <ChevronRight className="w-4 h-4 text-slate-500" />
+          </button>
+        )}
 
         {/* CENTER: Customer Info + Menu */}
         <div className="flex-1 flex min-w-0">
