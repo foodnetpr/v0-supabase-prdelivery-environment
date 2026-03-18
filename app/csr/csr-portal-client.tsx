@@ -47,6 +47,7 @@ interface CartItem {
   description?: string
   selectedOptions?: Record<string, string>
   customizations?: Record<string, string | string[]>
+  notes?: string
 }
 
 interface CSRPortalClientProps {
@@ -92,6 +93,17 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
   const [itemOptions, setItemOptions] = useState<ItemOption[]>([])
   const [itemCustomizations, setItemCustomizations] = useState<Record<string, string | string[]>>({})
   const [loadingOptions, setLoadingOptions] = useState(false)
+  const [itemNotes, setItemNotes] = useState("")
+  const [showItemNotes, setShowItemNotes] = useState(false)
+  
+  // Tip state
+  const [tipPercentage, setTipPercentage] = useState<number>(15)
+  const [customTip, setCustomTip] = useState<string>("")
+  
+  // Fee constants (these could come from platform settings)
+  const DELIVERY_FEE = 3.99
+  const DISPATCH_FEE = 2.00
+  const IVU_RATE = 0.115 // 11.5% IVU for Puerto Rico
   
   // Get default date/time based on delivery type
   const defaultDateTime = getDefaultDateTime("delivery")
@@ -290,11 +302,12 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
     const itemPrice = calculateItemPrice(selectedItem)
     const selectedOptionsDisplay = buildSelectedOptionsDisplay()
     
-    // Generate unique cart item ID based on item + selections
-    const optionsKey = JSON.stringify(itemCustomizations)
+    // Generate unique cart item ID based on item + selections + notes
+    const optionsKey = JSON.stringify(itemCustomizations) + itemNotes
     const cartItemId = `${selectedItem.id}-${btoa(optionsKey)}`
 
-    const existingIndex = cart.findIndex((c) => c.id === cartItemId)
+    // If item has notes, always add as new item (don't combine with same item without notes)
+    const existingIndex = itemNotes ? -1 : cart.findIndex((c) => c.id === cartItemId)
     
     if (existingIndex >= 0) {
       setCart(cart.map((c, i) => i === existingIndex ? { ...c, quantity: c.quantity + 1 } : c))
@@ -310,11 +323,14 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
           description: selectedItem.description,
           selectedOptions: selectedOptionsDisplay,
           customizations: { ...itemCustomizations },
+          notes: itemNotes || undefined,
         },
       ])
     }
 
     setSelectedItem(null)
+    setItemNotes("")
+    setShowItemNotes(false)
     setItemOptions([])
     setItemCustomizations({})
     setIsCartOpen(true)
@@ -710,6 +726,11 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                             ))}
                           </div>
                         )}
+                        {item.notes && (
+                          <p className="text-[10px] text-amber-600 mt-0.5 truncate" title={item.notes}>
+                            Nota: {item.notes}
+                          </p>
+                        )}
                         <p className="text-[10px] text-slate-500 mt-0.5">${item.price.toFixed(2)}</p>
                       </div>
                       <button
@@ -744,25 +765,96 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
               )}
             </div>
 
-            {cart.length > 0 && (
-              <div className="p-2 border-t border-slate-200 bg-white">
-                <div className="flex justify-between mb-2">
-                  <span className="text-xs text-slate-600">Subtotal</span>
-                  <span className="text-sm font-bold text-slate-900">${subtotal.toFixed(2)}</span>
+            {cart.length > 0 && (() => {
+              const deliveryFee = customerInfo.deliveryType === "delivery" ? DELIVERY_FEE : 0
+              const dispatchFee = customerInfo.deliveryType === "delivery" ? DISPATCH_FEE : 0
+              const ivu = subtotal * IVU_RATE
+              const tipAmount = customTip ? parseFloat(customTip) || 0 : (subtotal * tipPercentage / 100)
+              const total = subtotal + deliveryFee + dispatchFee + ivu + tipAmount
+              
+              return (
+                <div className="p-2 border-t border-slate-200 bg-white space-y-1.5">
+                  {/* Subtotal */}
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-600">Subtotal</span>
+                    <span className="font-medium text-slate-900">${subtotal.toFixed(2)}</span>
+                  </div>
+                  
+                  {/* Delivery Fee */}
+                  {customerInfo.deliveryType === "delivery" && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-600">Delivery Fee</span>
+                      <span className="text-slate-900">${deliveryFee.toFixed(2)}</span>
+                    </div>
+                  )}
+                  
+                  {/* Dispatch Fee */}
+                  {customerInfo.deliveryType === "delivery" && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-600">Dispatch Fee</span>
+                      <span className="text-slate-900">${dispatchFee.toFixed(2)}</span>
+                    </div>
+                  )}
+                  
+                  {/* IVU */}
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-600">IVU (11.5%)</span>
+                    <span className="text-slate-900">${ivu.toFixed(2)}</span>
+                  </div>
+                  
+                  {/* Tip Section */}
+                  <div className="pt-1.5 border-t border-slate-100">
+                    <p className="text-[10px] text-slate-500 mb-1">Propina</p>
+                    <div className="flex gap-1 mb-1">
+                      {[10, 15, 18, 20].map((pct) => (
+                        <button
+                          key={pct}
+                          onClick={() => { setTipPercentage(pct); setCustomTip(""); }}
+                          className={`flex-1 py-1 text-[10px] rounded transition-colors ${
+                            tipPercentage === pct && !customTip
+                              ? "bg-rose-500 text-white"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          }`}
+                        >
+                          {pct}%
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] text-slate-500">$</span>
+                      <Input
+                        type="number"
+                        placeholder="Otra"
+                        value={customTip}
+                        onChange={(e) => setCustomTip(e.target.value)}
+                        className="h-6 text-xs flex-1"
+                      />
+                      <span className="text-xs text-slate-600 min-w-[50px] text-right">
+                        ${tipAmount.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Total */}
+                  <div className="flex justify-between pt-1.5 border-t border-slate-200">
+                    <span className="text-sm font-bold text-slate-900">Total</span>
+                    <span className="text-sm font-bold text-rose-600">${total.toFixed(2)}</span>
+                  </div>
+                  
+                  <Button
+                    className="w-full h-8 text-xs bg-rose-500 hover:bg-rose-600 mt-2"
+                    disabled={!customerInfo.name || !customerInfo.phone}
+                  >
+                    Procesar Orden
+                  </Button>
+                  {(!customerInfo.name || !customerInfo.phone) && (
+                    <p className="text-[10px] text-amber-600 text-center mt-1">
+                      Completa info del cliente
+                    </p>
+                  )}
                 </div>
-                <Button
-                  className="w-full h-8 text-xs bg-rose-500 hover:bg-rose-600"
-                  disabled={!customerInfo.name || !customerInfo.phone}
-                >
-                  Procesar Orden
-                </Button>
-                {(!customerInfo.name || !customerInfo.phone) && (
-                  <p className="text-[10px] text-amber-600 text-center mt-1">
-                    Completa info del cliente
-                  </p>
-                )}
-              </div>
-            )}
+              )
+            })()}
           </div>
         </div>
       </div>
@@ -856,6 +948,28 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                   )
                 })
               )}
+              
+              {/* Special Instructions Section */}
+              <div className="pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowItemNotes(!showItemNotes)}
+                  className="flex items-center gap-1 text-xs text-rose-500 hover:text-rose-600"
+                >
+                  <span className={`transform transition-transform ${showItemNotes ? "rotate-90" : ""}`}>
+                    <ChevronRight className="w-3 h-3" />
+                  </span>
+                  Instrucciones especiales
+                </button>
+                {showItemNotes && (
+                  <textarea
+                    value={itemNotes}
+                    onChange={(e) => setItemNotes(e.target.value)}
+                    placeholder="Informe al restaurante sobre alergias o instrucciones de preparacion."
+                    className="mt-2 w-full h-16 text-xs border border-slate-200 rounded-md p-2 resize-none focus:outline-none focus:ring-1 focus:ring-rose-500"
+                  />
+                )}
+              </div>
             </div>
 
             <div className="p-3 border-t border-slate-200 bg-slate-50">
@@ -869,7 +983,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                 onClick={addItemToCart}
                 className="w-full h-9 bg-rose-500 hover:bg-rose-600 text-sm"
               >
-                + Agregar al Carrito
+                Agregar al Carrito ${calculateItemPrice(selectedItem).toFixed(2)}
               </Button>
             </div>
           </div>
