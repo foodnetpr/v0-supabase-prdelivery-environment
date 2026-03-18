@@ -164,7 +164,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
   const [showReadbackModal, setShowReadbackModal] = useState(false)
   
   // Available restaurants filtered by delivery zone
-  const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>(restaurants)
+  const [zoneFilteredRestaurants, setZoneFilteredRestaurants] = useState<Restaurant[]>(restaurants)
   
   // Update time when delivery type changes
   useEffect(() => {
@@ -172,8 +172,8 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
     setCustomerInfo(prev => ({ ...prev, eventDate: date, eventTime: time }))
   }, [customerInfo.deliveryType])
 
-  // Filter restaurants by search
-  const filteredRestaurants = restaurants.filter((r) =>
+  // Filter restaurants by search AND delivery zone
+  const filteredRestaurants = zoneFilteredRestaurants.filter((r) =>
     r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.cuisine_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.area?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -642,7 +642,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
         }
       }
       
-      setFilteredRestaurants(available.length > 0 ? available : restaurants) // Fallback to all if none match
+      setZoneFilteredRestaurants(available.length > 0 ? available : restaurants) // Fallback to all if none match
     }
     
     const timer = setTimeout(filterByDeliveryZone, 800)
@@ -994,7 +994,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                     onClick={() => {
                       setPaymentMethod("ath_movil")
                       if (cart.length > 0 && customerInfo.name && customerInfo.phone && selectedRestaurant) {
-                        setShowPaymentModal(true)
+                        setShowReadbackModal(true) // Go through read-back first
                       }
                     }}
                     disabled={cart.length === 0 || !customerInfo.name || !customerInfo.phone || !selectedRestaurant}
@@ -1102,7 +1102,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
               </div>
             ) : (
               <>
-                {/* Menu Header with Search */}
+                {/* Menu Header with Fast Type-ahead Search */}
                 <div className="p-2 border-b border-slate-200 flex items-center gap-2">
                   <h3 className="text-xs font-bold text-slate-800">{selectedRestaurant.name}</h3>
                   <div className="relative flex-1 max-w-xs">
@@ -1110,9 +1110,38 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                     <Input
                       value={menuSearchTerm}
                       onChange={(e) => setMenuSearchTerm(e.target.value)}
-                      placeholder="Buscar item..."
+                      placeholder="Buscar item rapido..."
                       className="pl-6 h-6 text-[10px]"
+                      autoFocus
                     />
+                    {/* Type-ahead dropdown for quick item selection */}
+                    {menuSearchTerm.length >= 2 && filteredMenuItems.length > 0 && filteredMenuItems.length <= 10 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
+                        {filteredMenuItems.slice(0, 8).map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              openItemDetail(item)
+                              setMenuSearchTerm("")
+                            }}
+                            className="w-full text-left px-2 py-1.5 hover:bg-rose-50 border-b border-slate-100 last:border-0 flex items-center justify-between"
+                          >
+                            <div>
+                              <span className="text-xs font-medium text-slate-800">{item.name}</span>
+                              {item.categories?.name && (
+                                <span className="text-[9px] text-slate-400 ml-1">({item.categories.name})</span>
+                              )}
+                            </div>
+                            <span className="text-xs font-semibold text-amber-600">${Number(item.price).toFixed(2)}</span>
+                          </button>
+                        ))}
+                        {filteredMenuItems.length > 8 && (
+                          <div className="px-2 py-1 text-[9px] text-slate-400 text-center bg-slate-50">
+                            +{filteredMenuItems.length - 8} mas resultados
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <button
                     onClick={clearSelection}
