@@ -356,21 +356,19 @@ function PromoBar({
       <div className="px-4 mx-auto max-w-7xl">
         {/* Section header */}
         <div className="flex items-center justify-between mb-3 sm:mb-4">
-          <div className="flex items-center gap-3">
-            <h2 className="text-base sm:text-lg font-bold text-slate-900">Ofertas y Promociones</h2>
+          <h2 className="text-base sm:text-lg font-bold text-slate-900">Ofertas y Promociones</h2>
+          {/* Restaurant search and filter controls */}
+          <div className="flex items-center gap-2">
             {/* Bebidas y Extras button - only show when shop is open */}
             {isShopAvailable && (
               <button
                 onClick={() => setShowShopModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors shadow-sm"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-full transition-colors shadow-sm"
               >
                 <Coffee className="w-4 h-4" />
                 <span className="hidden sm:inline">Bebidas y Extras</span>
               </button>
             )}
-          </div>
-          {/* Restaurant search and filter controls */}
-          <div className="flex items-center gap-2">
             {/* Ver Todos button - shows when filters are active */}
             {(cuisineFilter !== "all" || searchQuery) && (
               <button
