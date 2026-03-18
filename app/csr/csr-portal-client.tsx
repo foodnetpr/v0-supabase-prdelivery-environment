@@ -390,7 +390,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
           delivery_city: customerInfo.deliveryType === "delivery" ? customerInfo.city : null,
           delivery_zip: customerInfo.deliveryType === "delivery" ? customerInfo.zip : null,
           delivery_date: customerInfo.eventDate,
-          special_instructions: customerInfo.specialInstructions,
+          special_instructions: customerInfo.specialInstructions ? `[Pago: ${paymentMethod === "stripe" ? "Tarjeta" : "ATH Movil"}] ${customerInfo.specialInstructions}` : `[Pago: ${paymentMethod === "stripe" ? "Tarjeta" : "ATH Movil"}]`,
           subtotal: subtotal,
           tax: ivu,
           delivery_fee: deliveryFee + dispatchFee,
@@ -398,8 +398,6 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
           total: total,
           status: "pending",
           order_source: "csr",
-          payment_method: paymentMethod,
-          payment_status: paymentMethod === "cash" ? "pending" : "pending",
         })
         .select()
         .single()
