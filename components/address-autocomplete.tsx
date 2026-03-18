@@ -47,6 +47,10 @@ export function AddressAutocomplete({
   const [isManualMode, setIsManualMode] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [noResultsFound, setNoResultsFound] = useState(false)
+  // Manual entry fields for when Google can't find the address
+  const [manualCity, setManualCity] = useState("")
+  const [manualState, setManualState] = useState("PR")
+  const [manualZip, setManualZip] = useState("")
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
@@ -94,10 +98,14 @@ export function AddressAutocomplete({
         setShowDropdown(true)
         setNoResultsFound(false)
       } else {
-        // No results found - show helpful prompt
+        // No results found - show manual entry form
         setPredictions([])
         setNoResultsFound(true)
         setShowDropdown(true)
+        // Reset manual fields for fresh entry
+        setManualCity("")
+        setManualState("PR")
+        setManualZip("")
       }
     } catch (error) {
       console.error("Failed to fetch predictions:", error)
@@ -342,7 +350,7 @@ export function AddressAutocomplete({
         </div>
       )}
 
-      {/* No results found - show helpful message with guidance */}
+      {/* No results found - show manual entry form with city/state/zip */}
       {showDropdown && noResultsFound && predictions.length === 0 && !isLoading && (
         <div
           ref={dropdownRef}
@@ -356,48 +364,89 @@ export function AddressAutocomplete({
               <div>
                 <p className="text-sm font-medium text-amber-800">No encontramos esta direccion</p>
                 <p className="text-xs text-amber-700 mt-1">
-                  Algunas direcciones en Puerto Rico no aparecen en Google. Puedes ingresarla manualmente.
+                  Completa los campos para ingresar la direccion manualmente.
                 </p>
               </div>
             </div>
           </div>
           
-          {/* Guidance for what to include */}
-          <div className="p-3 bg-blue-50 border-b border-blue-100">
-            <p className="text-xs font-medium text-blue-800 mb-1.5">Al ingresar manualmente, incluye:</p>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-blue-700">
-              <div className="flex items-center gap-1">
-                <span className="text-blue-400">•</span> Numero de casa/edificio
+          {/* Manual entry form */}
+          <div className="p-3 space-y-2">
+            <p className="text-xs font-medium text-gray-700 mb-2">Completa la direccion:</p>
+            
+            {/* City */}
+            <div>
+              <label className="text-[10px] text-gray-500 font-medium">Ciudad *</label>
+              <Input
+                value={manualCity}
+                onChange={(e) => setManualCity(e.target.value)}
+                placeholder="San Juan, Bayamon, Carolina..."
+                className="h-8 text-sm mt-0.5"
+              />
+            </div>
+            
+            {/* State and ZIP in row */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] text-gray-500 font-medium">Estado</label>
+                <Input
+                  value={manualState}
+                  onChange={(e) => setManualState(e.target.value.toUpperCase().slice(0, 2))}
+                  placeholder="PR"
+                  className="h-8 text-sm mt-0.5"
+                  maxLength={2}
+                />
               </div>
-              <div className="flex items-center gap-1">
-                <span className="text-blue-400">•</span> Nombre de calle
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-blue-400">•</span> Urbanizacion/residencial
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-blue-400">•</span> Apt/oficina/suite
+              <div>
+                <label className="text-[10px] text-gray-500 font-medium">Codigo Postal *</label>
+                <Input
+                  value={manualZip}
+                  onChange={(e) => setManualZip(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                  placeholder="00XXX"
+                  className="h-8 text-sm mt-0.5"
+                  maxLength={5}
+                />
               </div>
             </div>
+            
+            <p className="text-[10px] text-blue-600 mt-1">
+              Incluye en la direccion: numero de casa, calle, urbanizacion/residencial, apt/suite si aplica
+            </p>
           </div>
           
-          <button
-            type="button"
-            onClick={() => {
-              handleSwitchToManual()
-              setShowDropdown(false)
-              setNoResultsFound(false)
-            }}
-            className="w-full px-4 py-3 text-left bg-white hover:bg-amber-50 flex items-center gap-3 transition-colors"
-          >
-            <svg className="w-5 h-5 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-            <div>
-              <div className="font-medium text-amber-700">Ingresar direccion manualmente</div>
-              <div className="text-xs text-gray-500">Continua escribiendo tu direccion completa</div>
-            </div>
-          </button>
+          <div className="p-3 pt-0 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowDropdown(false)
+                setNoResultsFound(false)
+              }}
+              className="flex-1 px-3 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleSwitchToManual()
+                // Pass the manual values to parent
+                if (onAddressSelected) {
+                  onAddressSelected({
+                    streetAddress: inputValue,
+                    city: manualCity,
+                    state: manualState || "PR",
+                    zip: manualZip,
+                  })
+                }
+                setShowDropdown(false)
+                setNoResultsFound(false)
+              }}
+              disabled={!manualCity || !manualZip}
+              className="flex-1 px-3 py-2 text-sm text-white bg-amber-600 hover:bg-amber-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-md transition-colors"
+            >
+              Confirmar Direccion
+            </button>
+          </div>
         </div>
       )}
 
