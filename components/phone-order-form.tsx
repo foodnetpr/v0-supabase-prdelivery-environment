@@ -12,10 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 interface CartItem {
   id: string
+  itemId?: string
   name: string
   price: number
   quantity: number
   description?: string
+  selectedOptions?: Record<string, string>
+  customizations?: Record<string, string | string[]>
 }
 
 interface PhoneOrderFormProps {
@@ -973,10 +976,20 @@ export default function PhoneOrderForm({
             </CardHeader>
             <CardContent className="space-y-2">
               {cart.map((item) => (
-                <div key={item.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                <div key={item.id} className="flex items-start justify-between py-2 border-b last:border-0">
                   <div className="flex-1">
                     <p className="text-sm font-medium">{item.name}</p>
-                    <p className="text-xs text-gray-500">${item.price.toFixed(2)} x {item.quantity}</p>
+                    {/* Show selected options/modifications */}
+                    {item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
+                      <div className="mt-0.5">
+                        {Object.entries(item.selectedOptions).map(([category, value]) => (
+                          <p key={category} className="text-xs text-blue-600 italic">
+                            {value}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500 mt-0.5">${item.price.toFixed(2)} x {item.quantity}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-semibold">${(item.price * item.quantity).toFixed(2)}</span>

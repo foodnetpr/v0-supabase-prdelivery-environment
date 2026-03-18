@@ -4,9 +4,11 @@ import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Checkbox } from "@/components/ui/checkbox"
 import PhoneOrderForm from "@/components/phone-order-form"
-import { Phone, Search, Building2, MapPin, ChevronRight, LogOut, X, ShoppingCart, Minus, Plus, Trash2 } from "lucide-react"
+import { Phone, Search, Building2, X, ShoppingCart, Minus, Plus, Trash2, ChevronRight, LogOut, Edit2 } from "lucide-react"
 import Link from "next/link"
 
 interface Restaurant {
@@ -20,12 +22,34 @@ interface Restaurant {
   tax_rate: number | null
 }
 
+interface ItemOption {
+  id: string
+  category: string
+  is_required: boolean
+  max_selections: number | null
+  display_type: string | null
+  item_option_choices: {
+    id: string
+    name: string
+    price_modifier: number | null
+    description: string | null
+    sub_options?: {
+      id: string
+      name: string
+      price_modifier: number | null
+    }[]
+  }[]
+}
+
 interface CartItem {
   id: string
+  itemId: string
   name: string
   price: number
   quantity: number
   description?: string
+  selectedOptions?: Record<string, string>
+  customizations?: Record<string, string | string[]>
 }
 
 interface CSRPortalClientProps {
@@ -40,10 +64,16 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
   const [branches, setBranches] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   
-  // Cart state - lifted to allow adding items before customer info
+  // Cart state
   const [cart, setCart] = useState<CartItem[]>([])
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [menuSearchTerm, setMenuSearchTerm] = useState("")
+  
+  // Item detail modal state
+  const [selectedItem, setSelectedItem] = useState<any | null>(null)
+  const [itemOptions, setItemOptions] = useState<ItemOption[]>([])
+  const [itemCustomizations, setItemCustomizations] = useState<Record<string, string | string[]>>({})
+  const [loadingOptions, setLoadingOptions] = useState(false)
 
   // Filter restaurants by search
   const filteredRestaurants = restaurants.filter((r) =>
@@ -56,10 +86,9 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
   const selectRestaurant = async (restaurant: Restaurant) => {
     setLoading(true)
     setSelectedRestaurant(restaurant)
-    setCart([]) // Clear cart when switching restaurants
+    setCart([])
 
     try {
-      // Fetch menu items
       const { data: items } = await supabase
         .from("menu_items")
         .select("*")
@@ -67,7 +96,6 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
         .eq("is_active", true)
         .order("display_order", { ascending: true })
 
-      // Fetch branches
       const { data: branchData } = await supabase
         .from("branches")
         .select("*")
@@ -90,6 +118,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
     setBranches([])
     setCart([])
     setIsCartOpen(false)
+    setSelectedItem(null)
   }
 
   const handleLogout = async () => {
@@ -97,13 +126,179 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
     window.location.href = "/login"
   }
 
-  // Cart operations
-  const addToCart = (item: any) => {
-    const existing = cart.find((c) => c.id === item.id)
-    if (existing) {
-      setCart(cart.map((c) => (c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c)))
+  // Load item options when item is selected
+  const openItemDetail = async (item: any) => {
+    setSelectedItem(item)
+    setItemCustomizations({})
+    setLoadingOptions(true)
+
+    try {
+      const { data: options } = await supabase
+        .from("item_options")
+        .select(`
+          id,
+          category,
+          is_required,
+          max_selections,
+          display_type,
+          item_option_choices (
+            id,
+            name,
+            price_modifier,
+            description,
+            sub_options
+          )
+        `)
+        .eq("item_id", item.id)
+        .order("display_order", { ascending: true })
+
+      setItemOptions(options || [])
+    } catch (error) {
+      console.error("Error loading item options:", error)
+      setItemOptions([])
+    } finally {
+      setLoadingOptions(false)
+    }
+  }
+
+  // Handle option selection
+  const handleOptionSelect = (optionId: string, choiceId: string, isMulti: boolean) => {
+    setItemCustomizations((prev) => {
+      if (isMulti) {
+        const current = (prev[optionId] as string[]) || []
+        if (current.includes(choiceId)) {
+          return { ...prev, [optionId]: current.filter((id) => id !== choiceId) }
+        }
+        return { ...prev, [optionId]: [...current, choiceId] }
+      }
+      return { ...prev, [optionId]: choiceId }
+    })
+  }
+
+  // Calculate item price with options
+  const calculateItemPrice = (item: any) => {
+    let price = Number(item.price) || 0
+    
+    Object.entries(itemCustomizations).forEach(([optionId, selection]) => {
+      const option = itemOptions.find((o) => o.id === optionId)
+      if (!option) return
+
+      if (Array.isArray(selection)) {
+        selection.forEach((choiceId) => {
+          const choice = option.item_option_choices.find((c) => c.id === choiceId)
+          if (choice?.price_modifier) {
+            price += Number(choice.price_modifier)
+          }
+        })
+      } else if (selection) {
+        const choice = option.item_option_choices.find((c) => c.id === selection)
+        if (choice?.price_modifier) {
+          price += Number(choice.price_modifier)
+        }
+      }
+    })
+
+    return price
+  }
+
+  // Build selected options display string
+  const buildSelectedOptionsDisplay = (): Record<string, string> => {
+    const display: Record<string, string> = {}
+
+    Object.entries(itemCustomizations).forEach(([optionId, selection]) => {
+      const option = itemOptions.find((o) => o.id === optionId)
+      if (!option) return
+
+      if (Array.isArray(selection)) {
+        const names = selection
+          .map((choiceId) => option.item_option_choices.find((c) => c.id === choiceId)?.name)
+          .filter(Boolean)
+          .join(", ")
+        if (names) display[option.category] = names
+      } else if (selection) {
+        const choice = option.item_option_choices.find((c) => c.id === selection)
+        if (choice) display[option.category] = choice.name
+      }
+    })
+
+    return display
+  }
+
+  // Add item to cart with options
+  const addItemToCart = () => {
+    if (!selectedItem) return
+
+    // Check required options
+    const missingRequired = itemOptions.filter((opt) => opt.is_required && !itemCustomizations[opt.id])
+    if (missingRequired.length > 0) {
+      alert(`Selecciona: ${missingRequired.map((o) => o.category).join(", ")}`)
+      return
+    }
+
+    const itemPrice = calculateItemPrice(selectedItem)
+    const selectedOptionsDisplay = buildSelectedOptionsDisplay()
+    
+    // Generate unique cart item ID based on item + selections
+    const optionsKey = JSON.stringify(itemCustomizations)
+    const cartItemId = `${selectedItem.id}-${btoa(optionsKey)}`
+
+    const existingIndex = cart.findIndex((c) => c.id === cartItemId)
+    
+    if (existingIndex >= 0) {
+      setCart(cart.map((c, i) => i === existingIndex ? { ...c, quantity: c.quantity + 1 } : c))
     } else {
-      setCart([...cart, { id: item.id, name: item.name, price: Number(item.price) || 0, quantity: 1, description: item.description }])
+      setCart([
+        ...cart,
+        {
+          id: cartItemId,
+          itemId: selectedItem.id,
+          name: selectedItem.name,
+          price: itemPrice,
+          quantity: 1,
+          description: selectedItem.description,
+          selectedOptions: selectedOptionsDisplay,
+          customizations: { ...itemCustomizations },
+        },
+      ])
+    }
+
+    setSelectedItem(null)
+    setItemOptions([])
+    setItemCustomizations({})
+  }
+
+  // Quick add (no options) - for items without options
+  const quickAddToCart = async (item: any) => {
+    // Check if item has options
+    const { data: options } = await supabase
+      .from("item_options")
+      .select("id")
+      .eq("item_id", item.id)
+      .limit(1)
+
+    if (options && options.length > 0) {
+      // Has options, open detail modal
+      openItemDetail(item)
+    } else {
+      // No options, add directly
+      const cartItemId = `${item.id}-simple`
+      const existing = cart.find((c) => c.id === cartItemId)
+      
+      if (existing) {
+        setCart(cart.map((c) => c.id === cartItemId ? { ...c, quantity: c.quantity + 1 } : c))
+      } else {
+        setCart([
+          ...cart,
+          {
+            id: cartItemId,
+            itemId: item.id,
+            name: item.name,
+            price: Number(item.price) || 0,
+            quantity: 1,
+            description: item.description,
+          },
+        ])
+      }
     }
   }
 
@@ -141,24 +336,19 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="px-4 h-14 flex items-center justify-between">
+        <div className="px-4 h-12 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
-              <Phone className="w-4 h-4 text-white" />
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
+              <Phone className="w-3.5 h-3.5 text-white" />
             </div>
-            <div>
-              <h1 className="text-sm font-bold text-slate-900">CSR Portal</h1>
-            </div>
+            <h1 className="text-sm font-bold text-slate-900">CSR Portal</h1>
           </div>
 
           {selectedRestaurant && (
-            <div className="flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-1.5">
-              <span className="font-medium text-slate-900 text-sm">{selectedRestaurant.name}</span>
-              <button
-                onClick={clearSelection}
-                className="p-0.5 hover:bg-slate-200 rounded-full"
-              >
-                <X className="w-3.5 h-3.5 text-slate-500" />
+            <div className="flex items-center gap-2 bg-slate-100 rounded-lg px-2.5 py-1">
+              <span className="font-medium text-slate-900 text-xs">{selectedRestaurant.name}</span>
+              <button onClick={clearSelection} className="p-0.5 hover:bg-slate-200 rounded-full">
+                <X className="w-3 h-3 text-slate-500" />
               </button>
             </div>
           )}
@@ -167,72 +357,61 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
             {selectedRestaurant && (
               <button
                 onClick={() => setIsCartOpen(true)}
-                className="relative p-2 hover:bg-slate-100 rounded-lg"
+                className="relative p-1.5 hover:bg-slate-100 rounded-lg"
               >
-                <ShoppingCart className="w-5 h-5 text-slate-700" />
+                <ShoppingCart className="w-4 h-4 text-slate-700" />
                 {totalItems > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                     {totalItems}
                   </span>
                 )}
               </button>
             )}
-            <Link
-              href="/super-admin"
-              className="text-xs text-slate-600 hover:text-slate-900 hidden sm:block"
-            >
+            <Link href="/super-admin" className="text-xs text-slate-600 hover:text-slate-900 hidden sm:block">
               Admin
             </Link>
-            <Button variant="outline" size="sm" onClick={handleLogout} className="h-8 text-xs">
-              <LogOut className="w-3.5 h-3.5 mr-1" />
+            <Button variant="outline" size="sm" onClick={handleLogout} className="h-7 text-xs px-2">
+              <LogOut className="w-3 h-3 mr-1" />
               Salir
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="flex h-[calc(100vh-56px)]">
+      <main className="flex h-[calc(100vh-48px)]">
         {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-3">
           {!selectedRestaurant ? (
             // Restaurant Selector - Compact Grid
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900">Seleccionar Restaurante</h2>
-                <span className="text-sm text-slate-500">{restaurants.length} restaurantes</span>
+                <h2 className="text-base font-bold text-slate-900">Seleccionar Restaurante</h2>
+                <span className="text-xs text-slate-500">{restaurants.length} restaurantes</span>
               </div>
 
-              {/* Search */}
-              <div className="relative max-w-sm">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <div className="relative max-w-xs">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                 <Input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Buscar..."
-                  className="pl-8 h-9 text-sm"
+                  className="pl-7 h-8 text-sm"
                 />
               </div>
 
               {/* Compact Restaurant Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-1.5">
                 {filteredRestaurants.map((restaurant) => (
                   <button
                     key={restaurant.id}
-                    className="text-left p-2.5 rounded-lg border border-slate-200 bg-white hover:border-rose-300 hover:bg-rose-50 transition-all group"
+                    className="text-left p-2 rounded-md border border-slate-200 bg-white hover:border-rose-300 hover:bg-rose-50 transition-all group"
                     onClick={() => selectRestaurant(restaurant)}
                   >
-                    <h3 className="font-medium text-slate-900 text-sm truncate group-hover:text-rose-600">
+                    <h3 className="font-medium text-slate-900 text-xs truncate group-hover:text-rose-600">
                       {restaurant.name}
                     </h3>
-                    {(restaurant.cuisine_types?.length || restaurant.cuisine_type) && (
-                      <p className="text-xs text-slate-500 truncate mt-0.5">
-                        {restaurant.cuisine_types?.slice(0, 2).join(", ") || restaurant.cuisine_type}
-                      </p>
-                    )}
                     {restaurant.area && (
-                      <p className="text-xs text-slate-400 truncate mt-0.5">
-                        {restaurant.area}
-                      </p>
+                      <p className="text-[10px] text-slate-400 truncate">{restaurant.area}</p>
                     )}
                   </button>
                 ))}
@@ -240,79 +419,66 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
 
               {filteredRestaurants.length === 0 && (
                 <div className="text-center py-8">
-                  <Building2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <Building2 className="w-6 h-6 text-slate-300 mx-auto mb-2" />
                   <p className="text-slate-500 text-sm">No se encontraron restaurantes</p>
                 </div>
               )}
             </div>
           ) : loading ? (
-            // Loading state
             <div className="flex items-center justify-center py-20">
               <div className="text-center space-y-2">
-                <div className="w-8 h-8 border-3 border-rose-200 border-t-rose-500 rounded-full animate-spin mx-auto" />
-                <p className="text-slate-600 text-sm">Cargando menu...</p>
+                <div className="w-6 h-6 border-2 border-rose-200 border-t-rose-500 rounded-full animate-spin mx-auto" />
+                <p className="text-slate-600 text-xs">Cargando menu...</p>
               </div>
             </div>
           ) : (
             // Menu + Phone Order Form side by side
-            <div className="flex gap-4 h-full">
+            <div className="flex gap-3 h-full">
               {/* Menu Items - Left Side */}
               <div className="w-1/2 flex flex-col min-h-0">
-                <div className="flex items-center gap-2 mb-3">
-                  <h3 className="font-semibold text-slate-900">Menu</h3>
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="font-semibold text-slate-900 text-sm">Menu</h3>
                   <div className="relative flex-1 max-w-xs">
-                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
                     <Input
                       value={menuSearchTerm}
                       onChange={(e) => setMenuSearchTerm(e.target.value)}
                       placeholder="Buscar item..."
-                      className="pl-7 h-8 text-sm"
+                      className="pl-6 h-7 text-xs"
                     />
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+                <div className="flex-1 overflow-y-auto space-y-3 pr-1">
                   {Object.entries(groupedItems).map(([category, items]) => (
                     <div key={category}>
-                      <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 sticky top-0 bg-slate-50 py-1">
+                      <h4 className="text-[10px] font-bold text-slate-600 uppercase tracking-wide mb-1.5 sticky top-0 bg-slate-50 py-0.5">
                         {category}
                       </h4>
-                      <div className="space-y-1">
+                      <div className="space-y-0.5">
                         {items.map((item) => {
-                          const inCart = cart.find((c) => c.id === item.id)
+                          const inCart = cart.filter((c) => c.itemId === item.id)
+                          const totalQty = inCart.reduce((sum, c) => sum + c.quantity, 0)
                           return (
                             <div
                               key={item.id}
-                              className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-100 hover:border-slate-200"
+                              className="flex items-center justify-between py-1 px-1.5 rounded bg-white border border-slate-100 hover:border-slate-200 cursor-pointer group"
+                              onClick={() => openItemDetail(item)}
                             >
                               <div className="flex-1 min-w-0 mr-2">
-                                <p className="font-medium text-slate-900 text-sm truncate">{item.name}</p>
-                                <p className="text-xs text-slate-500">${Number(item.price).toFixed(2)}</p>
+                                <p className="font-medium text-slate-900 text-xs truncate group-hover:text-rose-600">
+                                  {item.name}
+                                </p>
+                                <p className="text-[10px] text-slate-500">${Number(item.price).toFixed(2)}</p>
                               </div>
-                              {inCart ? (
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={() => updateQuantity(item.id, -1)}
-                                    className="w-6 h-6 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center"
-                                  >
-                                    <Minus className="w-3 h-3" />
-                                  </button>
-                                  <span className="w-6 text-center text-sm font-medium">{inCart.quantity}</span>
-                                  <button
-                                    onClick={() => addToCart(item)}
-                                    className="w-6 h-6 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center"
-                                  >
-                                    <Plus className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => addToCart(item)}
-                                  className="w-6 h-6 rounded-full bg-rose-500 hover:bg-rose-600 text-white flex items-center justify-center"
-                                >
-                                  <Plus className="w-3 h-3" />
-                                </button>
-                              )}
+                              <div className="flex items-center gap-1">
+                                {totalQty > 0 && (
+                                  <span className="w-5 h-5 bg-rose-100 text-rose-600 text-[10px] font-bold rounded-full flex items-center justify-center">
+                                    {totalQty}
+                                  </span>
+                                )}
+                                <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-rose-500" />
+                              </div>
                             </div>
                           )
                         })}
@@ -341,91 +507,228 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
         {/* Sliding Cart Panel */}
         {selectedRestaurant && (
           <>
-            {/* Backdrop */}
             {isCartOpen && (
-              <div
-                className="fixed inset-0 bg-black/30 z-40"
-                onClick={() => setIsCartOpen(false)}
-              />
+              <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setIsCartOpen(false)} />
             )}
             
-            {/* Cart Panel */}
             <div
-              className={`fixed top-14 right-0 h-[calc(100vh-56px)] w-80 bg-white border-l border-slate-200 shadow-xl z-50 transform transition-transform duration-300 ${
+              className={`fixed top-12 right-0 h-[calc(100vh-48px)] w-72 bg-white border-l border-slate-200 shadow-xl z-50 transform transition-transform duration-300 ${
                 isCartOpen ? "translate-x-0" : "translate-x-full"
               }`}
             >
               <div className="flex flex-col h-full">
-                {/* Cart Header */}
-                <div className="flex items-center justify-between p-4 border-b border-slate-200">
+                <div className="flex items-center justify-between p-3 border-b border-slate-200">
                   <div className="flex items-center gap-2">
-                    <ShoppingCart className="w-5 h-5 text-rose-500" />
-                    <h3 className="font-semibold text-slate-900">Carrito</h3>
-                    <span className="text-sm text-slate-500">({totalItems})</span>
+                    <ShoppingCart className="w-4 h-4 text-rose-500" />
+                    <h3 className="font-semibold text-slate-900 text-sm">Carrito ({totalItems})</h3>
                   </div>
-                  <button
-                    onClick={() => setIsCartOpen(false)}
-                    className="p-1.5 hover:bg-slate-100 rounded-full"
-                  >
+                  <button onClick={() => setIsCartOpen(false)} className="p-1 hover:bg-slate-100 rounded-full">
                     <X className="w-4 h-4 text-slate-500" />
                   </button>
                 </div>
 
-                {/* Cart Items */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                <div className="flex-1 overflow-y-auto p-3 space-y-2">
                   {cart.length === 0 ? (
-                    <div className="text-center py-8">
-                      <ShoppingCart className="w-10 h-10 text-slate-200 mx-auto mb-2" />
-                      <p className="text-slate-500 text-sm">Carrito vacio</p>
+                    <div className="text-center py-6">
+                      <ShoppingCart className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                      <p className="text-slate-500 text-xs">Carrito vacio</p>
                     </div>
                   ) : (
                     cart.map((item) => (
-                      <div key={item.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-900 text-sm">{item.name}</p>
-                          <p className="text-xs text-slate-500">${item.price.toFixed(2)} c/u</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => updateQuantity(item.id, -1)}
-                            className="w-6 h-6 rounded-full bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center"
-                          >
-                            <Minus className="w-3 h-3" />
-                          </button>
-                          <span className="w-6 text-center text-sm font-medium">{item.quantity}</span>
-                          <button
-                            onClick={() => updateQuantity(item.id, 1)}
-                            className="w-6 h-6 rounded-full bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={() => removeFromCart(item.id)}
-                            className="w-6 h-6 rounded-full hover:bg-red-100 flex items-center justify-center ml-1"
-                          >
-                            <Trash2 className="w-3 h-3 text-red-500" />
-                          </button>
+                      <div key={item.id} className="p-2 bg-slate-50 rounded-lg">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-slate-900 text-xs">{item.name}</p>
+                            {/* Show selected options */}
+                            {item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
+                              <div className="mt-0.5">
+                                {Object.entries(item.selectedOptions).map(([cat, val]) => (
+                                  <p key={cat} className="text-[10px] text-slate-500 italic">
+                                    {val}
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+                            <p className="text-[10px] text-slate-500 mt-0.5">${item.price.toFixed(2)} c/u</p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => updateQuantity(item.id, -1)}
+                              className="w-5 h-5 rounded-full bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center"
+                            >
+                              <Minus className="w-2.5 h-2.5" />
+                            </button>
+                            <span className="w-5 text-center text-xs font-medium">{item.quantity}</span>
+                            <button
+                              onClick={() => updateQuantity(item.id, 1)}
+                              className="w-5 h-5 rounded-full bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center"
+                            >
+                              <Plus className="w-2.5 h-2.5" />
+                            </button>
+                            <button
+                              onClick={() => removeFromCart(item.id)}
+                              className="w-5 h-5 rounded-full hover:bg-red-100 flex items-center justify-center ml-0.5"
+                            >
+                              <Trash2 className="w-2.5 h-2.5 text-red-500" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))
                   )}
                 </div>
 
-                {/* Cart Footer */}
                 {cart.length > 0 && (
-                  <div className="p-4 border-t border-slate-200 bg-slate-50">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-slate-600">Subtotal</span>
+                  <div className="p-3 border-t border-slate-200 bg-slate-50">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-slate-600 text-sm">Subtotal</span>
                       <span className="font-semibold text-slate-900">${subtotal.toFixed(2)}</span>
                     </div>
                     <Button
-                      className="w-full bg-rose-500 hover:bg-rose-600"
+                      className="w-full bg-rose-500 hover:bg-rose-600 h-8 text-sm"
                       onClick={() => setIsCartOpen(false)}
                     >
-                      Continuar con Orden
+                      Continuar
                     </Button>
                   </div>
                 )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Item Detail Modal with Options */}
+        {selectedItem && (
+          <>
+            <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setSelectedItem(null)} />
+            <div className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-[500px] md:max-h-[80vh] bg-white rounded-xl shadow-2xl z-50 flex flex-col overflow-hidden">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+                <div>
+                  <h3 className="font-bold text-slate-900">{selectedItem.name}</h3>
+                  <p className="text-sm text-slate-500">${Number(selectedItem.price).toFixed(2)}</p>
+                </div>
+                <button
+                  onClick={() => setSelectedItem(null)}
+                  className="p-1.5 hover:bg-slate-200 rounded-full"
+                >
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+
+              {/* Options */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                {loadingOptions ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="w-6 h-6 border-2 border-rose-200 border-t-rose-500 rounded-full animate-spin" />
+                  </div>
+                ) : itemOptions.length === 0 ? (
+                  <p className="text-center text-slate-500 text-sm py-4">
+                    Este item no tiene opciones adicionales
+                  </p>
+                ) : (
+                  itemOptions.map((option) => {
+                    const isMulti = (option.max_selections || 1) > 1
+                    const currentSelection = itemCustomizations[option.id]
+
+                    return (
+                      <div key={option.id} className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Label className="font-semibold text-slate-900">
+                            {option.category}
+                          </Label>
+                          {option.is_required && (
+                            <span className="text-[10px] bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded font-medium">
+                              Requerido
+                            </span>
+                          )}
+                          {isMulti && (
+                            <span className="text-[10px] text-slate-500">
+                              (Selecciona hasta {option.max_selections})
+                            </span>
+                          )}
+                        </div>
+
+                        {isMulti ? (
+                          // Checkbox group for multi-select
+                          <div className="space-y-1.5">
+                            {option.item_option_choices.map((choice) => {
+                              const isChecked = Array.isArray(currentSelection) && currentSelection.includes(choice.id)
+                              return (
+                                <label
+                                  key={choice.id}
+                                  className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                                    isChecked ? "border-rose-300 bg-rose-50" : "border-slate-200 hover:bg-slate-50"
+                                  }`}
+                                >
+                                  <Checkbox
+                                    checked={isChecked}
+                                    onCheckedChange={() => handleOptionSelect(option.id, choice.id, true)}
+                                  />
+                                  <div className="flex-1">
+                                    <span className="text-sm font-medium text-slate-900">{choice.name}</span>
+                                    {choice.description && (
+                                      <p className="text-xs text-slate-500">{choice.description}</p>
+                                    )}
+                                  </div>
+                                  {choice.price_modifier && choice.price_modifier > 0 && (
+                                    <span className="text-xs text-slate-600">+${Number(choice.price_modifier).toFixed(2)}</span>
+                                  )}
+                                </label>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          // Radio group for single-select
+                          <RadioGroup
+                            value={(currentSelection as string) || ""}
+                            onValueChange={(value) => handleOptionSelect(option.id, value, false)}
+                            className="space-y-1.5"
+                          >
+                            {option.item_option_choices.map((choice) => (
+                              <label
+                                key={choice.id}
+                                className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                                  currentSelection === choice.id
+                                    ? "border-rose-300 bg-rose-50"
+                                    : "border-slate-200 hover:bg-slate-50"
+                                }`}
+                              >
+                                <RadioGroupItem value={choice.id} />
+                                <div className="flex-1">
+                                  <span className="text-sm font-medium text-slate-900">{choice.name}</span>
+                                  {choice.description && (
+                                    <p className="text-xs text-slate-500">{choice.description}</p>
+                                  )}
+                                </div>
+                                {choice.price_modifier && choice.price_modifier > 0 && (
+                                  <span className="text-xs text-slate-600">+${Number(choice.price_modifier).toFixed(2)}</span>
+                                )}
+                              </label>
+                            ))}
+                          </RadioGroup>
+                        )}
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 border-t border-slate-200 bg-slate-50">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-slate-600">Total</span>
+                  <span className="font-bold text-lg text-slate-900">
+                    ${calculateItemPrice(selectedItem).toFixed(2)}
+                  </span>
+                </div>
+                <Button
+                  className="w-full bg-rose-500 hover:bg-rose-600"
+                  onClick={addItemToCart}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Agregar al Carrito
+                </Button>
               </div>
             </div>
           </>
