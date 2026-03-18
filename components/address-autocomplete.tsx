@@ -46,6 +46,7 @@ export function AddressAutocomplete({
   const [isLoading, setIsLoading] = useState(false)
   const [isManualMode, setIsManualMode] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
+  const [noResultsFound, setNoResultsFound] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
@@ -76,22 +77,32 @@ export function AddressAutocomplete({
   const fetchPredictions = useCallback(async (input: string) => {
     if (input.length < 3) {
       setPredictions([])
+      setNoResultsFound(false)
       return
     }
 
     setIsLoading(true)
+    setNoResultsFound(false)
     try {
       const response = await fetch(
         `/api/places/autocomplete?input=${encodeURIComponent(input)}`
       )
       const data = await response.json()
       
-      if (data.predictions) {
+      if (data.predictions && data.predictions.length > 0) {
         setPredictions(data.predictions)
+        setShowDropdown(true)
+        setNoResultsFound(false)
+      } else {
+        // No results found - show helpful prompt
+        setPredictions([])
+        setNoResultsFound(true)
         setShowDropdown(true)
       }
     } catch (error) {
       console.error("Failed to fetch predictions:", error)
+      setNoResultsFound(true)
+      setShowDropdown(true)
     } finally {
       setIsLoading(false)
     }
@@ -281,14 +292,71 @@ export function AddressAutocomplete({
         </div>
       )}
 
-      {/* Toggle manual/auto mode */}
-      <button
-        type="button"
-        onClick={isManualMode ? handleSwitchToAuto : handleSwitchToManual}
-        className="text-xs text-gray-400 hover:text-gray-600 mt-1 underline transition-colors"
-      >
-        {isManualMode ? "Usar autocompletado" : "Ingresar manualmente"}
-      </button>
+      {/* No results found - show helpful message */}
+      {showDropdown && noResultsFound && predictions.length === 0 && !isLoading && (
+        <div
+          ref={dropdownRef}
+          className="absolute z-[10001] w-full mt-1 bg-white border border-amber-300 rounded-md shadow-lg overflow-hidden"
+        >
+          <div className="p-3 bg-amber-50 border-b border-amber-200">
+            <div className="flex items-start gap-2">
+              <svg className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-amber-800">No encontramos esta direccion</p>
+                <p className="text-xs text-amber-700 mt-1">
+                  Algunas direcciones en Puerto Rico no aparecen en Google. Puedes ingresarla manualmente.
+                </p>
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              handleSwitchToManual()
+              setShowDropdown(false)
+              setNoResultsFound(false)
+            }}
+            className="w-full px-4 py-3 text-left bg-white hover:bg-amber-50 flex items-center gap-3 transition-colors"
+          >
+            <svg className="w-5 h-5 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            <div>
+              <div className="font-medium text-amber-700">Ingresar direccion manualmente</div>
+              <div className="text-xs text-gray-500">Continua escribiendo tu direccion completa</div>
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* Manual mode indicator and toggle */}
+      {isManualMode ? (
+        <div className="flex items-center gap-2 mt-1.5">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            Modo manual
+          </span>
+          <button
+            type="button"
+            onClick={handleSwitchToAuto}
+            className="text-xs text-gray-400 hover:text-gray-600 underline transition-colors"
+          >
+            Activar autocompletado
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={handleSwitchToManual}
+          className="text-xs text-gray-400 hover:text-gray-600 mt-1 underline transition-colors"
+        >
+          Ingresar manualmente
+        </button>
+      )}
     </div>
   )
 }

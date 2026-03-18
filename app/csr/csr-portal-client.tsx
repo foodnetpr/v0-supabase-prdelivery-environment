@@ -166,6 +166,9 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
   // Read-back confirmation state
   const [showReadbackModal, setShowReadbackModal] = useState(false)
   
+  // Manual address override - bypasses delivery zone validation
+  const [manualAddressOverride, setManualAddressOverride] = useState(false)
+  
   // Available restaurants filtered by delivery zone
   const [zoneFilteredRestaurants, setZoneFilteredRestaurants] = useState<Restaurant[]>(restaurants)
   
@@ -622,8 +625,14 @@ const line2 = customerInfo.streetAddress2 ? `, ${customerInfo.streetAddress2}` :
   // Filter restaurants by delivery zone when customer address changes
   useEffect(() => {
     const filterByDeliveryZone = async () => {
+      // If manual override is checked, show all restaurants
+      if (manualAddressOverride) {
+        setZoneFilteredRestaurants(restaurants)
+        return
+      }
+      
       if (!customerInfo.streetAddress || !customerInfo.city || customerInfo.deliveryType !== "delivery") {
-        setFilteredRestaurants(restaurants)
+        setZoneFilteredRestaurants(restaurants)
         return
       }
       
@@ -655,7 +664,7 @@ const line2 = customerInfo.streetAddress2 ? `, ${customerInfo.streetAddress2}` :
     
     const timer = setTimeout(filterByDeliveryZone, 800)
     return () => clearTimeout(timer)
-  }, [customerInfo.streetAddress, customerInfo.streetAddress2, customerInfo.city, customerInfo.state, customerInfo.zip, customerInfo.deliveryType, restaurants])
+  }, [customerInfo.streetAddress, customerInfo.streetAddress2, customerInfo.city, customerInfo.state, customerInfo.zip, customerInfo.deliveryType, restaurants, manualAddressOverride])
   
   // Debounced customer search when phone changes
   useEffect(() => {
@@ -962,6 +971,20 @@ const line2 = customerInfo.streetAddress2 ? `, ${customerInfo.streetAddress2}` :
                         className="h-7 text-xs mt-0.5"
                       />
                     </div>
+                  </div>
+                  
+                  {/* Manual address override for CSR */}
+                  <div className="flex items-center gap-2 mt-1 p-2 bg-amber-50 rounded border border-amber-200">
+                    <input
+                      type="checkbox"
+                      id="manualAddressOverride"
+                      checked={manualAddressOverride}
+                      onChange={(e) => setManualAddressOverride(e.target.checked)}
+                      className="h-3 w-3 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                    />
+                    <label htmlFor="manualAddressOverride" className="text-[10px] text-amber-700">
+                      Direccion verificada manualmente (Google no la encuentra)
+                    </label>
                   </div>
                 </>
               )}
@@ -1613,7 +1636,17 @@ const line2 = customerInfo.streetAddress2 ? `, ${customerInfo.streetAddress2}` :
                 <div className="text-sm space-y-1">
                   <p><span className="text-slate-500">Restaurante:</span> <strong>{selectedRestaurant.name}</strong></p>
                   {customerInfo.deliveryType === "delivery" && (
-                    <p><span className="text-slate-500">Direccion:</span> <strong>{customerInfo.streetAddress}{customerInfo.streetAddress2 ? `, ${customerInfo.streetAddress2}` : ""}, {customerInfo.city}, {customerInfo.state} {customerInfo.zip}</strong></p>
+                    <>
+                      <p><span className="text-slate-500">Direccion:</span> <strong>{customerInfo.streetAddress}{customerInfo.streetAddress2 ? `, ${customerInfo.streetAddress2}` : ""}, {customerInfo.city}, {customerInfo.state} {customerInfo.zip}</strong></p>
+                      {manualAddressOverride && (
+                        <p className="text-xs text-amber-600 flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                          Direccion verificada manualmente
+                        </p>
+                      )}
+                    </>
                   )}
                   <p><span className="text-slate-500">Fecha:</span> <strong>{customerInfo.eventDate}</strong> a las <strong>{customerInfo.eventTime}</strong></p>
                   {customerInfo.specialInstructions && (
