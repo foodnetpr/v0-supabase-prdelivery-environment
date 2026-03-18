@@ -110,7 +110,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
   const [orderSuccess, setOrderSuccess] = useState<string | null>(null)
   
   // Payment method state
-  const [paymentMethod, setPaymentMethod] = useState<"stripe" | "ath_movil" | "cash">("cash")
+  const [paymentMethod, setPaymentMethod] = useState<"stripe" | "ath_movil">("stripe")
   
   // Get default date/time based on delivery type
   const defaultDateTime = getDefaultDateTime("delivery")
@@ -745,20 +745,6 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
                       ATH
                     </div>
                     <span className="text-[10px] font-medium">ATH Movil</span>
-                  </button>
-                  
-                  <button
-                    onClick={() => setPaymentMethod("cash")}
-                    className={`flex items-center gap-2 px-2 py-1.5 rounded border transition-colors ${
-                      paymentMethod === "cash"
-                        ? "bg-green-600 text-white border-green-600"
-                        : "bg-white text-slate-700 border-slate-300 hover:border-green-400"
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    <span className="text-[10px] font-medium">Efectivo</span>
                   </button>
                 </div>
               </div>
