@@ -31,11 +31,7 @@ export async function GET(request: NextRequest) {
     const data = await response.json()
 
     if (data.status !== "OK") {
-      return NextResponse.json({ 
-        error: "Failed to fetch place details", 
-        googleStatus: data.status,
-        googleError: data.error_message 
-      }, { status: 500 })
+      return NextResponse.json({ error: "Failed to fetch place details" }, { status: 500 })
     }
 
     const result = data.result || {}

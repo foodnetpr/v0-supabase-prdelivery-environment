@@ -15,17 +15,6 @@ export async function POST(request: Request) {
   try {
     const supabase = await createClient()
 
-    // Look up FoodNetPR operator
-    const { data: operator } = await supabase
-      .from('operators')
-      .select('id')
-      .eq('slug', 'foodnetpr')
-      .single()
-
-    if (!operator) {
-      return NextResponse.json({ error: 'FoodNetPR operator not found' }, { status: 500 })
-    }
-
     const entry = await request.json()
 
     if (!entry?.restaurant?.name) {
@@ -52,7 +41,6 @@ export async function POST(request: Request) {
       name: restaurant.name,
       slug,
       external_id: externalId,
-      operator_id: operator.id,
       phone: restaurant.phone || null,
       address: restaurant.address || null,
       restaurant_address: restaurant.address || null,
@@ -93,7 +81,6 @@ export async function POST(request: Request) {
         .upsert(
           {
             restaurant_id: restaurantId,
-            operator_id: operator.id,
             name: cat.name,
             description: cat.description || null,
             external_id: String(cat.external_id || cat.id || ci),
@@ -124,7 +111,6 @@ export async function POST(request: Request) {
             {
               restaurant_id: restaurantId,
               category_id: categoryId,
-              operator_id: operator.id,
               name: item.name,
               description: item.description || null,
               price: item.price || 0,
@@ -156,7 +142,6 @@ export async function POST(request: Request) {
             .upsert(
               {
                 menu_item_id: itemId,
-                operator_id: operator.id,
                 category: opt.group_name || opt.name || `Option ${oi + 1}`,
                 prompt: opt.prompt || opt.group_name || null,
                 is_required: opt.required || false,
@@ -183,7 +168,6 @@ export async function POST(request: Request) {
           if (choices.length > 0) {
             const choiceRows = choices.map((choice: any, chi: number) => ({
               item_option_id: optionId,
-              operator_id: operator.id,
               name: choice.name,
               price_modifier: choice.price_delta || 0,
               external_id: String(choice.id || `${optionId}-choice-${chi}`),
