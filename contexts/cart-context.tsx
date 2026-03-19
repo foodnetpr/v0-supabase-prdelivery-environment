@@ -7,28 +7,24 @@ export interface CartItem {
   name: string
   price: number
   quantity: number
+  image?: string
   modifiers?: Array<{
-    id: string
     name: string
     price: number
   }>
   specialInstructions?: string
-  restaurantId: string
-  restaurantName: string
-  restaurantSlug: string
 }
 
 interface CartContextType {
   items: CartItem[]
   restaurantId: string | null
   restaurantName: string | null
-  restaurantSlug: string | null
-  addItem: (item: CartItem) => void
+  addItem: (item: CartItem, restaurantId: string, restaurantName: string) => void
   removeItem: (itemId: string) => void
   updateQuantity: (itemId: string, quantity: number) => void
   clearCart: () => void
-  getItemCount: () => number
-  getSubtotal: () => number
+  subtotal: number
+  itemCount: number
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -39,7 +35,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
   const [restaurantId, setRestaurantId] = useState<string | null>(null)
   const [restaurantName, setRestaurantName] = useState<string | null>(null)
-  const [restaurantSlug, setRestaurantSlug] = useState<string | null>(null)
   const [isHydrated, setIsHydrated] = useState(false)
 
   useEffect(() => {
@@ -51,10 +46,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           setItems(parsed.items || [])
           setRestaurantId(parsed.restaurantId || null)
           setRestaurantName(parsed.restaurantName || null)
-          setRestaurantSlug(parsed.restaurantSlug || null)
         }
       } catch (e) {
-        console.error("Failed to load cart from localStorage:", e)
+        console.error("Error loading cart:", e)
       }
       setIsHydrated(true)
     }
@@ -62,51 +56,58 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isHydrated && typeof window !== "undefined") {
-      try {
-        localStorage.setItem(
-          CART_STORAGE_KEY,
-          JSON.stringify({ items, restaurantId, restaurantName, restaurantSlug })
-        )
-      } catch (e) {
-        console.error("Failed to save cart to localStorage:", e)
-      }
-    }
-  }, [items, restaurantId, restaurantName, restaurantSlug, isHydrated])
-
-  const addItem = useCallback((item: CartItem) => {
-    setItems((prev) => {
-      if (restaurantId && restaurantId !== item.restaurantId) {
-        return [item]
-      }
-      const existingIndex = prev.findIndex(
-        (i) =>
-          i.id === item.id &&
-          JSON.stringify(i.modifiers) === JSON.stringify(item.modifiers)
+      localStorage.setItem(
+        CART_STORAGE_KEY,
+        JSON.stringify({ items, restaurantId, restaurantName })
       )
-      if (existingIndex >= 0) {
-        const updated = [...prev]
-        updated[existingIndex] = {
-          ...updated[existingIndex],
-          quantity: updated[existingIndex].quantity + item.quantity,
+    }
+  }, [items, restaurantId, restaurantName, isHydrated])
+
+  const addItem = useCallback(
+    (item: CartItem, newRestaurantId: string, newRestaurantName: string) => {
+      if (restaurantId && restaurantId !== newRestaurantId) {
+        if (
+          !window.confirm(
+            `Tu carrito tiene items de ${restaurantName}. ¿Deseas vaciarlo y agregar items de ${newRestaurantName}?`
+          )
+        ) {
+          return
         }
-        return updated
+        setItems([item])
+        setRestaurantId(newRestaurantId)
+        setRestaurantName(newRestaurantName)
+        return
       }
-      return [...prev, item]
-    })
-    setRestaurantId(item.restaurantId)
-    setRestaurantName(item.restaurantName)
-    setRestaurantSlug(item.restaurantSlug)
-  }, [restaurantId])
+
+      setItems((prev) => {
+        const existingIndex = prev.findIndex((i) => i.id === item.id)
+        if (existingIndex >= 0) {
+          const updated = [...prev]
+          updated[existingIndex] = {
+            ...updated[existingIndex],
+            quantity: updated[existingIndex].quantity + item.quantity,
+          }
+          return updated
+        }
+        return [...prev, item]
+      })
+
+      if (!restaurantId) {
+        setRestaurantId(newRestaurantId)
+        setRestaurantName(newRestaurantName)
+      }
+    },
+    [restaurantId, restaurantName]
+  )
 
   const removeItem = useCallback((itemId: string) => {
     setItems((prev) => {
-      const updated = prev.filter((i) => i.id !== itemId)
-      if (updated.length === 0) {
+      const filtered = prev.filter((i) => i.id !== itemId)
+      if (filtered.length === 0) {
         setRestaurantId(null)
         setRestaurantName(null)
-        setRestaurantSlug(null)
       }
-      return updated
+      return filtered
     })
   }, [])
 
@@ -124,41 +125,29 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setItems([])
     setRestaurantId(null)
     setRestaurantName(null)
-    setRestaurantSlug(null)
   }, [])
 
-  const getItemCount = useCallback(() => {
-    return items.reduce((sum, item) => sum + item.quantity, 0)
-  }, [items])
+  const subtotal = items.reduce((sum, item) => {
+    const modifiersTotal =
+      item.modifiers?.reduce((m, mod) => m + mod.price, 0) || 0
+    return sum + (item.price + modifiersTotal) * item.quantity
+  }, 0)
 
-  const getSubtotal = useCallback(() => {
-    return items.reduce((sum, item) => {
-      const modifiersTotal = (item.modifiers || []).reduce(
-        (m, mod) => m + mod.price,
-        0
-      )
-      return sum + (item.price + modifiersTotal) * item.quantity
-    }, 0)
-  }, [items])
+  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
 
-  return (
-    <CartContext.Provider
-      value={{
-        items,
-        restaurantId,
-        restaurantName,
-        restaurantSlug,
-        addItem,
-        removeItem,
-        updateQuantity,
-        clearCart,
-        getItemCount,
-        getSubtotal,
-      }}
-    >
-      {children}
-    </CartContext.Provider>
-  )
+  const value: CartContextType = {
+    items,
+    restaurantId,
+    restaurantName,
+    addItem,
+    removeItem,
+    updateQuantity,
+    clearCart,
+    subtotal,
+    itemCount,
+  }
+
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>
 }
 
 export function useCart() {
