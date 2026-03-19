@@ -737,8 +737,11 @@ const line2 = customerInfo.streetAddress2 ? `, ${customerInfo.streetAddress2}` :
                 )}
               </button>
             )}
+            <Link href="/csr" className="text-[10px] text-slate-400 hover:text-white font-medium">
+              Dispatch
+            </Link>
             <Link href="/csr/menus" className="text-[10px] text-slate-400 hover:text-white">
-              Menús
+              Editar Menús
             </Link>
             <Link href="/csr/internal-shop" className="text-[10px] text-slate-400 hover:text-white">
               Tienda
