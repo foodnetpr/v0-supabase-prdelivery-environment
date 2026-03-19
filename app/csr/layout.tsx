@@ -27,7 +27,7 @@ export default async function CSRLayout({
     .eq("auth_user_id", user.id)
     .single()
   
-  if (!adminUser || !["super_admin", "csr", "admin"].includes(adminUser.role)) {
+  if (!adminUser || !["super_admin", "restaurant_admin"].includes(adminUser.role)) {
     redirect("/")
   }
 
