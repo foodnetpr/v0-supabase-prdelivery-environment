@@ -95,6 +95,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
   const [menuItems, setMenuItems] = useState<any[]>([])
   const [branches, setBranches] = useState<any[]>([])
   const [internalShopItems, setInternalShopItems] = useState<any[]>([])
+  const [showInternalShop, setShowInternalShop] = useState(false)
   const [loading, setLoading] = useState(false)
   
   // Left slideout - Restaurant selector (visible by default)
@@ -1235,13 +1236,84 @@ const line2 = customerInfo.streetAddress2 ? `, ${customerInfo.streetAddress2}` :
                       </div>
                     )}
                   </div>
+<button
+                onClick={clearSelection}
+                className="text-[10px] text-slate-500 hover:text-rose-600"
+              >
+                Cambiar
+              </button>
+              
+              {/* Internal Shop Button */}
+              {internalShopItems.length > 0 && (
+                <div className="relative ml-2">
                   <button
-                    onClick={clearSelection}
-                    className="text-[10px] text-slate-500 hover:text-rose-600"
+                    onClick={() => setShowInternalShop(!showInternalShop)}
+                    className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-colors ${
+                      showInternalShop 
+                        ? 'bg-purple-600 text-white' 
+                        : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                    }`}
                   >
-                    Cambiar
+                    <Package className="w-3 h-3" />
+                    Tienda Interna
+                    {cart.filter(c => c.isInternalShop).length > 0 && (
+                      <span className="ml-1 w-4 h-4 bg-purple-800 text-white text-[9px] rounded-full flex items-center justify-center">
+                        {cart.filter(c => c.isInternalShop).reduce((sum, c) => sum + c.quantity, 0)}
+                      </span>
+                    )}
                   </button>
+                  
+                  {/* Dropdown */}
+                  {showInternalShop && (
+                    <div className="absolute top-full right-0 mt-1 w-64 bg-white border border-purple-200 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
+                      <div className="p-2 bg-purple-50 border-b border-purple-200 flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-purple-700">Contabilidad Separada</span>
+                        <button onClick={() => setShowInternalShop(false)} className="text-purple-400 hover:text-purple-600">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div className="p-2 space-y-1">
+                        {internalShopItems.map((item) => {
+                          const inCart = cart.filter((c) => c.itemId === `shop-${item.id}`)
+                          const totalQty = inCart.reduce((sum, c) => sum + c.quantity, 0)
+                          return (
+                            <button
+                              key={item.id}
+                              className="w-full flex items-center justify-between p-2 rounded hover:bg-purple-50 text-left"
+                              onClick={() => {
+                                const cartItem: CartItem = {
+                                  id: `shop-${item.id}-${Date.now()}`,
+                                  itemId: `shop-${item.id}`,
+                                  name: `[Tienda] ${item.name}`,
+                                  price: Number(item.price),
+                                  quantity: 1,
+                                  description: item.description,
+                                  selectedOptions: {},
+                                  notes: "",
+                                  isInternalShop: true
+                                }
+                                setCart(prev => [...prev, cartItem])
+                                setIsCartOpen(true)
+                              }}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-medium text-purple-800 truncate">{item.name}</p>
+                                <p className="text-[10px] text-slate-500">${Number(item.price).toFixed(2)}</p>
+                              </div>
+                              {totalQty > 0 && (
+                                <span className="ml-2 w-5 h-5 bg-purple-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                                  {totalQty}
+                                </span>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
+              )}
+            </div>
 
                 {/* Multi-column Menu Layout */}
                 <div className="flex-1 overflow-y-auto p-2">
@@ -1284,65 +1356,7 @@ const line2 = customerInfo.streetAddress2 ? `, ${customerInfo.streetAddress2}` :
             )}
           </div>
           
-          {/* INTERNAL SHOP - Separate Section */}
-          {internalShopItems.length > 0 && (
-            <div className="border-t-2 border-purple-300 bg-purple-50 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Package className="w-4 h-4 text-purple-600" />
-                  <h3 className="text-sm font-bold text-purple-700">Tienda Interna</h3>
-                  <span className="text-[10px] bg-purple-200 text-purple-700 px-2 py-0.5 rounded-full">
-                    Contabilidad Separada
-                  </span>
-                </div>
-                <span className="text-[10px] text-purple-600">
-                  {internalShopItems.length} productos
-                </span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                {internalShopItems.map((item) => {
-                  const inCart = cart.filter((c) => c.itemId === `shop-${item.id}`)
-                  const totalQty = inCart.reduce((sum, c) => sum + c.quantity, 0)
-                  return (
-                    <button
-                      key={item.id}
-                      className="relative bg-white border border-purple-200 rounded-lg p-2 text-left hover:border-purple-400 hover:shadow-md transition-all"
-                      onClick={() => {
-                        const cartItem: CartItem = {
-                          id: `shop-${item.id}-${Date.now()}`,
-                          itemId: `shop-${item.id}`,
-                          name: `[Tienda] ${item.name}`,
-                          price: Number(item.price),
-                          quantity: 1,
-                          description: item.description,
-                          selectedOptions: {},
-                          notes: "",
-                          isInternalShop: true
-                        }
-                        setCart(prev => [...prev, cartItem])
-                        setIsCartOpen(true)
-                      }}
-                    >
-                      {totalQty > 0 && (
-                        <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-purple-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow">
-                          {totalQty}
-                        </span>
-                      )}
-                      {item.image_url && (
-                        <img 
-                          src={item.image_url} 
-                          alt={item.name}
-                          className="w-full h-12 object-cover rounded mb-1"
-                        />
-                      )}
-                      <p className="text-[11px] font-medium text-purple-800 truncate">{item.name}</p>
-                      <p className="text-[10px] text-purple-600 font-semibold">${Number(item.price).toFixed(2)}</p>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+          
         </div>
 
         {/* RIGHT SLIDEOUT: Shopping Cart */}
