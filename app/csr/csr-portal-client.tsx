@@ -448,7 +448,8 @@ const line2 = customerInfo.streetAddress2 ? `, ${customerInfo.streetAddress2}` :
         })
         
         if (result.success) {
-          setCalculatedDeliveryFee(result.fee)
+          // Use displayedFee (subsidy-reduced) for customer-facing display
+          setCalculatedDeliveryFee(result.displayedFee)
           setDeliveryDistance(result.distance)
         } else {
           // Default fee if calculation fails
