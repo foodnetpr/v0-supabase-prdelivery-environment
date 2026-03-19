@@ -63,6 +63,8 @@ interface InternalShopItem {
 
 interface InternalShopClientProps {
   initialItems: InternalShopItem[]
+  backUrl?: string
+  backLabel?: string
 }
 
 const DEFAULT_CATEGORIES = [
@@ -73,7 +75,11 @@ const DEFAULT_CATEGORIES = [
   "Merchandise",
 ]
 
-export function InternalShopClient({ initialItems }: InternalShopClientProps) {
+export function InternalShopClient({ 
+  initialItems, 
+  backUrl = "/super-admin",
+  backLabel = "Back to Dashboard"
+}: InternalShopClientProps) {
   const [items, setItems] = useState<InternalShopItem[]>(initialItems)
   const [searchQuery, setSearchQuery] = useState("")
   const [showItemModal, setShowItemModal] = useState(false)
@@ -242,10 +248,10 @@ export function InternalShopClient({ initialItems }: InternalShopClientProps) {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Link href="/super-admin">
+              <Link href={backUrl}>
                 <Button variant="ghost" size="sm">
                   <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Dashboard
+                  {backLabel}
                 </Button>
               </Link>
               <div>

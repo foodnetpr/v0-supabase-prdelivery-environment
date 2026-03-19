@@ -45,8 +45,10 @@ export default async function TenantAdminPage({
     redirect("/auth/login")
   }
 
-  // Super admins can access any restaurant, restaurant admins only their own
-  const hasAccess = adminData.role === "super_admin" || adminData.restaurant_id === restaurant.id
+  // Super admins, managers, and CSRs can access any restaurant for menu management
+  // Restaurant admins can only access their own restaurant
+  const platformRoles = ["super_admin", "manager", "csr"]
+  const hasAccess = platformRoles.includes(adminData.role) || adminData.restaurant_id === restaurant.id
 
   if (!hasAccess) {
     redirect("/auth/login")
@@ -71,7 +73,10 @@ export default async function TenantAdminPage({
   ]
   
   // Allow super admins to view as restaurant admin for testing/review
+  // CSRs and managers get restaurant_admin-level access when viewing restaurant pages
   const effectiveRole = (view === "restricted" && adminData.role === "super_admin")
+    ? "restaurant_admin"
+    : (adminData.role === "csr" || adminData.role === "manager")
     ? "restaurant_admin"
     : adminData.role
 

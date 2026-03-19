@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Phone, Search, Building2, X, ShoppingCart, Minus, Plus, Trash2, ChevronRight, ChevronLeft, LogOut, Menu, User, MapPin, Clock, CalendarIcon } from "lucide-react"
+import { Phone, Search, Building2, X, ShoppingCart, Minus, Plus, Trash2, ChevronRight, ChevronLeft, LogOut, Menu, User, MapPin, Clock, CalendarIcon, Store, Package } from "lucide-react"
 import Link from "next/link"
 import { calculateDeliveryFee } from "@/app/actions/delivery-zones"
 import { AddressAutocomplete } from "@/components/address-autocomplete"
@@ -737,6 +737,12 @@ const line2 = customerInfo.streetAddress2 ? `, ${customerInfo.streetAddress2}` :
                 )}
               </button>
             )}
+            <Link href="/csr/menus" className="text-[10px] text-slate-400 hover:text-white">
+              Menús
+            </Link>
+            <Link href="/csr/internal-shop" className="text-[10px] text-slate-400 hover:text-white">
+              Tienda
+            </Link>
             <Link href="/super-admin" className="text-[10px] text-slate-400 hover:text-white">
               Admin
             </Link>
