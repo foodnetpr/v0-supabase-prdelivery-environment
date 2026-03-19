@@ -86,6 +86,7 @@ export async function calculateDeliveryFee(params: CalculateDeliveryFeeParams): 
         success: false,
         fee: 0,
         displayedFee: 0,
+        subsidy: 0,
         distance,
         zoneName: "",
         itemSurcharge: 0,
@@ -107,6 +108,7 @@ export async function calculateDeliveryFee(params: CalculateDeliveryFeeParams): 
       success: true,
       fee: totalFee,
       displayedFee: Math.max(0, totalFee - subsidy),
+      subsidy,
       distance,
       zoneName: matchingZone.zone_name,
       itemSurcharge,
@@ -117,6 +119,7 @@ export async function calculateDeliveryFee(params: CalculateDeliveryFeeParams): 
       success: false,
       fee: 0,
       displayedFee: 0,
+      subsidy: 0,
       distance: 0,
       zoneName: "",
       itemSurcharge: 0,
@@ -164,13 +167,13 @@ export async function calculateDeliveryFeeByCoords(params: {
     const { data: zones, error } = zonesResult
 
     if (error || !zones || zones.length === 0) {
-      return { success: false, fee: 0, displayedFee: 0, distance, zoneName: "", itemSurcharge: 0, error: "Delivery zones not configured." }
+      return { success: false, fee: 0, displayedFee: 0, subsidy: 0, distance, zoneName: "", itemSurcharge: 0, error: "Delivery zones not configured." }
     }
 
     const matchingZone = zones.find((z) => distance >= z.min_distance && distance <= z.max_distance)
     if (!matchingZone) {
       return {
-        success: false, fee: 0, displayedFee: 0, distance, zoneName: "", itemSurcharge: 0,
+        success: false, fee: 0, displayedFee: 0, subsidy: 0, distance, zoneName: "", itemSurcharge: 0,
         error: `Delivery not available for ${distance.toFixed(1)} miles. Maximum is ${Math.max(...zones.map((z) => z.max_distance))} miles.`,
       }
     }
@@ -186,13 +189,14 @@ export async function calculateDeliveryFeeByCoords(params: {
       success: true,
       fee: totalFee,
       displayedFee: Math.max(0, totalFee - subsidy),
+      subsidy,
       distance,
       zoneName: matchingZone.zone_name,
       itemSurcharge,
     }
   } catch (error) {
     console.error("[v0] Error calculating delivery fee by coords:", error)
-    return { success: false, fee: 0, displayedFee: 0, distance: 0, zoneName: "", itemSurcharge: 0, error: "Failed to calculate delivery fee." }
+    return { success: false, fee: 0, displayedFee: 0, subsidy: 0, distance: 0, zoneName: "", itemSurcharge: 0, error: "Failed to calculate delivery fee." }
   }
 }
 

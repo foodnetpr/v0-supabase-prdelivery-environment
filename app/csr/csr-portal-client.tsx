@@ -131,6 +131,7 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
   // Delivery fee state (calculated from delivery zones)
   const [calculatedDeliveryFee, setCalculatedDeliveryFee] = useState<number>(0)
   const [deliveryDistance, setDeliveryDistance] = useState<number>(0)
+  const [deliverySubsidy, setDeliverySubsidy] = useState<number>(0)
   const [isCalculatingFee, setIsCalculatingFee] = useState(false)
   
   // Get default date/time based on delivery type
@@ -413,7 +414,8 @@ export function CSRPortalClient({ restaurants }: CSRPortalClientProps) {
   // Delivery fee comes from calculated delivery zones (or 0 if not calculated yet)
   const DELIVERY_FEE = calculatedDeliveryFee
   const DISPATCH_FEE_PERCENT = selectedRestaurant?.dispatch_fee_percent ?? 0
-  const DISPATCH_FEE = subtotal * (DISPATCH_FEE_PERCENT / 100)
+  // Dispatch fee = percentage of subtotal + subsidy recovery (platform recovers subsidy through dispatch fee)
+  const DISPATCH_FEE = (subtotal * (DISPATCH_FEE_PERCENT / 100)) + deliverySubsidy
   
   // Calculate delivery fee when address changes
   useEffect(() => {
@@ -451,14 +453,17 @@ const line2 = customerInfo.streetAddress2 ? `, ${customerInfo.streetAddress2}` :
           // Use displayedFee (subsidy-reduced) for customer-facing display
           setCalculatedDeliveryFee(result.displayedFee)
           setDeliveryDistance(result.distance)
+          setDeliverySubsidy(result.subsidy)
         } else {
           // Default fee if calculation fails
           setCalculatedDeliveryFee(selectedRestaurant.delivery_fee ?? 5.89)
           setDeliveryDistance(0)
+          setDeliverySubsidy(0)
         }
       } catch (error) {
         console.error("Error calculating delivery fee:", error)
         setCalculatedDeliveryFee(selectedRestaurant.delivery_fee ?? 5.89)
+        setDeliverySubsidy(0)
       } finally {
         setIsCalculatingFee(false)
       }
