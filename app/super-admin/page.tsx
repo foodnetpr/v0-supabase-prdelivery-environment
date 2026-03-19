@@ -1,32 +1,10 @@
 import { createClient } from "@/lib/supabase/server"
 import { SuperAdminClient } from "./components/super-admin-client"
-import { redirect } from "next/navigation"
 
 export const dynamic = "force-dynamic"
 
 export default async function SuperAdminPage() {
   const supabase = await createClient()
-
-  // Check authentication
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  if (!session) {
-    redirect("/auth/login")
-  }
-
-  // Verify user is a super_admin
-  const { data: adminData } = await supabase
-    .from("admin_users")
-    .select("role")
-    .eq("auth_user_id", session.user.id)
-    .single()
-
-  if (!adminData || adminData.role !== "super_admin") {
-    // Not a super admin - redirect to home or login
-    redirect("/")
-  }
 
   // Fetch all restaurants with counts - alphabetically ordered
   const { data: restaurants, error: restaurantsError } = await supabase

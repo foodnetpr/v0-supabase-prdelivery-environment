@@ -7,10 +7,10 @@ export default async function TenantAdminPage({
   searchParams,
 }: {
   params: { slug: string }
-  searchParams: { view?: string }
+  searchParams: { view?: string; superadmin?: string }
 }) {
   const { slug } = await params
-  const { view } = await searchParams
+  const { view, superadmin } = await searchParams
   const supabase = await createServerClient()
 
   // Check authentication
@@ -74,7 +74,10 @@ export default async function TenantAdminPage({
   
   // Allow super admins to view as restaurant admin for testing/review
   // CSRs and managers get restaurant_admin-level access when viewing restaurant pages
-  const effectiveRole = (view === "restricted" && adminData.role === "super_admin")
+  // superadmin=true param from super-admin panel grants super_admin access
+  const effectiveRole = (superadmin === "true" && platformRoles.includes(adminData.role))
+    ? "super_admin"
+    : (view === "restricted" && adminData.role === "super_admin")
     ? "restaurant_admin"
     : (adminData.role === "csr" || adminData.role === "manager")
     ? "restaurant_admin"

@@ -703,12 +703,12 @@ export function SuperAdminClient({
                             Restaurant Admin
                           </Link>
                         </Button>
-                        <Button className="flex-1 gap-2 text-xs" asChild>
-                          <Link href={`/${restaurant.slug}/admin`} target="_blank">
-                            <Shield className="h-4 w-4" />
-                            Super Admin
-                          </Link>
-                        </Button>
+<Button className="flex-1 gap-2 text-xs" asChild>
+                  <Link href={`/${restaurant.slug}/admin?superadmin=true`} target="_blank">
+                    <Shield className="h-4 w-4" />
+                    Super Admin
+                  </Link>
+                </Button>
                       </div>
                     </div>
                   </>
@@ -736,7 +736,7 @@ export function SuperAdminClient({
                         </Link>
                       </Button>
                       <Button size="sm" asChild title="Super Admin">
-                        <Link href={`/${restaurant.slug}/admin`} target="_blank">
+                        <Link href={`/${restaurant.slug}/admin?superadmin=true`} target="_blank">
                           <Shield className="h-4 w-4" />
                         </Link>
                       </Button>
