@@ -424,11 +424,13 @@ setMenuItems(items || [])
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0)
   
-  // Delivery fee comes from calculated delivery zones (or 0 if not calculated yet)
-  const DELIVERY_FEE = calculatedDeliveryFee
+  // Delivery fee = base fee - subsidy (customer sees discounted delivery)
+  const BASE_DELIVERY_FEE = calculatedDeliveryFee
+  const DELIVERY_FEE = Math.max(0, BASE_DELIVERY_FEE - deliverySubsidy)
+  
+  // Dispatch fee = percentage of subtotal + subsidy (platform recovers subsidy through dispatch fee)
   const DISPATCH_FEE_PERCENT = selectedRestaurant?.dispatch_fee_percent ?? 0
-  // Dispatch fee = percentage of subtotal (subsidy is absorbed by platform, already deducted from delivery fee)
-  const DISPATCH_FEE = subtotal * (DISPATCH_FEE_PERCENT / 100)
+  const DISPATCH_FEE = (subtotal * (DISPATCH_FEE_PERCENT / 100)) + deliverySubsidy
   
   // Calculate delivery fee when address changes
   useEffect(() => {
