@@ -589,6 +589,14 @@ function MarketplaceFooter() {
             Para Restaurantes
           </Link>
           <span className="text-slate-300 hidden sm:inline">|</span>
+          <Link href="/privacy" className="hover:text-slate-900 transition-colors">
+            Privacidad
+          </Link>
+          <span className="text-slate-300 hidden sm:inline">|</span>
+          <Link href="/terms" className="hover:text-slate-900 transition-colors">
+            Términos de Servicio
+          </Link>
+          <span className="text-slate-300 hidden sm:inline">|</span>
           <span suppressHydrationWarning>
             &copy; {new Date().getFullYear()} FoodNetDelivery
           </span>
