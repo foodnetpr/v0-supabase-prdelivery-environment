@@ -1400,7 +1400,7 @@ export default function CustomerPortal({
 
   const tipAmount = calculateTip()
   
-  // Calculate dispatch fee at component level for use in order summary
+  // Calculate dispatch fee at component level for use throughout order summary sections
   const dispatchFeePercent = deliveryMethod === "delivery" ? Number((effectiveRestaurant as any).dispatch_fee_percent || 0) : 0
   const hasCalculatedFee = deliveryFeeCalculation.distance > 0 || deliveryFeeCalculation.zoneName !== ""
   const deliverySubsidy = deliveryMethod === "delivery" && hasCalculatedFee
