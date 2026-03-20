@@ -354,11 +354,13 @@ function PromoBar({
   return (
     <section className="relative bg-white py-4 sm:py-6">
       <div className="px-4 mx-auto max-w-7xl">
-        {/* Section header */}
+        {/* Section header - hide title when cuisine filter is active on mobile */}
         <div className="flex items-center justify-between mb-3 sm:mb-4">
-          <h2 className="text-base sm:text-lg font-bold text-slate-900">Ofertas y Promociones</h2>
+          {cuisineFilter === "all" && (
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 md:block">Ofertas y Promociones</h2>
+          )}
           {/* Restaurant search and filter controls */}
-          <div className="flex items-center gap-2">
+          <div className={`flex items-center gap-2 ${cuisineFilter !== "all" ? "w-full justify-between" : ""}`}>
             {/* Bebidas y Extras button - only show when shop is open */}
             {isShopAvailable && (
               <button
@@ -376,7 +378,7 @@ function PromoBar({
                 className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Ver Todos</span>
+                <span>Ver Todos</span>
               </button>
             )}
             {/* Search input */}
@@ -404,8 +406,8 @@ function PromoBar({
           </div>
         </div>
 
-        {/* Promo cards - show 4 cards in a grid, no scroll */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Promo cards - hide when cuisine filter is active, show 4 cards in a grid */}
+        {cuisineFilter === "all" && <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {promos.slice(0, 4).map((promo) => (
             <Link
               key={promo.id}
@@ -439,7 +441,7 @@ function PromoBar({
               </div>
             </Link>
           ))}
-        </div>
+        </div>}
       </div>
 
       {/* Internal Shop Modal */}
