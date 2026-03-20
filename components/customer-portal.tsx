@@ -4958,8 +4958,11 @@ export default function CustomerPortal({
                     onClick={async () => {
                       console.log("[v0] Stripe button clicked")
                       await handleSubmitCheckout()
-                      console.log("[v0] After handleSubmitCheckout, opening Stripe dialog")
-                      setShowStripeCheckout(true)
+                      // Small delay to allow React to update checkoutData state
+                      setTimeout(() => {
+                        console.log("[v0] Opening Stripe dialog")
+                        setShowStripeCheckout(true)
+                      }, 100)
                     }}
                     className="w-full flex items-center justify-center p-4 bg-[#635BFF] text-white rounded-lg hover:bg-[#5349E0] transition-colors shadow-lg cursor-pointer active:scale-95"
                   >
@@ -4972,8 +4975,11 @@ export default function CustomerPortal({
                     onClick={async () => {
                       console.log("[v0] ATH Movil button clicked")
                       await handleSubmitCheckout()
-                      console.log("[v0] After handleSubmitCheckout, opening ATH Movil dialog")
-                      setShowATHMovilCheckout(true)
+                      // Small delay to allow React to update checkoutData state
+                      setTimeout(() => {
+                        console.log("[v0] Opening ATH Movil dialog")
+                        setShowATHMovilCheckout(true)
+                      }, 100)
                     }}
                     className="w-full flex items-center justify-center p-4 bg-white border-2 border-[#F58220] rounded-lg hover:bg-orange-50 transition-colors shadow-lg cursor-pointer active:scale-95"
                   >
