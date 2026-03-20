@@ -1399,6 +1399,17 @@ export default function CustomerPortal({
   }
 
   const tipAmount = calculateTip()
+  
+  // Calculate dispatch fee at component level for use throughout order summary sections
+  const componentDispatchFeePercent = deliveryMethod === "delivery" ? Number((effectiveRestaurant as any).dispatch_fee_percent || 0) : 0
+  const componentHasCalculatedFee = deliveryFeeCalculation.distance > 0 || deliveryFeeCalculation.zoneName !== ""
+  const componentDeliverySubsidy = deliveryMethod === "delivery" && componentHasCalculatedFee
+    ? Math.max(0, deliveryFeeCalculation.fee - deliveryFeeCalculation.displayedFee)
+    : 0
+  const dispatchFee = componentDispatchFeePercent > 0
+    ? Math.ceil(((subtotal * componentDispatchFeePercent / 100) + componentDeliverySubsidy) / 0.05) * 0.05
+    : 0
+  
   const total = subtotal + taxAmount + (deliveryMethod === "delivery" ? deliveryFeeCalculation.fee : 0) + tipAmount // Use dynamic delivery fee here
 
   const calculateTax = () => {

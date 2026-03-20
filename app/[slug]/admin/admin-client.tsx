@@ -9,7 +9,7 @@ import { createBrowserClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Minus, Pencil, Trash2, Settings, GripVertical, MapPin, Copy, Upload, Building, Phone, Eye, EyeOff, ChevronUp, ChevronDown, ArrowRightLeft, Search, CalendarDays, List, ChevronLeft, ChevronRight, Clock, Truck, Check } from "lucide-react"
+import { Plus, Minus, Pencil, Trash2, Settings, GripVertical, MapPin, Copy, Upload, Building, Phone, Eye, EyeOff, ChevronUp, ChevronDown, ArrowRightLeft, Search, CalendarDays, List, ChevronLeft, ChevronRight, Clock, Truck, Check, Monitor, ExternalLink } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
@@ -2619,13 +2619,14 @@ payment_provider: branchForm.payment_provider || "stripe",
                 <TabsTrigger value="menu">Menu Items</TabsTrigger>
               </TabsList>
             ) : (
-              <TabsList className={`grid w-full mb-8 ${settingsForm.is_chain ? "grid-cols-5 lg:grid-cols-7" : "grid-cols-5 lg:grid-cols-6"}`}>
+              <TabsList className={`grid w-full mb-8 ${settingsForm.is_chain ? "grid-cols-5 lg:grid-cols-8" : "grid-cols-5 lg:grid-cols-7"}`}>
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="menu">Menu Items</TabsTrigger>
                 {settingsForm.is_chain && <TabsTrigger value="branches">Sucursales</TabsTrigger>}
                 <TabsTrigger value="packages">Service Packages</TabsTrigger>
                 <TabsTrigger value="orders">Orders</TabsTrigger>
                 <TabsTrigger value="settings">Settings</TabsTrigger>
+                <TabsTrigger value="kds">KDS</TabsTrigger>
                 {isSuperAdmin && <TabsTrigger value="marketplace">Marketplace</TabsTrigger>}
               </TabsList>
             )}
@@ -5154,8 +5155,132 @@ const pickupOrders = orders.filter((o: any) => o.order_type === "pickup" || o.de
             </Card>
           </TabsContent>
 
-          {/* CHANGE> Marketplace Tab Content */}
-          <TabsContent value="marketplace" className="space-y-6">
+{/* KDS Tab Content */}
+                <TabsContent value="kds" className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Monitor className="h-5 w-5" />
+                        Kitchen Display System (KDS)
+                      </CardTitle>
+                      <CardDescription>
+                        Accede al sistema de pantalla de cocina para visualizar y gestionar pedidos en tiempo real.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {/* Main Restaurant KDS */}
+                      <div className="p-4 border rounded-lg bg-slate-50">
+                        <h3 className="font-medium mb-3">{restaurant.name}</h3>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <Button
+                            asChild
+                            className="gap-2"
+                          >
+                            <Link 
+                              href={`/${restaurant.slug}/kds${settingsForm.kds_access_token ? `?token=${settingsForm.kds_access_token}` : ''}`}
+                              target="_blank"
+                            >
+                              <Monitor className="h-4 w-4" />
+                              Abrir KDS
+                              <ExternalLink className="h-3 w-3" />
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="gap-2"
+                            onClick={() => {
+                              const kdsUrl = `${window.location.origin}/${restaurant.slug}/kds${settingsForm.kds_access_token ? `?token=${settingsForm.kds_access_token}` : ''}`
+                              navigator.clipboard.writeText(kdsUrl)
+                              toast({
+                                title: "URL Copiada",
+                                description: "El enlace del KDS ha sido copiado al portapapeles.",
+                              })
+                            }}
+                          >
+                            <Copy className="h-4 w-4" />
+                            Copiar URL
+                          </Button>
+                        </div>
+                        {settingsForm.kds_access_token && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Token de acceso configurado. El KDS puede abrirse sin iniciar sesión.
+                          </p>
+                        )}
+                        {!settingsForm.kds_access_token && (
+                          <p className="text-xs text-amber-600 mt-2">
+                            No hay token de acceso configurado. Se requiere iniciar sesión para acceder al KDS.
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Branch KDS Links */}
+                      {settingsForm.is_chain && branches.length > 0 && (
+                        <div className="space-y-3">
+                          <h3 className="font-medium">Sucursales</h3>
+                          {branches.map((branch) => (
+                            <div key={branch.id} className="p-4 border rounded-lg">
+                              <h4 className="font-medium mb-3">{branch.name}</h4>
+                              <div className="flex flex-col sm:flex-row gap-3">
+                                <Button
+                                  asChild
+                                  variant="outline"
+                                  className="gap-2"
+                                >
+                                  <Link 
+                                    href={`/${restaurant.slug}/kds?branch=${branch.id}${branch.kds_access_token ? `&token=${branch.kds_access_token}` : ''}`}
+                                    target="_blank"
+                                  >
+                                    <Monitor className="h-4 w-4" />
+                                    Abrir KDS
+                                    <ExternalLink className="h-3 w-3" />
+                                  </Link>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  className="gap-2"
+                                  onClick={() => {
+                                    const kdsUrl = `${window.location.origin}/${restaurant.slug}/kds?branch=${branch.id}${branch.kds_access_token ? `&token=${branch.kds_access_token}` : ''}`
+                                    navigator.clipboard.writeText(kdsUrl)
+                                    toast({
+                                      title: "URL Copiada",
+                                      description: `El enlace del KDS para ${branch.name} ha sido copiado.`,
+                                    })
+                                  }}
+                                >
+                                  <Copy className="h-4 w-4" />
+                                  Copiar URL
+                                </Button>
+                              </div>
+                              {branch.kds_access_token ? (
+                                <p className="text-xs text-muted-foreground mt-2">
+                                  Token de acceso configurado.
+                                </p>
+                              ) : (
+                                <p className="text-xs text-amber-600 mt-2">
+                                  Sin token de acceso.
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Help Text */}
+                      <div className="text-sm text-muted-foreground border-t pt-4">
+                        <p className="font-medium mb-2">Instrucciones:</p>
+                        <ul className="list-disc list-inside space-y-1">
+                          <li>Usa el botón "Abrir KDS" para abrir la pantalla de cocina en una nueva ventana.</li>
+                          <li>Usa "Copiar URL" para obtener el enlace y configurarlo en una tablet o pantalla dedicada.</li>
+                          <li>El token de acceso permite abrir el KDS sin necesidad de iniciar sesión.</li>
+                          <li>Para configurar el token de acceso, ve a la pestaña Settings {">"} Order Notifications.</li>
+                        </ul>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* CHANGE> Marketplace Tab Content */}
+                <TabsContent value="marketplace" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
