@@ -80,9 +80,10 @@ export function SuperAdminSidebar({ activeTab, onTabChange }: SuperAdminSidebarP
     }
   }
 
-  // Navigation menu items - KDS added for kitchen display access
+  // Navigation menu items
   const navItems: NavItem[] = [
     { id: "restaurants", label: "Restaurantes", icon: <Building2 className="h-5 w-5" /> },
+    { id: "kds", label: "KDS (Cocina)", icon: <Monitor className="h-5 w-5" /> },
     { id: "marketing", label: "Marketing & Sales", icon: <Megaphone className="h-5 w-5" /> },
     { id: "operations", label: "Operations", icon: <Clock className="h-5 w-5" /> },
     { id: "admin-users", label: "Admin Users", icon: <Users className="h-5 w-5" /> },
@@ -90,7 +91,6 @@ export function SuperAdminSidebar({ activeTab, onTabChange }: SuperAdminSidebarP
     { id: "internal-shop", label: "Internal Shop", icon: <ShoppingCart className="h-5 w-5" />, href: "/super-admin/internal-shop" },
     { id: "reports", label: "Reports", icon: <FileText className="h-5 w-5" /> },
     { id: "promo-cards", label: "Promo Cards", icon: <Images className="h-5 w-5" /> },
-    { id: "kds", label: "KDS (Cocina)", icon: <Monitor className="h-5 w-5" /> },
   ]
 
   const quickLinks: NavItem[] = [
@@ -105,8 +105,6 @@ export function SuperAdminSidebar({ activeTab, onTabChange }: SuperAdminSidebarP
     onTabChange(item.id)
     setIsMobileOpen(false)
   }
-
-  console.log("[v0] navItems count:", navItems.length, navItems.map(i => i.id))
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
@@ -128,7 +126,7 @@ export function SuperAdminSidebar({ activeTab, onTabChange }: SuperAdminSidebarP
       {/* Main Navigation */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         <p className={cn("text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-3", isCollapsed && "sr-only")}>
-          Menu ({navItems.length} items)
+          Menu
         </p>
         {navItems.map((item) => {
           const isActive = activeTab === item.id
