@@ -2233,6 +2233,7 @@ const orderData = {
                 className="relative text-white md:hidden flex-shrink-0"
                 style={{ backgroundColor: primaryColor }}
                 onClick={() => setShowCart(true)}
+                aria-label={`Abrir carrito de compras${foodCartCount > 0 ? `, ${foodCartCount} artículos` : ''}`}
               >
   <ShoppingCart className="w-5 h-5 text-white" />
               {foodCartCount > 0 && (
@@ -2299,6 +2300,7 @@ const orderData = {
                 className="relative text-white hidden md:flex flex-shrink-0"
                 style={{ backgroundColor: primaryColor }}
                 onClick={() => setShowCart(true)}
+                aria-label={`Abrir carrito de compras${foodCartCount > 0 ? `, ${foodCartCount} artículos` : ''}`}
               >
   <ShoppingCart className="w-5 h-5 text-white" />
                 {foodCartCount > 0 && (
@@ -2431,7 +2433,7 @@ const orderData = {
       </nav>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
+      <main id="main-content" className="container mx-auto px-4 py-6" role="main" aria-label="Menú del restaurante">
         {categories
           .filter((cat) => cat.is_active)
           .filter((cat) => {

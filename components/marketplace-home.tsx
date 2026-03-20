@@ -167,7 +167,7 @@ export function MarketplaceHome({
   }, [restaurantsWithDistance, cuisineFilter, locationFilter, searchQuery])
 
   return (
-    <div className="flex flex-col min-h-screen bg-white font-sans">
+    <div className="flex flex-col min-h-screen bg-white font-sans" role="main" id="main-content" aria-label="Directorio de restaurantes FoodNetPR">
       {/* Global Navigation with spacer bar */}
       <GlobalNavbar 
         showLocationBar={true}
@@ -484,12 +484,16 @@ function RestaurantCard({
         : `${distance.toFixed(1)} mi`
       : null
 
+  // Build accessible description for screen readers
+  const accessibleDescription = `${restaurant.name}, ${cuisineLabel}${distanceLabel ? `, a ${distanceLabel}` : ''}${canPreOrder ? ', disponible para pre-ordenar' : ''}${unavailable ? ', no disponible actualmente' : ''}`
+
   return (
     <Link
       href={unavailable ? "#" : `/${restaurant.slug}${canPreOrder ? "?preorder=true" : ""}`}
       className="block h-full"
       onClick={unavailable ? (e) => e.preventDefault() : undefined}
       aria-disabled={unavailable}
+      aria-label={accessibleDescription}
     >
       <div
         className={`group overflow-hidden rounded-xl sm:rounded-2xl border bg-white transition-all duration-300 h-full flex flex-col ${
@@ -505,7 +509,7 @@ function RestaurantCard({
           {featuredImage ? (
             <Image
               src={featuredImage}
-              alt={restaurant.name}
+              alt={`Imagen del restaurante ${restaurant.name}`}
               fill
               className={`object-cover ${canPreOrder ? "brightness-75" : ""} ${!unavailable && !canPreOrder ? "group-hover:scale-105 transition-transform duration-500" : ""}`}
             />

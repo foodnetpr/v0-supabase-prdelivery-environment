@@ -69,7 +69,7 @@ export function CuisineBar({ selectedCuisine, onCuisineChange, cuisineTypes = []
   }
 
   return (
-    <div className="bg-white border-b border-slate-100">
+    <nav className="bg-white border-b border-slate-100" aria-label="Filtros de tipo de cocina" role="navigation">
       <div className="relative px-4 mx-auto max-w-7xl">
         {/* Left Arrow - inside content area */}
         {showLeftArrow && (
@@ -100,13 +100,16 @@ export function CuisineBar({ selectedCuisine, onCuisineChange, cuisineTypes = []
                     ? "bg-slate-100 ring-2 ring-amber-500"
                     : "hover:bg-slate-50"
                 }`}
+                aria-label={`Filtrar por ${cuisine.name}${isSelected ? ', seleccionado' : ''}`}
+                aria-pressed={isSelected}
+                role="button"
               >
                 {/* Image - rectangular to fit landscape food images */}
                 <div className="relative w-16 h-10 sm:w-20 sm:h-12 flex items-center justify-center rounded-lg overflow-hidden bg-slate-50">
                   {cuisine.icon_url ? (
                     <Image
                       src={cuisine.icon_url}
-                      alt={cuisine.name}
+                      alt={`Icono de cocina ${cuisine.name}`}
                       fill
                       className="object-contain"
                       unoptimized
@@ -143,6 +146,6 @@ export function CuisineBar({ selectedCuisine, onCuisineChange, cuisineTypes = []
           </button>
         )}
       </div>
-    </div>
+    </nav>
   )
 }
