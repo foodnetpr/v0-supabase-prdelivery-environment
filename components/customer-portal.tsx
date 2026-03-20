@@ -4291,7 +4291,7 @@ const orderData = {
                       style={{ backgroundColor: primaryColor }}
                       disabled={isBelowMinimum}
                     >
-                      {isBelowMinimum ? `Mínimo $${activeMinimumOrder.toFixed(2)}` : "Realizar Pedido"}
+                      {isBelowMinimum ? `Mínimo $${activeMinimumOrder.toFixed(2)}` : "Continuar"}
                     </Button>
                   </div>
 
