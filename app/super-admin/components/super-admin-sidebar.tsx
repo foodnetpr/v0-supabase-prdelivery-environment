@@ -83,7 +83,6 @@ export function SuperAdminSidebar({ activeTab, onTabChange }: SuperAdminSidebarP
   // Navigation menu items
   const navItems: NavItem[] = [
     { id: "restaurants", label: "Restaurantes", icon: <Building2 className="h-5 w-5" /> },
-    { id: "kds", label: "KDS (Cocina)", icon: <Monitor className="h-5 w-5" /> },
     { id: "marketing", label: "Marketing & Sales", icon: <Megaphone className="h-5 w-5" /> },
     { id: "operations", label: "Operations", icon: <Clock className="h-5 w-5" /> },
     { id: "admin-users", label: "Admin Users", icon: <Users className="h-5 w-5" /> },
@@ -94,6 +93,7 @@ export function SuperAdminSidebar({ activeTab, onTabChange }: SuperAdminSidebarP
   ]
 
   const quickLinks: NavItem[] = [
+    { id: "kds", label: "KDS (Cocina)", icon: <Monitor className="h-5 w-5" /> },
     { id: "csr", label: "CSR Portal", icon: <Phone className="h-5 w-5" />, href: "/csr", highlight: "rose" },
   ]
 
