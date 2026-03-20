@@ -1759,25 +1759,8 @@ export default function CustomerPortal({
     }
 
     setCheckoutData(orderData)
-    setShowCheckoutForm(false) // This is no longer used
-    setCheckoutStep(null) // Close the delivery form
-    setShowCheckout(false) // Close the main checkout dialog
-    
-    // Route to appropriate payment provider
-    // Logic: stripe/square = card only, stripe_athmovil/square_athmovil = show selector
-    const paymentProvider = orderData.paymentProvider || "stripe"
-    
-    if (paymentProvider === "stripe_athmovil" || paymentProvider === "square_athmovil") {
-      // Show payment selector: Card vs ATH Móvil
-      setShowPaymentSelector(true)
-    } else if (paymentProvider === "stripe") {
-      setShowStripeCheckout(true)
-    } else if (paymentProvider === "square") {
-      setShowSquareCheckout(true)
-    } else {
-      // Default to Stripe
-      setShowStripeCheckout(true)
-    }
+    console.log("[v0] checkoutData set:", orderData)
+    // Note: Dialog opening is now handled by the payment buttons directly
   }
   
   const handleSelectPaymentProvider = (provider: "card" | "athmovil") => {
@@ -4972,8 +4955,10 @@ export default function CustomerPortal({
                   {/* Stripe Payment Button - Credit Card */}
                   <button
                     type="button"
-                    onClick={() => {
-                      console.log("[v0] Stripe button clicked - opening Stripe checkout")
+                    onClick={async () => {
+                      console.log("[v0] Stripe button clicked")
+                      await handleSubmitCheckout()
+                      console.log("[v0] After handleSubmitCheckout, opening Stripe dialog")
                       setShowStripeCheckout(true)
                     }}
                     className="w-full flex items-center justify-center p-4 bg-[#635BFF] text-white rounded-lg hover:bg-[#5349E0] transition-colors shadow-lg cursor-pointer active:scale-95"
@@ -4984,8 +4969,10 @@ export default function CustomerPortal({
                   {/* ATH Movil Payment Button - Official Logo */}
                   <button
                     type="button"
-                    onClick={() => {
-                      console.log("[v0] ATH Movil button clicked - opening ATH Movil checkout")
+                    onClick={async () => {
+                      console.log("[v0] ATH Movil button clicked")
+                      await handleSubmitCheckout()
+                      console.log("[v0] After handleSubmitCheckout, opening ATH Movil dialog")
                       setShowATHMovilCheckout(true)
                     }}
                     className="w-full flex items-center justify-center p-4 bg-white border-2 border-[#F58220] rounded-lg hover:bg-orange-50 transition-colors shadow-lg cursor-pointer active:scale-95"
