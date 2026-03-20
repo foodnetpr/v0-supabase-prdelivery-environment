@@ -1606,7 +1606,12 @@ export default function CustomerPortal({
   }, [deliveryMethod, applyLocationAndCalc])
 
   const handleSubmitCheckout = async () => {
+    console.log("[v0] handleSubmitCheckout called")
+    console.log("[v0] user:", user)
+    console.log("[v0] deliveryForm:", deliveryForm)
+    
     if (!user) {
+      console.log("[v0] No user - redirecting to login")
       // Save checkout state to resume after login
       sessionStorage.setItem(
         "pendingCheckout",
@@ -1614,7 +1619,7 @@ export default function CustomerPortal({
           cart,
           deliveryForm,
           deliveryMethod,
-          tipAmount, // This is the issue, tipAmount is not a state variable
+          tipAmount,
           deliveryFeeCalculation,
         }),
       )
@@ -1625,12 +1630,19 @@ export default function CustomerPortal({
 
     // Validate required fields
     if (
-      !deliveryForm.fullName || // Changed from fullName to name
+      !deliveryForm.fullName ||
       !deliveryForm.email ||
       !deliveryForm.phone ||
       !deliveryForm.eventDate ||
       !deliveryForm.eventTime
     ) {
+      console.log("[v0] Missing required fields:", {
+        fullName: deliveryForm.fullName,
+        email: deliveryForm.email,
+        phone: deliveryForm.phone,
+        eventDate: deliveryForm.eventDate,
+        eventTime: deliveryForm.eventTime
+      })
       alert("Please fill in all required fields")
       return
     }
@@ -1638,12 +1650,14 @@ export default function CustomerPortal({
     // Address validation for delivery
     if (deliveryMethod === "delivery") {
       if (!deliveryForm.streetAddress || !deliveryForm.city || !deliveryForm.state || !deliveryForm.zip) {
+        console.log("[v0] Missing address fields")
         alert("Please provide a complete delivery address.")
         return
       }
 
       // Check delivery zone if not already checked or acknowledged
       if (!zoneCheck.checked || (!zoneCheck.inZone && !zoneCheck.acknowledged)) {
+        console.log("[v0] Checking delivery zone...")
         const fullAddress = `${deliveryForm.streetAddress}, ${deliveryForm.city}, ${deliveryForm.state} ${deliveryForm.zip}`
         const result = await checkDeliveryZone(restaurant.id, selectedBranch?.id || "", fullAddress)
         const newZoneCheck = {
@@ -1657,11 +1671,14 @@ export default function CustomerPortal({
         setZoneCheck(newZoneCheck)
 
         if (!result.inZone) {
+          console.log("[v0] Not in delivery zone")
           // Don't proceed -- the UI will show the warning
           return
         }
       }
     }
+    
+    console.log("[v0] All validations passed, proceeding with checkout")
 
     // CRITICAL: Ensure branch is selected - orders CANNOT proceed without a branch
     if (!selectedBranch?.id) {
