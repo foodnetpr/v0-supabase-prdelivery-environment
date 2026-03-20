@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import { SuperAdminClient } from "./components/super-admin-client"
 
 export const dynamic = "force-dynamic"
+export const revalidate = 0 // Force no caching
 
 export default async function SuperAdminPage() {
   const supabase = await createClient()

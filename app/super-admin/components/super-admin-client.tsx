@@ -453,14 +453,14 @@ export function SuperAdminClient({
                 {activeTab === "kds" && "KDS (Kitchen Display)"}
               </h2>
               <div className="flex items-center gap-3">
-                {/* KDS Button - always visible */}
+                {/* KDS Button - Kitchen Display System Access */}
                 <Button 
                   onClick={() => setActiveTab("kds")} 
-                  variant={activeTab === "kds" ? "default" : "outline"}
-                  className="gap-2 bg-cyan-600 hover:bg-cyan-700 text-white border-cyan-600"
+                  variant="outline"
+                  className="gap-2 border-cyan-500 text-cyan-600 hover:bg-cyan-50"
                 >
                   <Monitor className="h-4 w-4" />
-                  <span className="hidden sm:inline">KDS</span>
+                  KDS
                 </Button>
                 {activeTab === "restaurants" && (
                   <>
