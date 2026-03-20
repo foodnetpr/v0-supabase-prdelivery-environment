@@ -936,6 +936,24 @@ export default function CustomerPortal({
 
   const [showPackageModal, setShowPackageModal] = useState(false)
 
+  // Pre-fill form fields when customer data becomes available
+  useEffect(() => {
+    if (customer) {
+      setDeliveryForm((prev) => ({
+        ...prev,
+        fullName: prev.fullName || `${customer.first_name || ""} ${customer.last_name || ""}`.trim(),
+        email: prev.email || customer.email || "",
+        phone: prev.phone || customer.phone || "",
+      }))
+    }
+  }, [customer])
+
+  // Check if order is a pre-order (selected date is not today)
+  const isPreOrder = (() => {
+    const today = new Date().toISOString().split("T")[0]
+    return deliveryForm.eventDate !== today
+  })()
+
 
 
   const scrollToCategory = (category: string) => {
@@ -4506,47 +4524,50 @@ const orderData = {
                         </p>
                       )}
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="eventTime" className="text-sm font-medium">
-                        {deliveryMethod === "delivery" ? "Hora de Entrega Solicitada" : "Hora de Recogido"} *
-                      </Label>
-                      <select
-                        id="eventTime"
-                        value={deliveryForm.eventTime}
-                        onChange={(e) => setDeliveryForm({ ...deliveryForm, eventTime: e.target.value })}
-                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg transition-all focus:ring-2 bg-background"
-                        required
-                        style={
-                          {
-                            "--tw-ring-color": `${primaryColor}30`,
-                          } as React.CSSProperties
-                        }
-                      >
-                        <option value="">Selecciona una hora</option>
-                        {/* Generate time slots in 15-minute increments from 11:30 to 21:00 */}
-                        {(() => {
-                          const slots = []
-                          for (let hour = 11; hour <= 21; hour++) {
-                            for (let min = 0; min < 60; min += 15) {
-                              // Start at 11:30, end at 21:00
-                              if (hour === 11 && min < 30) continue
-                              if (hour === 21 && min > 0) continue
-                              const timeValue = `${hour.toString().padStart(2, "0")}:${min.toString().padStart(2, "0")}`
-                              const displayHour = hour > 12 ? hour - 12 : hour
-                              const ampm = hour >= 12 ? "PM" : "AM"
-                              const displayTime = `${displayHour}:${min.toString().padStart(2, "0")} ${ampm}`
-                              slots.push(
-                                <option key={timeValue} value={timeValue}>
-                                  {displayTime}
-                                </option>
-                              )
-                            }
+                    {/* Only show time selector for pre-orders (when date is not today) */}
+                    {isPreOrder && (
+                      <div className="space-y-2">
+                        <Label htmlFor="eventTime" className="text-sm font-medium">
+                          {deliveryMethod === "delivery" ? "Hora de Entrega Solicitada" : "Hora de Recogido"} *
+                        </Label>
+                        <select
+                          id="eventTime"
+                          value={deliveryForm.eventTime}
+                          onChange={(e) => setDeliveryForm({ ...deliveryForm, eventTime: e.target.value })}
+                          className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-lg transition-all focus:ring-2 bg-background"
+                          required
+                          style={
+                            {
+                              "--tw-ring-color": `${primaryColor}30`,
+                            } as React.CSSProperties
                           }
-                          return slots
-                        })()}
-                      </select>
-                      <p className="text-xs text-muted-foreground mt-1">Horario: 11:30 AM - 9:00 PM</p>
-                    </div>
+                        >
+                          <option value="">Selecciona una hora</option>
+                          {/* Generate time slots in 15-minute increments from 11:30 to 21:00 */}
+                          {(() => {
+                            const slots = []
+                            for (let hour = 11; hour <= 21; hour++) {
+                              for (let min = 0; min < 60; min += 15) {
+                                // Start at 11:30, end at 21:00
+                                if (hour === 11 && min < 30) continue
+                                if (hour === 21 && min > 0) continue
+                                const timeValue = `${hour.toString().padStart(2, "0")}:${min.toString().padStart(2, "0")}`
+                                const displayHour = hour > 12 ? hour - 12 : hour
+                                const ampm = hour >= 12 ? "PM" : "AM"
+                                const displayTime = `${displayHour}:${min.toString().padStart(2, "0")} ${ampm}`
+                                slots.push(
+                                  <option key={timeValue} value={timeValue}>
+                                    {displayTime}
+                                  </option>
+                                )
+                              }
+                            }
+                            return slots
+                          })()}
+                        </select>
+                        <p className="text-xs text-muted-foreground mt-1">Horario: 11:30 AM - 9:00 PM</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
