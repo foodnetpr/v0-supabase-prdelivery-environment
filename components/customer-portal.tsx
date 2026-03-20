@@ -4923,6 +4923,12 @@ const orderData = {
                         <span>${deliveryFeeCalculation.displayedFee.toFixed(2)}</span>
                       </div>
                     )}
+                    {deliveryMethod === "delivery" && dispatchFee > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span>Cargo por Servicio:</span>
+                        <span>${dispatchFee.toFixed(2)}</span>
+                      </div>
+                    )}
                     {/* CHANGE: Tax label now falls back to 0% instead of 8.75% */}
                     <div className="flex justify-between text-sm">
                       <span>IVU ({Math.round((effectiveRestaurant.tax_rate || 0) * 1000) / 10}%):</span>
@@ -4943,7 +4949,37 @@ const orderData = {
                   </div>
                 </div>
 
-                <DialogFooter className="gap-3 mt-6 pt-6 border-t">
+                <div className="mt-6 pt-6 border-t space-y-3">
+                  {/* Stripe Payment Button */}
+                  <button
+                    onClick={handleSubmitCheckout}
+                    className="w-full flex items-center justify-center gap-3 p-4 bg-[#635BFF] text-white rounded-lg hover:bg-[#5349E0] transition-colors shadow-lg"
+                  >
+                    <svg className="w-8 h-5" viewBox="0 0 60 25" fill="currentColor">
+                      <path d="M59.64 14.28c0-4.7-2.3-8.4-6.7-8.4-4.4 0-7.1 3.7-7.1 8.4 0 5.5 3.2 8.3 7.7 8.3 2.2 0 3.9-.5 5.2-1.2v-3.6c-1.3.6-2.7 1-4.5 1-1.8 0-3.4-.6-3.6-2.8h9c0-.2.1-1.1.1-1.7zm-9.1-1.7c0-2.1 1.3-3 2.5-3s2.4.9 2.4 3h-4.9zM40.3 5.88c-1.8 0-3 .8-3.6 1.4l-.2-1.1h-4v20.1l4.5-1v-4.9c.7.5 1.7 1.2 3.3 1.2 3.3 0 6.4-2.7 6.4-8.5-.1-5.4-3.2-8.2-6.4-8.2zm-1.1 12.6c-1.1 0-1.8-.4-2.2-.9v-7.2c.5-.5 1.2-1 2.2-1 1.7 0 2.9 1.9 2.9 4.5 0 2.7-1.2 4.6-2.9 4.6zM27.4 5.08l4.5-1V.48l-4.5 1v3.6zM27.4 6.18h4.5v15.4h-4.5V6.18zM22.6 7.68l-.3-1.5h-4v15.4h4.5v-10.4c1.1-1.4 2.9-1.1 3.4-1v-4.2c-.6-.2-2.7-.5-3.6 1.7zM12.5 2.58l-4.4.9-.02 14.1c0 2.6 2 4.5 4.6 4.5 1.4 0 2.5-.3 3.1-.6v-3.6c-.5.2-3.2.9-3.2-1.4v-5.6h3.2v-3.8h-3.2l-.06-4.5zM3.3 10.88c0-.6.5-1 1.4-1 1.3 0 2.9.4 4.2 1.1V7.18c-1.4-.5-2.8-.8-4.2-.8-3.5 0-5.8 1.8-5.8 4.9 0 4.7 6.5 4 6.5 6 0 .7-.6 1-1.5 1-1.3 0-3-.5-4.3-1.3v3.9c1.5.6 2.9.9 4.3.9 3.5 0 6-1.8 6-4.9-.1-5.1-6.6-4.2-6.6-6.07z"/>
+                    </svg>
+                    <span className="font-semibold">Pagar con Tarjeta</span>
+                  </button>
+
+                  {/* ATH Movil Payment Button */}
+                  <button
+                    onClick={() => {
+                      handleSubmitCheckout()
+                      // After checkout data is set, we'll show ATH Movil
+                      setTimeout(() => {
+                        setShowStripeCheckout(false)
+                        setShowATHMovilCheckout(true)
+                      }, 100)
+                    }}
+                    className="w-full flex items-center justify-center gap-3 p-4 bg-[#E95420] text-white rounded-lg hover:bg-[#D04510] transition-colors shadow-lg"
+                  >
+                    <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                      <span className="text-[#E95420] font-bold text-xs">ATH</span>
+                    </div>
+                    <span className="font-semibold">Pagar con ATH Movil</span>
+                  </button>
+
+                  {/* Back to Cart Button */}
                   <Button
                     variant="outline"
                     onClick={() => {
@@ -4951,7 +4987,7 @@ const orderData = {
                       setShowCheckout(false)
                       setShowCart(true)
                     }}
-                    className="border-2"
+                    className="w-full border-2"
                     style={{
                       borderColor: primaryColor,
                       color: primaryColor,
@@ -4959,15 +4995,7 @@ const orderData = {
                   >
                     Volver al Carrito
                   </Button>
-                  <Button
-                    type="submit"
-                    className="text-white shadow-lg"
-                    style={{ backgroundColor: primaryColor }}
-                    onClick={handleSubmitCheckout}
-                  >
-                    Continuar al Pago
-                  </Button>
-                </DialogFooter>
+                </div>
 
                 {/* Delivery Zone Warning */}
                 {zoneCheck.checked && !zoneCheck.inZone && deliveryMethod === "delivery" && (
