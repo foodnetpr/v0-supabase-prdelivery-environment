@@ -453,15 +453,6 @@ export function SuperAdminClient({
                 {activeTab === "kds" && "KDS (Kitchen Display)"}
               </h2>
               <div className="flex items-center gap-3">
-                {/* KDS Button - Kitchen Display System Access */}
-                <Button 
-                  onClick={() => setActiveTab("kds")} 
-                  variant="outline"
-                  className="gap-2 border-cyan-500 text-cyan-600 hover:bg-cyan-50"
-                >
-                  <Monitor className="h-4 w-4" />
-                  KDS
-                </Button>
                 {activeTab === "restaurants" && (
                   <>
                     <Button onClick={() => setShowSettingsModal(true)} variant="outline" className="gap-2">
