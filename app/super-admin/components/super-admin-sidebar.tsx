@@ -106,6 +106,8 @@ export function SuperAdminSidebar({ activeTab, onTabChange }: SuperAdminSidebarP
     setIsMobileOpen(false)
   }
 
+  console.log("[v0] navItems count:", navItems.length, navItems.map(i => i.id))
+
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo/Header */}
@@ -126,7 +128,7 @@ export function SuperAdminSidebar({ activeTab, onTabChange }: SuperAdminSidebarP
       {/* Main Navigation */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         <p className={cn("text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 px-3", isCollapsed && "sr-only")}>
-          Menu
+          Menu ({navItems.length} items)
         </p>
         {navItems.map((item) => {
           const isActive = activeTab === item.id
