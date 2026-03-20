@@ -4958,7 +4958,8 @@ export default function CustomerPortal({
                     onClick={async () => {
                       await handleSubmitCheckout()
                       setTimeout(() => {
-                        setCheckoutStep(null) // Close summary dialog
+                        setCheckoutStep(null)
+                        setShowCheckout(false) // Close the parent Dialog
                         setShowStripeCheckout(true)
                       }, 100)
                     }}
@@ -4973,7 +4974,8 @@ export default function CustomerPortal({
                     onClick={async () => {
                       await handleSubmitCheckout()
                       setTimeout(() => {
-                        setCheckoutStep(null) // Close summary dialog
+                        setCheckoutStep(null)
+                        setShowCheckout(false) // Close the parent Dialog
                         setShowATHMovilCheckout(true)
                       }, 100)
                     }}
