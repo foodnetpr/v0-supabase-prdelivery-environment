@@ -16,7 +16,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
-import { Truck, Package, ShoppingCart, Filter, Check, Minus, Plus, MapPin, Pencil, Trash2, PlusCircle, MinusCircle, X, ChevronDown, ChevronLeft, List, Coffee } from "lucide-react"
+import { Truck, Package, ShoppingCart, Filter, Check, Minus, Plus, MapPin, Pencil, Trash2, PlusCircle, MinusCircle, X, ChevronDown, ChevronLeft, List, Coffee, Banknote } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import StripeCheckout from "./stripe-checkout"
@@ -784,6 +784,7 @@ export default function CustomerPortal({
   
   const [showSquareCheckout, setShowSquareCheckout] = useState(false)
   const [showATHMovilCheckout, setShowATHMovilCheckout] = useState(false)
+  const [showCashCheckout, setShowCashCheckout] = useState(false)
   const [showPaymentSelector, setShowPaymentSelector] = useState(false) // For "both" payment provider option
   const [checkoutData, setCheckoutData] = useState<any>(null)
 
@@ -4988,6 +4989,25 @@ export default function CustomerPortal({
                     />
                   </button>
 
+                  {/* Cash Payment Button - Only shown if enabled */}
+                  {(restaurant as any).cash_payment_enabled && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await handleSubmitCheckout()
+                        setTimeout(() => {
+                          setCheckoutStep(null)
+                          setShowCheckout(false)
+                          setShowCashCheckout(true)
+                        }, 100)
+                      }}
+                      className="w-full flex items-center justify-center gap-2 p-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-lg cursor-pointer active:scale-95"
+                    >
+                      <Banknote className="h-6 w-6" />
+                      <span className="font-semibold text-lg">Pagar en Efectivo</span>
+                    </button>
+                  )}
+
                   {/* Back to Cart Button */}
                   <Button
                     variant="outline"
@@ -5396,14 +5416,160 @@ export default function CustomerPortal({
             />
           </div>
         </div>
-      )}
+)}
 
-      {/* About Section */}
-      <section className="mt-16 border-t border-gray-200 bg-gray-50">
-        <div className="container mx-auto px-4 py-10 max-w-3xl">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">
-            {"Sobre "}{restaurant.name}
-          </h2>
+  {/* Cash Payment Checkout */}
+  {showCashCheckout && checkoutData && (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={() => {
+          setShowCashCheckout(false)
+          setCheckoutStep("delivery")
+          setShowCheckout(true)
+        }}
+      />
+      <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-auto">
+        <div className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+              <Banknote className="h-6 w-6 text-green-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Pago en Efectivo</h2>
+              <p className="text-sm text-gray-500">Paga al momento de recibir tu orden</p>
+            </div>
+            <button
+              onClick={() => {
+                setShowCashCheckout(false)
+                setCheckoutStep("delivery")
+                setShowCheckout(true)
+              }}
+              className="ml-auto text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <p className="text-2xl font-bold text-green-700 text-center">
+              Total: ${Number(checkoutData.total || 0).toFixed(2)}
+            </p>
+          </div>
+
+          <div className="space-y-3 mb-6 text-sm text-gray-600">
+            <p className="flex items-start gap-2">
+              <Check className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+              Tu orden sera preparada y enviada/lista para recogido.
+            </p>
+            <p className="flex items-start gap-2">
+              <Check className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+              Paga el monto total en efectivo al recibir tu orden.
+            </p>
+            <p className="flex items-start gap-2">
+              <Check className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+              Recibiras una confirmacion por correo electronico.
+            </p>
+          </div>
+
+          <button
+            onClick={async () => {
+              try {
+                // Create order with cash payment status
+                const supabase = createBrowserClient()
+                const { data: order, error } = await supabase
+                  .from("orders")
+                  .insert({
+                    restaurant_id: checkoutData.restaurantId,
+                    branch_id: checkoutData.branchId || null,
+                    customer_id: checkoutData.customerId || null,
+                    customer_name: checkoutData.customerName,
+                    customer_email: checkoutData.customerEmail,
+                    customer_phone: checkoutData.customerPhone,
+                    delivery_type: checkoutData.deliveryType,
+                    delivery_address: checkoutData.deliveryAddress || null,
+                    delivery_fee: checkoutData.deliveryFee || 0,
+                    dispatch_fee: checkoutData.dispatchFee || 0,
+                    subtotal: checkoutData.subtotal,
+                    tax: checkoutData.tax,
+                    tip: checkoutData.tip || 0,
+                    total: checkoutData.total,
+                    status: "pending",
+                    payment_status: "pending_cash",
+                    payment_method: "cash",
+                    event_date: checkoutData.eventDate,
+                    event_time: checkoutData.eventTime,
+                    special_instructions: checkoutData.specialInstructions || null,
+                  })
+                  .select()
+                  .single()
+
+                if (error) throw error
+
+                // Insert order items
+                if (checkoutData.items && checkoutData.items.length > 0) {
+                  const orderItems = checkoutData.items.map((item: any) => ({
+                    order_id: order.id,
+                    menu_item_id: item.menuItemId || null,
+                    item_name: item.name,
+                    quantity: item.quantity,
+                    unit_price: item.price,
+                    total_price: item.price * item.quantity,
+                    selected_options: item.selectedOptions || null,
+                    special_instructions: item.specialInstructions || null,
+                  }))
+                  await supabase.from("order_items").insert(orderItems)
+                }
+
+                // Success - clear cart and show confirmation
+                setShowCashCheckout(false)
+                setCart([])
+                localStorage.removeItem(`cart_${restaurant.id}`)
+                toast({
+                  title: "Orden Confirmada",
+                  description: "Tu orden ha sido recibida. Paga en efectivo al recibirla.",
+                })
+                
+                // Call success handler if available
+                if (handlePaymentSuccess) {
+                  handlePaymentSuccess(order)
+                }
+              } catch (error) {
+                console.error("Error creating cash order:", error)
+                toast({
+                  title: "Error",
+                  description: "No se pudo procesar tu orden. Por favor intenta de nuevo.",
+                  variant: "destructive",
+                })
+              }
+            }}
+            className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <Check className="h-5 w-5" />
+            Confirmar Orden - Pagar en Efectivo
+          </button>
+
+          <button
+            onClick={() => {
+              setShowCashCheckout(false)
+              setCheckoutStep("delivery")
+              setShowCheckout(true)
+            }}
+            className="w-full mt-3 text-gray-500 py-2 hover:text-gray-700 text-sm"
+          >
+            Cancelar y volver
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
+  
+  {/* About Section */}
+  <section className="mt-16 border-t border-gray-200 bg-gray-50">
+  <div className="container mx-auto px-4 py-10 max-w-3xl">
+  <h2 className="text-2xl font-bold text-gray-900 mb-6">
+  {"Sobre "}{restaurant.name}
+  </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-10">
             {/* Address */}

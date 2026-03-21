@@ -429,6 +429,7 @@ const { toast } = useToast()
     square_environment: "production" as "sandbox" | "production",
     athmovil_public_token: "",
     athmovil_ecommerce_id: "",
+    cash_payment_enabled: false,
     // Order notification settings
     order_notification_method: "email" as "email" | "kds" | "chowly" | "square_kds" | "multiple",
     chowly_api_key: "",
@@ -527,7 +528,7 @@ const { toast } = useToast()
       const { data: restaurantData } = await supabase
         .from("restaurants")
         .select(
-          "tax_rate, delivery_fee, tip_option_1, tip_option_2, tip_option_3, lead_time_hours, delivery_lead_time_hours, pickup_lead_time_hours, max_advance_days, min_delivery_order, min_pickup_order, restaurant_address, latitude, longitude, primary_color, standalone_domain, design_template, packages_section_title, name, logo_url, banner_logo_url, hero_image_url, delivery_enabled, pickup_enabled, show_service_packages, shipday_api_key, is_chain, hide_branch_selector_title, delivery_base_fee, delivery_included_containers, footer_description, footer_email, footer_phone, footer_links, payment_provider, stripe_account_id, square_access_token, square_location_id, square_environment, athmovil_public_token, athmovil_ecommerce_id",
+          "tax_rate, delivery_fee, tip_option_1, tip_option_2, tip_option_3, lead_time_hours, delivery_lead_time_hours, pickup_lead_time_hours, max_advance_days, min_delivery_order, min_pickup_order, restaurant_address, latitude, longitude, primary_color, standalone_domain, design_template, packages_section_title, name, logo_url, banner_logo_url, hero_image_url, delivery_enabled, pickup_enabled, show_service_packages, shipday_api_key, is_chain, hide_branch_selector_title, delivery_base_fee, delivery_included_containers, footer_description, footer_email, footer_phone, footer_links, payment_provider, stripe_account_id, square_access_token, square_location_id, square_environment, athmovil_public_token, athmovil_ecommerce_id, cash_payment_enabled",
         )
         .eq("id", restaurantId)
         .single()
@@ -582,6 +583,7 @@ const { toast } = useToast()
           square_environment: restaurantData.square_environment || "production",
           athmovil_public_token: restaurantData.athmovil_public_token || "",
           athmovil_ecommerce_id: restaurantData.athmovil_ecommerce_id || "",
+          cash_payment_enabled: restaurantData.cash_payment_enabled || false,
         })
       }
       setLoading(false)
@@ -2008,6 +2010,7 @@ const { toast } = useToast()
       square_environment: settingsForm.square_environment || "production",
       athmovil_public_token: settingsForm.athmovil_public_token || null,
       athmovil_ecommerce_id: settingsForm.athmovil_ecommerce_id || null,
+      cash_payment_enabled: settingsForm.cash_payment_enabled || false,
       // Order notification settings
       order_notification_method: settingsForm.order_notification_method || "email",
       chowly_api_key: settingsForm.chowly_api_key || null,
@@ -4058,6 +4061,27 @@ const pickupOrders = orders.filter((o: any) => o.order_type === "pickup" || o.de
                     <p className="text-xs text-muted-foreground mt-1">
                       Selecciona tu procesador de tarjetas y si deseas ofrecer ATH Móvil como opcion adicional.
                     </p>
+                  </div>
+
+                  {/* Cash Payment Toggle */}
+                  <div className="mb-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-medium text-green-800">Pago en Efectivo</h4>
+                        <p className="text-xs text-green-600 mt-0.5">
+                          Permite que los clientes paguen en efectivo al momento de la entrega o recogida.
+                        </p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={settingsForm.cash_payment_enabled}
+                          onChange={(e) => setSettingsForm({ ...settingsForm, cash_payment_enabled: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                      </label>
+                    </div>
                   </div>
 
                   {/* Stripe Settings */}
