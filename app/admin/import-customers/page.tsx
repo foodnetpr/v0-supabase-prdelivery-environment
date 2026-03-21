@@ -23,6 +23,11 @@ type ParsedCustomer = {
   lastName: string
   email: string
   phone: string
+  address1: string
+  address2: string
+  city: string
+  state: string
+  zip: string
 }
 
 function normalizePhone(raw: string): string | null {
@@ -66,6 +71,11 @@ export default function ImportCustomersPage() {
     const lastNameIdx = header.findIndex((h) => h === "last name" || h === "lastname")
     const phoneIdx = header.findIndex((h) => h === "phone")
     const emailIdx = header.findIndex((h) => h === "email")
+    const address1Idx = header.findIndex((h) => h === "address 1" || h === "address1" || h === "address")
+    const address2Idx = header.findIndex((h) => h === "address 2" || h === "address2" || h === "apt" || h === "suite")
+    const cityIdx = header.findIndex((h) => h === "city")
+    const stateIdx = header.findIndex((h) => h === "state")
+    const zipIdx = header.findIndex((h) => h === "zip" || h === "zipcode" || h === "postal code" || h === "postalcode")
 
     if (firstNameIdx === -1 && lastNameIdx === -1 && phoneIdx === -1 && emailIdx === -1) {
       alert("CSV must have columns: first name, last name, phone, email")
@@ -82,6 +92,11 @@ export default function ImportCustomersPage() {
         lastName: lastNameIdx >= 0 ? values[lastNameIdx] || "" : "",
         email: emailIdx >= 0 ? values[emailIdx] || "" : "",
         phone: phoneIdx >= 0 ? values[phoneIdx] || "" : "",
+        address1: address1Idx >= 0 ? values[address1Idx] || "" : "",
+        address2: address2Idx >= 0 ? values[address2Idx] || "" : "",
+        city: cityIdx >= 0 ? values[cityIdx] || "" : "",
+        state: stateIdx >= 0 ? values[stateIdx] || "" : "",
+        zip: zipIdx >= 0 ? values[zipIdx] || "" : "",
       })
     }
 
@@ -193,6 +208,11 @@ export default function ImportCustomersPage() {
             lastName: customer.lastName,
             email: customer.email.trim() || null,
             phone: normalizedPhone,
+            address1: customer.address1.trim() || null,
+            address2: customer.address2.trim() || null,
+            city: customer.city.trim() || null,
+            state: customer.state.trim() || null,
+            zip: customer.zip.trim() || null,
           }),
         })
 
@@ -241,7 +261,12 @@ export default function ImportCustomersPage() {
             Upload a CSV file with columns: <code className="bg-muted px-1 py-0.5 rounded text-xs">first name</code>,{" "}
             <code className="bg-muted px-1 py-0.5 rounded text-xs">last name</code>,{" "}
             <code className="bg-muted px-1 py-0.5 rounded text-xs">phone</code>,{" "}
-            <code className="bg-muted px-1 py-0.5 rounded text-xs">email</code>
+            <code className="bg-muted px-1 py-0.5 rounded text-xs">email</code>,{" "}
+            <code className="bg-muted px-1 py-0.5 rounded text-xs">address 1</code>,{" "}
+            <code className="bg-muted px-1 py-0.5 rounded text-xs">address 2</code>,{" "}
+            <code className="bg-muted px-1 py-0.5 rounded text-xs">city</code>,{" "}
+            <code className="bg-muted px-1 py-0.5 rounded text-xs">state</code>,{" "}
+            <code className="bg-muted px-1 py-0.5 rounded text-xs">zip</code>
           </p>
         </div>
 
@@ -307,18 +332,23 @@ export default function ImportCustomersPage() {
                       <th className="text-left py-2 px-2">Last Name</th>
                       <th className="text-left py-2 px-2">Email</th>
                       <th className="text-left py-2 px-2">Phone</th>
+                      <th className="text-left py-2 px-2">Address</th>
                       <th className="text-left py-2 px-2">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {preview.map((c, i) => {
                       const validation = isValidRow(c)
+                      const addressParts = [c.address1, c.city, c.state, c.zip].filter(Boolean)
                       return (
                         <tr key={i} className="border-b">
                           <td className="py-2 px-2">{c.firstName || "-"}</td>
                           <td className="py-2 px-2">{c.lastName || "-"}</td>
                           <td className="py-2 px-2">{c.email || "-"}</td>
                           <td className="py-2 px-2">{c.phone || "-"}</td>
+                          <td className="py-2 px-2 max-w-[200px] truncate" title={addressParts.join(", ")}>
+                            {addressParts.length > 0 ? addressParts.join(", ") : "-"}
+                          </td>
                           <td className="py-2 px-2">
                             {validation.valid ? (
                               <span className="text-green-600 text-xs">Valid</span>
