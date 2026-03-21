@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { firstName, lastName, email, phone } = body
+    const { firstName, lastName, email, phone, address1, address2, city, state, zip } = body
+    const hasAddress = address1 || city || state || zip
 
     // Validate required fields
     if (!email && !phone) {
@@ -183,6 +184,7 @@ export async function POST(request: NextRequest) {
         existingCustomer = data
       }
 
+      let customerId = existingCustomer?.id
       if (existingCustomer) {
         await supabase
           .from("customers")
@@ -195,7 +197,7 @@ export async function POST(request: NextRequest) {
           })
           .eq("id", existingCustomer.id)
       } else {
-        await supabase
+        const { data: newCustomer } = await supabase
           .from("customers")
           .insert({
             auth_user_id: authUserId,
@@ -204,12 +206,40 @@ export async function POST(request: NextRequest) {
             email: email || null,
             phone: phone || null,
           })
+          .select()
+          .single()
+        customerId = newCustomer?.id
+      }
+
+      // Create or update address if provided
+      if (hasAddress && customerId) {
+        // Check if address already exists for this customer
+        const { data: existingAddress } = await supabase
+          .from("customer_addresses")
+          .select("id")
+          .eq("customer_id", customerId)
+          .eq("address_line_1", address1 || "")
+          .single()
+
+        if (!existingAddress) {
+          await supabase.from("customer_addresses").insert({
+            customer_id: customerId,
+            address_line_1: address1 || null,
+            address_line_2: address2 || null,
+            city: city || null,
+            state: state || null,
+            postal_code: zip || null,
+            is_default: true,
+            label: "Home",
+          })
+        }
       }
 
       return NextResponse.json({
         success: true,
         action: "updated",
         profileId: existingProfile.id,
+        customerId,
         authUserId,
       })
     }
@@ -281,6 +311,20 @@ export async function POST(request: NextRequest) {
         .select()
         .single()
       customerId = customer?.id
+    }
+
+    // Create address if provided
+    if (hasAddress && customerId) {
+      await supabase.from("customer_addresses").insert({
+        customer_id: customerId,
+        address_line_1: address1 || null,
+        address_line_2: address2 || null,
+        city: city || null,
+        state: state || null,
+        postal_code: zip || null,
+        is_default: true,
+        label: "Home",
+      })
     }
 
     return NextResponse.json({
