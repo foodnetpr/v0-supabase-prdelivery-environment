@@ -517,53 +517,22 @@ const line2 = customerInfo.streetAddress2 ? `, ${customerInfo.streetAddress2}` :
     }
     
     setIsSearchingCustomers(true)
-    console.log("[v0] searchCustomers called with:", searchTerm)
     try {
-      // Search by phone, name, or email in customers table
+      // Search by phone, name, or email in customers table (simplified query without joins)
       const { data: customersData, error: customersError } = await supabase
         .from("customers")
-        .select(`
-          id,
-          first_name,
-          last_name,
-          phone,
-          email,
-          customer_addresses (
-            id,
-            address_line_1,
-            address_line_2,
-            city,
-            state,
-            postal_code,
-            is_default,
-            delivery_instructions
-          ),
-          customer_payment_methods (
-            id,
-            card_brand,
-            card_last_four,
-            card_exp_month,
-            card_exp_year,
-            provider,
-            provider_customer_id,
-            provider_payment_method_id,
-            is_default
-          )
-        `)
+        .select("id, first_name, last_name, phone, email")
         .or(`phone.ilike.%${searchTerm}%,first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
         .limit(5)
       
-      console.log("[v0] customers query result:", customersData, "error:", customersError)
       if (customersError) throw customersError
 
       // Also search profiles table for imported contacts
-      const { data: profilesData, error: profilesError } = await supabase
+      const { data: profilesData } = await supabase
         .from("profiles")
         .select("id, full_name, phone, email")
         .or(`phone.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
         .limit(5)
-
-      console.log("[v0] profiles query result:", profilesData, "error:", profilesError)
 
       // Convert profiles to customer-like format and merge
       const profilesAsCustomers = (profilesData || [])
@@ -584,9 +553,15 @@ const line2 = customerInfo.streetAddress2 ? `, ${customerInfo.streetAddress2}` :
           _isProfile: true, // Flag to indicate this came from profiles table
         }))
 
-      const allResults = [...(customersData || []), ...profilesAsCustomers].slice(0, 8)
+      // Add empty arrays for addresses/payments (will be fetched on selection)
+      const customersWithEmptyArrays = (customersData || []).map(c => ({
+        ...c,
+        customer_addresses: [],
+        customer_payment_methods: [],
+      }))
+
+      const allResults = [...customersWithEmptyArrays, ...profilesAsCustomers].slice(0, 8)
       
-      console.log("[v0] allResults:", allResults)
       setCustomerSearchResults(allResults)
       setShowCustomerDropdown(allResults.length > 0)
       setIsNewCustomer(allResults.length === 0)
@@ -599,35 +574,65 @@ const line2 = customerInfo.streetAddress2 ? `, ${customerInfo.streetAddress2}` :
   }
   
   // Select a customer from autocomplete and fill in their info
-  const selectCustomer = (customer: any) => {
-    // Find default address or first address
-    const defaultAddress = customer.customer_addresses?.find((a: any) => a.is_default) || customer.customer_addresses?.[0]
-    
+  const selectCustomer = async (customer: any) => {
+    // Set basic info immediately
     setCustomerInfo({
       ...customerInfo,
       phone: customer.phone || "",
       name: `${customer.first_name || ""} ${customer.last_name || ""}`.trim(),
       email: customer.email || "",
-      streetAddress: defaultAddress?.address_line_1 || "",
-      streetAddress2: defaultAddress?.address_line_2 || "",
-      city: defaultAddress?.city || "",
-      state: defaultAddress?.state || "PR",
-      zip: defaultAddress?.postal_code || "",
-      specialInstructions: defaultAddress?.delivery_instructions || customerInfo.specialInstructions,
     })
-    setSelectedCustomerId(customer.id)
-    setCustomerAddresses(customer.customer_addresses || [])
-    setCustomerPaymentMethods(customer.customer_payment_methods || [])
-    
-    // Auto-select default payment method if available
-    const defaultPayment = customer.customer_payment_methods?.find((pm: any) => pm.is_default)
-    if (defaultPayment) {
-      setSelectedPaymentMethodId(defaultPayment.id)
-    }
-    
     setShowCustomerDropdown(false)
     setCustomerSearchResults([])
     setIsNewCustomer(false)
+
+    // If this is a profile (imported contact), just use basic info
+    if (customer._isProfile || String(customer.id).startsWith("profile_")) {
+      setSelectedCustomerId(null)
+      setCustomerAddresses([])
+      setCustomerPaymentMethods([])
+      return
+    }
+
+    setSelectedCustomerId(customer.id)
+
+    // Fetch addresses separately to avoid join ambiguity
+    const { data: addresses } = await supabase
+      .from("customer_addresses")
+      .select("id, address_line_1, address_line_2, city, state, postal_code, is_default, delivery_instructions")
+      .eq("customer_id", customer.id)
+
+    // Fetch payment methods separately
+    const { data: paymentMethods } = await supabase
+      .from("customer_payment_methods")
+      .select("id, card_brand, card_last_four, card_exp_month, card_exp_year, provider, provider_customer_id, provider_payment_method_id, is_default")
+      .eq("customer_id", customer.id)
+
+    const customerAddressesList = addresses || []
+    const customerPaymentMethodsList = paymentMethods || []
+
+    setCustomerAddresses(customerAddressesList)
+    setCustomerPaymentMethods(customerPaymentMethodsList)
+
+    // Find default address or first address and update form
+    const defaultAddress = customerAddressesList.find((a: any) => a.is_default) || customerAddressesList[0]
+    if (defaultAddress) {
+      setCustomerInfo(prev => ({
+        ...prev,
+        streetAddress: defaultAddress.address_line_1 || "",
+        streetAddress2: defaultAddress.address_line_2 || "",
+        city: defaultAddress.city || "",
+        state: defaultAddress.state || "PR",
+        zip: defaultAddress.postal_code || "",
+        specialInstructions: defaultAddress.delivery_instructions || prev.specialInstructions,
+      }))
+    }
+    
+    // Auto-select default payment method if available
+    const defaultPayment = customerPaymentMethodsList.find((pm: any) => pm.is_default)
+    if (defaultPayment) {
+      setSelectedPaymentMethodId(defaultPayment.id)
+    }
   }
   
   // Save new customer to database
