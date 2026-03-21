@@ -164,6 +164,12 @@ const { toast } = useToast()
   const [shipdayTestStatus, setShipdayTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle")
   const [shipdayTestMessage, setShipdayTestMessage] = useState("")
 
+  // Email templates state
+  const [emailTemplates, setEmailTemplates] = useState<any[]>([])
+  const [editingTemplate, setEditingTemplate] = useState<any | null>(null)
+  const [templateForm, setTemplateForm] = useState({ subject: "", body: "" })
+  const [savingTemplate, setSavingTemplate] = useState(false)
+
   const handleTestShipday = async (branchId?: string) => {
     setShipdayTestStatus("testing")
     setShipdayTestMessage("Testing connection...")
@@ -661,6 +667,7 @@ const { toast } = useToast()
   loadBranches()
   loadOperatingHours()
   loadRestaurantHours()
+  loadEmailTemplates()
   // Load all restaurants for copy menu feature
   supabase.from("restaurants").select("id, name").order("name").then(({ data }) => {
     setAllRestaurantsForCopy(data || [])
@@ -740,6 +747,39 @@ const { toast } = useToast()
     setServicePackages(augmentedData)
     } catch (error) {
       console.error("Error loading service packages:", error)
+    }
+  }
+
+  const loadEmailTemplates = async () => {
+    const { data } = await supabase
+      .from("email_templates")
+      .select("*")
+      .eq("restaurant_id", restaurantId)
+      .order("template_type")
+    setEmailTemplates(data || [])
+  }
+
+  const handleSaveTemplate = async () => {
+    if (!editingTemplate) return
+    setSavingTemplate(true)
+    try {
+      const { error } = await supabase
+        .from("email_templates")
+        .update({
+          subject: templateForm.subject,
+          body: templateForm.body,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingTemplate.id)
+      
+      if (error) throw error
+      await loadEmailTemplates()
+      setEditingTemplate(null)
+    } catch (err) {
+      console.error("Error saving template:", err)
+      alert("Error al guardar la plantilla")
+    } finally {
+      setSavingTemplate(false)
     }
   }
 
@@ -2622,12 +2662,13 @@ payment_provider: branchForm.payment_provider || "stripe",
                 <TabsTrigger value="menu">Menu Items</TabsTrigger>
               </TabsList>
             ) : (
-              <TabsList className={`grid w-full mb-8 ${settingsForm.is_chain ? "grid-cols-5 lg:grid-cols-8" : "grid-cols-5 lg:grid-cols-7"}`}>
+              <TabsList className={`grid w-full mb-8 ${settingsForm.is_chain ? "grid-cols-5 lg:grid-cols-9" : "grid-cols-5 lg:grid-cols-8"}`}>
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="menu">Menu Items</TabsTrigger>
                 {settingsForm.is_chain && <TabsTrigger value="branches">Sucursales</TabsTrigger>}
                 <TabsTrigger value="packages">Service Packages</TabsTrigger>
                 <TabsTrigger value="orders">Orders</TabsTrigger>
+                <TabsTrigger value="communications">Comunicaciones</TabsTrigger>
                 <TabsTrigger value="settings">Settings</TabsTrigger>
                 <TabsTrigger value="kds">KDS</TabsTrigger>
                 {isSuperAdmin && <TabsTrigger value="marketplace">Marketplace</TabsTrigger>}
@@ -5206,6 +5247,122 @@ const pickupOrders = orders.filter((o: any) => o.order_type === "pickup" || o.de
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+{/* Comunicaciones Tab Content */}
+          <TabsContent value="communications" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Plantillas de Comunicacion</CardTitle>
+                <CardDescription>
+                  Personaliza los mensajes de correo electronico que se envian a los clientes.
+                  Usa las variables disponibles para incluir informacion dinamica del pedido.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {emailTemplates.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">
+                    No hay plantillas configuradas. Las plantillas predeterminadas se crearan automaticamente.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {emailTemplates.map((template) => (
+                      <div key={template.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <h3 className="font-medium">
+                              {template.template_type === "order_confirmation" && "Confirmacion de Pedido"}
+                              {template.template_type === "order_ready" && "Pedido Listo"}
+                              {template.template_type === "order_shipped" && "Pedido en Camino"}
+                              {template.template_type === "order_cancelled" && "Pedido Cancelado"}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {template.template_type === "order_confirmation" && "Se envia cuando el cliente completa su pedido"}
+                              {template.template_type === "order_ready" && "Se envia cuando el pedido esta listo para recoger"}
+                              {template.template_type === "order_shipped" && "Se envia cuando el pedido sale para entrega"}
+                              {template.template_type === "order_cancelled" && "Se envia cuando se cancela el pedido"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-1 text-xs rounded ${template.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>
+                              {template.is_active ? "Activo" : "Inactivo"}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditingTemplate(template)
+                                setTemplateForm({ subject: template.subject, body: template.body })
+                              }}
+                            >
+                              <Pencil className="h-4 w-4 mr-1" />
+                              Editar
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-3 mt-2">
+                          <p className="text-sm font-medium text-gray-700">Asunto: {template.subject}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Variables Reference */}
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                  <h4 className="font-medium text-blue-900 mb-2">Variables Disponibles</h4>
+                  <p className="text-sm text-blue-800 mb-2">Usa estas variables en tus plantillas. Se reemplazaran con la informacion real del pedido:</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                    <code className="bg-blue-100 px-2 py-1 rounded">{"{{order_number}}"}</code>
+                    <code className="bg-blue-100 px-2 py-1 rounded">{"{{customer_name}}"}</code>
+                    <code className="bg-blue-100 px-2 py-1 rounded">{"{{restaurant_name}}"}</code>
+                    <code className="bg-blue-100 px-2 py-1 rounded">{"{{order_total}}"}</code>
+                    <code className="bg-blue-100 px-2 py-1 rounded">{"{{order_date}}"}</code>
+                    <code className="bg-blue-100 px-2 py-1 rounded">{"{{order_time}}"}</code>
+                    <code className="bg-blue-100 px-2 py-1 rounded">{"{{delivery_address}}"}</code>
+                    <code className="bg-blue-100 px-2 py-1 rounded">{"{{order_items}}"}</code>
+                    <code className="bg-blue-100 px-2 py-1 rounded">{"{{order_type}}"}</code>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Edit Template Modal */}
+            <Dialog open={!!editingTemplate} onOpenChange={(open) => !open && setEditingTemplate(null)}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Editar Plantilla de Correo</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label>Asunto del Correo</Label>
+                    <Input
+                      value={templateForm.subject}
+                      onChange={(e) => setTemplateForm({ ...templateForm, subject: e.target.value })}
+                      placeholder="Ej: Tu pedido #{{order_number}} ha sido confirmado"
+                    />
+                  </div>
+                  <div>
+                    <Label>Cuerpo del Mensaje</Label>
+                    <Textarea
+                      value={templateForm.body}
+                      onChange={(e) => setTemplateForm({ ...templateForm, body: e.target.value })}
+                      rows={12}
+                      placeholder="Escribe el contenido del correo aqui..."
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setEditingTemplate(null)}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleSaveTemplate} disabled={savingTemplate} className="bg-[#5d1f1f] hover:bg-[#4a1818]">
+                      {savingTemplate ? "Guardando..." : "Guardar Cambios"}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
 {/* KDS Tab Content */}
