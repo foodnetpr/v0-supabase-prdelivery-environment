@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { notFound, redirect } from "next/navigation"
 import CustomerPortal from "@/components/customer-portal"
+import { FBViewContent } from "@/components/fb-view-content"
 
 export default async function TenantPortalPage({
   params,
@@ -258,21 +259,24 @@ export default async function TenantPortalPage({
     }
 
     return (
-      <CustomerPortal
-        restaurant={restaurant}
-        categories={categories || []}
-        menuItems={menuItemsWithOptions}
-        servicePackages={servicePackages || []}
-        deliveryZones={deliveryZones || []}
-        reorderData={reorderData}
-        branches={branches}
-        branchMenuOverrides={branchMenuOverrides}
-        containerRates={containerRates || []}
-        restaurantHours={restaurantHours || []}
-        customer={customer}
-        customerAddresses={customerAddresses}
-        isPreorder={preorder === "true"}
-      />
+      <>
+        <FBViewContent />
+        <CustomerPortal
+          restaurant={restaurant}
+          categories={categories || []}
+          menuItems={menuItemsWithOptions}
+          servicePackages={servicePackages || []}
+          deliveryZones={deliveryZones || []}
+          reorderData={reorderData}
+          branches={branches}
+          branchMenuOverrides={branchMenuOverrides}
+          containerRates={containerRates || []}
+          restaurantHours={restaurantHours || []}
+          customer={customer}
+          customerAddresses={customerAddresses}
+          isPreorder={preorder === "true"}
+        />
+      </>
     )
   } catch (error) {
     console.error("[v0] Portal error:", error)

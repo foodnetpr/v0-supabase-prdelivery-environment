@@ -1,5 +1,7 @@
 "use client"
 
+declare const fbq: Function
+
 import type React from "react"
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
@@ -1016,6 +1018,10 @@ export default function CustomerPortal({
 
   const handleAddToCart = () => {
     if (selectedItem) {
+      // Facebook Pixel: Track AddToCart
+      if (typeof fbq !== "undefined") {
+        fbq("track", "AddToCart")
+      }
       // Block delivery line items from catering integrations — handled by platform fee logic
       if (isExternalDeliveryItem(selectedItem.name)) {
         setShowItemModal(false)
@@ -1782,6 +1788,10 @@ export default function CustomerPortal({
   }
 
   const handlePaymentSuccess = () => {
+    // Facebook Pixel: Track Purchase
+    if (typeof fbq !== "undefined") {
+      fbq("track", "Purchase", { value: orderTotal, currency: "USD" })
+    }
     setShowStripeCheckout(false)
     setShowSquareCheckout(false)
     setShowATHMovilCheckout(false)
@@ -1838,6 +1848,10 @@ export default function CustomerPortal({
     if (foodCartCount > 0 && !isBelowMinimum) {
       setShowCart(false) // Close the cart
       setCheckoutStep("delivery") // Show delivery info form step
+      // Facebook Pixel: Track InitiateCheckout
+      if (typeof fbq !== "undefined") {
+        fbq("track", "InitiateCheckout")
+      }
       setShowCheckout(true) // Open checkout dialog
     }
   }
