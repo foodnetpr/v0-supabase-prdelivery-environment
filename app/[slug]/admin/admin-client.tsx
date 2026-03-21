@@ -9,7 +9,7 @@ import { createBrowserClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Minus, Pencil, Trash2, Settings, GripVertical, MapPin, Copy, Upload, Building, Phone, Eye, EyeOff, ChevronUp, ChevronDown, ArrowRightLeft, Search, CalendarDays, List, ChevronLeft, ChevronRight, Clock, Truck, Check, Monitor, ExternalLink } from "lucide-react"
+import { Plus, Minus, Pencil, Trash2, Settings, GripVertical, MapPin, Copy, Upload, Building, Phone, Eye, EyeOff, ChevronUp, ChevronDown, ArrowRightLeft, Search, CalendarDays, List, ChevronLeft, ChevronRight, Clock, Truck, Check, Monitor, ExternalLink, User } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
@@ -4638,13 +4638,42 @@ const pickupOrders = orders.filter((o: any) => o.order_type === "pickup" || o.de
                   </div>
                 </div>
 
-                <Button type="button" onClick={handleSaveSettings} className="bg-[#5d1f1f] hover:bg-[#4a1818]">
-                  Save Settings
-                </Button>
+<Button type="button" onClick={handleSaveSettings} className="bg-[#5d1f1f] hover:bg-[#4a1818]">
+              Save Settings
+              </Button>
               </CardContent>
-            </Card>
+              </Card>
 
-            {/* Copy Menu From Another Restaurant */}
+              {/* Tools & Import Section */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Upload className="h-5 w-5" />
+                    Herramientas e Importacion
+                  </CardTitle>
+                  <CardDescription>Importar datos y herramientas adicionales</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <a 
+                      href="/admin/import-customers" 
+                      target="_blank"
+                      className="flex items-center gap-3 p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <User className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Importar Clientes</p>
+                        <p className="text-sm text-gray-500">Cargar clientes desde archivo CSV</p>
+                      </div>
+                      <ExternalLink className="h-4 w-4 text-gray-400 ml-auto" />
+                    </a>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* Copy Menu From Another Restaurant */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

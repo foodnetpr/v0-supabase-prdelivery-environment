@@ -136,6 +136,48 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Also update/insert in customers table
+      let existingCustomer = null
+      if (email) {
+        const { data } = await supabase
+          .from("customers")
+          .select("id")
+          .eq("email", email)
+          .single()
+        existingCustomer = data
+      }
+      if (!existingCustomer && phone) {
+        const { data } = await supabase
+          .from("customers")
+          .select("id")
+          .eq("phone", phone)
+          .single()
+        existingCustomer = data
+      }
+
+      if (existingCustomer) {
+        await supabase
+          .from("customers")
+          .update({
+            first_name: firstName || fullName.split(" ")[0] || null,
+            last_name: lastName || fullName.split(" ").slice(1).join(" ") || null,
+            email: email || undefined,
+            phone: phone || undefined,
+            auth_user_id: authUserId || undefined,
+          })
+          .eq("id", existingCustomer.id)
+      } else {
+        await supabase
+          .from("customers")
+          .insert({
+            auth_user_id: authUserId,
+            first_name: firstName || fullName.split(" ")[0] || null,
+            last_name: lastName || fullName.split(" ").slice(1).join(" ") || null,
+            email: email || null,
+            phone: phone || null,
+          })
+      }
+
       return NextResponse.json({
         success: true,
         action: "updated",
@@ -164,10 +206,60 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Also insert into customers table (used by CSR portal)
+    // Check if customer already exists by email or phone
+    let existingCustomer = null
+    if (email) {
+      const { data } = await supabase
+        .from("customers")
+        .select("id")
+        .eq("email", email)
+        .single()
+      existingCustomer = data
+    }
+    if (!existingCustomer && phone) {
+      const { data } = await supabase
+        .from("customers")
+        .select("id")
+        .eq("phone", phone)
+        .single()
+      existingCustomer = data
+    }
+
+    let customerId = existingCustomer?.id
+    if (existingCustomer) {
+      // Update existing customer
+      await supabase
+        .from("customers")
+        .update({
+          first_name: firstName || fullName.split(" ")[0] || null,
+          last_name: lastName || fullName.split(" ").slice(1).join(" ") || null,
+          email: email || undefined,
+          phone: phone || undefined,
+          auth_user_id: authUserId || undefined,
+        })
+        .eq("id", existingCustomer.id)
+    } else {
+      // Insert new customer
+      const { data: customer } = await supabase
+        .from("customers")
+        .insert({
+          auth_user_id: authUserId,
+          first_name: firstName || fullName.split(" ")[0] || null,
+          last_name: lastName || fullName.split(" ").slice(1).join(" ") || null,
+          email: email || null,
+          phone: phone || null,
+        })
+        .select()
+        .single()
+      customerId = customer?.id
+    }
+
     return NextResponse.json({
       success: true,
       action: "created",
       profileId: profile.id,
+      customerId,
       authUserId,
     })
   } catch (error) {

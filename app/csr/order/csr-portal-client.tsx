@@ -518,8 +518,8 @@ const line2 = customerInfo.streetAddress2 ? `, ${customerInfo.streetAddress2}` :
     
     setIsSearchingCustomers(true)
     try {
-      // Search by phone or name
-      const { data, error } = await supabase
+      // Search by phone, name, or email in customers table
+      const { data: customersData, error: customersError } = await supabase
         .from("customers")
         .select(`
           id,
@@ -549,14 +549,42 @@ const line2 = customerInfo.streetAddress2 ? `, ${customerInfo.streetAddress2}` :
             is_default
           )
         `)
-        .or(`phone.ilike.%${searchTerm}%,first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%`)
+        .or(`phone.ilike.%${searchTerm}%,first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
         .limit(5)
       
-      if (error) throw error
+      if (customersError) throw customersError
+
+      // Also search profiles table for imported contacts
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("id, full_name, phone, email")
+        .or(`phone.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
+        .limit(5)
+
+      // Convert profiles to customer-like format and merge
+      const profilesAsCustomers = (profilesData || [])
+        .filter(p => {
+          // Exclude profiles that already exist in customers (by email or phone)
+          return !(customersData || []).some(c => 
+            (c.email && c.email === p.email) || (c.phone && c.phone === p.phone)
+          )
+        })
+        .map(p => ({
+          id: `profile_${p.id}`, // Prefix to distinguish from customer IDs
+          first_name: p.full_name?.split(" ")[0] || "",
+          last_name: p.full_name?.split(" ").slice(1).join(" ") || "",
+          phone: p.phone,
+          email: p.email,
+          customer_addresses: [],
+          customer_payment_methods: [],
+          _isProfile: true, // Flag to indicate this came from profiles table
+        }))
+
+      const allResults = [...(customersData || []), ...profilesAsCustomers].slice(0, 8)
       
-      setCustomerSearchResults(data || [])
-      setShowCustomerDropdown((data || []).length > 0)
-      setIsNewCustomer((data || []).length === 0)
+      setCustomerSearchResults(allResults)
+      setShowCustomerDropdown(allResults.length > 0)
+      setIsNewCustomer(allResults.length === 0)
     } catch (error) {
       console.error("Error searching customers:", error)
       setCustomerSearchResults([])
