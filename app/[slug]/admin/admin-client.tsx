@@ -9,7 +9,7 @@ import { createBrowserClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Minus, Pencil, Trash2, Settings, GripVertical, MapPin, Copy, Upload, Building, Phone, Eye, EyeOff, ChevronUp, ChevronDown, ArrowRightLeft, Search, CalendarDays, List, ChevronLeft, ChevronRight, Clock, Truck, Check, Monitor, ExternalLink, User } from "lucide-react"
+import { Plus, Minus, Pencil, Trash2, Settings, GripVertical, MapPin, Copy, Upload, Building, Phone, Eye, EyeOff, ChevronUp, ChevronDown, ArrowRightLeft, Search, CalendarDays, List, ChevronLeft, ChevronRight, Clock, Truck, Check, Monitor, ExternalLink, User, Key } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
@@ -163,6 +163,20 @@ const { toast } = useToast()
   // Shipday test state
   const [shipdayTestStatus, setShipdayTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle")
   const [shipdayTestMessage, setShipdayTestMessage] = useState("")
+
+  // Email templates state
+  const [emailTemplates, setEmailTemplates] = useState<any[]>([])
+  const [editingTemplate, setEditingTemplate] = useState<any | null>(null)
+  const [templateForm, setTemplateForm] = useState({ subject: "", body: "" })
+  const [savingTemplate, setSavingTemplate] = useState(false)
+
+  // Restaurant admin users state
+  const [restaurantAdmins, setRestaurantAdmins] = useState<any[]>([])
+  const [editingAdmin, setEditingAdmin] = useState<any | null>(null)
+  const [adminForm, setAdminForm] = useState({ username: "", email: "", password: "" })
+  const [showAdminPassword, setShowAdminPassword] = useState(false)
+  const [savingAdmin, setSavingAdmin] = useState(false)
+  const [showCreateAdminDialog, setShowCreateAdminDialog] = useState(false)
 
   const handleTestShipday = async (branchId?: string) => {
     setShipdayTestStatus("testing")
@@ -528,7 +542,7 @@ const { toast } = useToast()
       const { data: restaurantData } = await supabase
         .from("restaurants")
         .select(
-          "tax_rate, delivery_fee, tip_option_1, tip_option_2, tip_option_3, lead_time_hours, delivery_lead_time_hours, pickup_lead_time_hours, max_advance_days, min_delivery_order, min_pickup_order, restaurant_address, latitude, longitude, primary_color, standalone_domain, design_template, packages_section_title, name, logo_url, banner_logo_url, hero_image_url, delivery_enabled, pickup_enabled, show_service_packages, shipday_api_key, is_chain, hide_branch_selector_title, delivery_base_fee, delivery_included_containers, footer_description, footer_email, footer_phone, footer_links, payment_provider, stripe_account_id, square_access_token, square_location_id, square_environment, athmovil_public_token, athmovil_ecommerce_id, cash_payment_enabled",
+          "tax_rate, delivery_fee, tip_option_1, tip_option_2, tip_option_3, lead_time_hours, delivery_lead_time_hours, pickup_lead_time_hours, max_advance_days, min_delivery_order, min_pickup_order, restaurant_address, latitude, longitude, primary_color, standalone_domain, design_template, packages_section_title, name, logo_url, banner_logo_url, hero_image_url, delivery_enabled, pickup_enabled, show_service_packages, shipday_api_key, is_chain, hide_branch_selector_title, delivery_base_fee, delivery_included_containers, footer_description, footer_email, footer_phone, footer_links, payment_provider, stripe_account_id, square_access_token, square_location_id, square_environment, athmovil_public_token, athmovil_ecommerce_id, cash_payment_enabled, kds_access_token",
         )
         .eq("id", restaurantId)
         .single()
@@ -584,6 +598,7 @@ const { toast } = useToast()
           athmovil_public_token: restaurantData.athmovil_public_token || "",
           athmovil_ecommerce_id: restaurantData.athmovil_ecommerce_id || "",
           cash_payment_enabled: restaurantData.cash_payment_enabled || false,
+          kds_access_token: restaurantData.kds_access_token || "",
         })
       }
       setLoading(false)
@@ -661,6 +676,8 @@ const { toast } = useToast()
   loadBranches()
   loadOperatingHours()
   loadRestaurantHours()
+  loadEmailTemplates()
+  loadRestaurantAdmins()
   // Load all restaurants for copy menu feature
   supabase.from("restaurants").select("id, name").order("name").then(({ data }) => {
     setAllRestaurantsForCopy(data || [])
@@ -740,6 +757,110 @@ const { toast } = useToast()
     setServicePackages(augmentedData)
     } catch (error) {
       console.error("Error loading service packages:", error)
+    }
+  }
+
+  const loadEmailTemplates = async () => {
+    const { data } = await supabase
+      .from("email_templates")
+      .select("*")
+      .eq("restaurant_id", restaurantId)
+      .order("template_type")
+    setEmailTemplates(data || [])
+  }
+
+  const loadRestaurantAdmins = async () => {
+    const { data } = await supabase
+      .from("admin_users")
+      .select("*")
+      .eq("restaurant_id", restaurantId)
+      .order("created_at", { ascending: false })
+    setRestaurantAdmins(data || [])
+  }
+
+  const generatePassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%"
+    let password = ""
+    for (let i = 0; i < 12; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    return password
+  }
+
+  const handleCreateAdmin = async () => {
+    if (!adminForm.username || !adminForm.email || !adminForm.password) {
+      toast({ title: "Error", description: "Todos los campos son requeridos", variant: "destructive" })
+      return
+    }
+    setSavingAdmin(true)
+    try {
+      const res = await fetch("/api/admin-users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: adminForm.username,
+          email: adminForm.email,
+          password: adminForm.password,
+          role: "restaurant_admin",
+          restaurant_id: restaurantId,
+        }),
+      })
+      if (res.ok) {
+        toast({ title: "Exito", description: "Usuario administrador creado" })
+        setShowCreateAdminDialog(false)
+        setAdminForm({ username: "", email: "", password: "" })
+        loadRestaurantAdmins()
+      } else {
+        const err = await res.json()
+        toast({ title: "Error", description: err.error || "Error al crear usuario", variant: "destructive" })
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "Error al crear usuario", variant: "destructive" })
+    } finally {
+      setSavingAdmin(false)
+    }
+  }
+
+  const handleResetAdminPassword = async (userId: string, newPassword: string) => {
+    try {
+      const res = await fetch(`/api/admin-users/${userId}/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: newPassword }),
+      })
+      if (res.ok) {
+        toast({ title: "Exito", description: "Contrasena actualizada" })
+        setEditingAdmin(null)
+      } else {
+        const err = await res.json()
+        toast({ title: "Error", description: err.error || "Error al actualizar", variant: "destructive" })
+      }
+    } catch (err) {
+      toast({ title: "Error", description: "Error al actualizar", variant: "destructive" })
+    }
+  }
+
+  const handleSaveTemplate = async () => {
+    if (!editingTemplate) return
+    setSavingTemplate(true)
+    try {
+      const { error } = await supabase
+        .from("email_templates")
+        .update({
+          subject: templateForm.subject,
+          body: templateForm.body,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingTemplate.id)
+      
+      if (error) throw error
+      await loadEmailTemplates()
+      setEditingTemplate(null)
+    } catch (err) {
+      console.error("Error saving template:", err)
+      alert("Error al guardar la plantilla")
+    } finally {
+      setSavingTemplate(false)
     }
   }
 
@@ -2622,13 +2743,15 @@ payment_provider: branchForm.payment_provider || "stripe",
                 <TabsTrigger value="menu">Menu Items</TabsTrigger>
               </TabsList>
             ) : (
-              <TabsList className={`grid w-full mb-8 ${settingsForm.is_chain ? "grid-cols-5 lg:grid-cols-8" : "grid-cols-5 lg:grid-cols-7"}`}>
+              <TabsList className={`grid w-full mb-8 ${settingsForm.is_chain ? "grid-cols-5 lg:grid-cols-10" : "grid-cols-5 lg:grid-cols-9"}`}>
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="menu">Menu Items</TabsTrigger>
                 {settingsForm.is_chain && <TabsTrigger value="branches">Sucursales</TabsTrigger>}
                 <TabsTrigger value="packages">Service Packages</TabsTrigger>
                 <TabsTrigger value="orders">Orders</TabsTrigger>
-                <TabsTrigger value="settings">Settings</TabsTrigger>
+<TabsTrigger value="communications">Comunicaciones</TabsTrigger>
+  <TabsTrigger value="access">Acceso</TabsTrigger>
+  <TabsTrigger value="settings">Settings</TabsTrigger>
                 <TabsTrigger value="kds">KDS</TabsTrigger>
                 {isSuperAdmin && <TabsTrigger value="marketplace">Marketplace</TabsTrigger>}
               </TabsList>
@@ -5208,9 +5331,502 @@ const pickupOrders = orders.filter((o: any) => o.order_type === "pickup" || o.de
             </Card>
           </TabsContent>
 
+{/* Comunicaciones Tab Content */}
+          <TabsContent value="communications" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Plantillas de Comunicacion</CardTitle>
+                <CardDescription>
+                  Personaliza los mensajes de correo electronico que se envian a los clientes.
+                  Usa las variables disponibles para incluir informacion dinamica del pedido.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {emailTemplates.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">
+                    No hay plantillas configuradas. Las plantillas predeterminadas se crearan automaticamente.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {emailTemplates.map((template) => (
+                      <div key={template.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <h3 className="font-medium">
+                              {template.template_type === "order_confirmation" && "Confirmacion de Pedido"}
+                              {template.template_type === "order_ready" && "Pedido Listo"}
+                              {template.template_type === "order_shipped" && "Pedido en Camino"}
+                              {template.template_type === "order_cancelled" && "Pedido Cancelado"}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {template.template_type === "order_confirmation" && "Se envia cuando el cliente completa su pedido"}
+                              {template.template_type === "order_ready" && "Se envia cuando el pedido esta listo para recoger"}
+                              {template.template_type === "order_shipped" && "Se envia cuando el pedido sale para entrega"}
+                              {template.template_type === "order_cancelled" && "Se envia cuando se cancela el pedido"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-1 text-xs rounded ${template.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>
+                              {template.is_active ? "Activo" : "Inactivo"}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditingTemplate(template)
+                                setTemplateForm({ subject: template.subject, body: template.body })
+                              }}
+                            >
+                              <Pencil className="h-4 w-4 mr-1" />
+                              Editar
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="bg-gray-50 rounded p-3 mt-2">
+                          <p className="text-sm font-medium text-gray-700">Asunto: {template.subject}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Variables Reference */}
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                  <h4 className="font-medium text-blue-900 mb-2">Variables Disponibles</h4>
+                  <p className="text-sm text-blue-800 mb-2">Usa estas variables en tus plantillas. Se reemplazaran con la informacion real del pedido:</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                    <code className="bg-blue-100 px-2 py-1 rounded">{"{{order_number}}"}</code>
+                    <code className="bg-blue-100 px-2 py-1 rounded">{"{{customer_name}}"}</code>
+                    <code className="bg-blue-100 px-2 py-1 rounded">{"{{restaurant_name}}"}</code>
+                    <code className="bg-blue-100 px-2 py-1 rounded">{"{{order_total}}"}</code>
+                    <code className="bg-blue-100 px-2 py-1 rounded">{"{{order_date}}"}</code>
+                    <code className="bg-blue-100 px-2 py-1 rounded">{"{{order_time}}"}</code>
+                    <code className="bg-blue-100 px-2 py-1 rounded">{"{{delivery_address}}"}</code>
+                    <code className="bg-blue-100 px-2 py-1 rounded">{"{{order_items}}"}</code>
+                    <code className="bg-blue-100 px-2 py-1 rounded">{"{{order_type}}"}</code>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Edit Template Modal */}
+            <Dialog open={!!editingTemplate} onOpenChange={(open) => !open && setEditingTemplate(null)}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Editar Plantilla de Correo</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label>Asunto del Correo</Label>
+                    <Input
+                      value={templateForm.subject}
+                      onChange={(e) => setTemplateForm({ ...templateForm, subject: e.target.value })}
+                      placeholder="Ej: Tu pedido #{{order_number}} ha sido confirmado"
+                    />
+                  </div>
+                  <div>
+                    <Label>Cuerpo del Mensaje</Label>
+                    <Textarea
+                      value={templateForm.body}
+                      onChange={(e) => setTemplateForm({ ...templateForm, body: e.target.value })}
+                      rows={12}
+                      placeholder="Escribe el contenido del correo aqui..."
+                      className="font-mono text-sm"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setEditingTemplate(null)}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleSaveTemplate} disabled={savingTemplate} className="bg-[#5d1f1f] hover:bg-[#4a1818]">
+                      {savingTemplate ? "Guardando..." : "Guardar Cambios"}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </TabsContent>
+
+{/* Acceso Tab Content - Restaurant Admin Management */}
+          <TabsContent value="access" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Key className="h-5 w-5" />
+                      Acceso al Panel de Administracion
+                    </CardTitle>
+                    <CardDescription>
+                      Administra los usuarios que pueden acceder a este panel de restaurante.
+                    </CardDescription>
+                  </div>
+                  {isSuperAdmin && (
+                    <Dialog open={showCreateAdminDialog} onOpenChange={setShowCreateAdminDialog}>
+                      <DialogTrigger asChild>
+                        <Button onClick={() => setAdminForm({ username: "", email: "", password: generatePassword() })}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Crear Usuario
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Crear Usuario Administrador</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                          <div className="space-y-2">
+                            <Label>Nombre de Usuario *</Label>
+                            <Input
+                              placeholder="ej: restaurante.admin"
+                              value={adminForm.username}
+                              onChange={(e) => setAdminForm({ ...adminForm, username: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Correo Electronico *</Label>
+                            <Input
+                              type="email"
+                              placeholder="ej: admin@restaurante.com"
+                              value={adminForm.email}
+                              onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Contrasena *</Label>
+                            <div className="flex gap-2">
+                              <div className="relative flex-1">
+                                <Input
+                                  type={showAdminPassword ? "text" : "password"}
+                                  value={adminForm.password}
+                                  onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })}
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute right-0 top-0 h-full px-3"
+                                  onClick={() => setShowAdminPassword(!showAdminPassword)}
+                                >
+                                  {showAdminPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(adminForm.password)
+                                  toast({ title: "Copiado", description: "Contrasena copiada al portapapeles" })
+                                }}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setAdminForm({ ...adminForm, password: generatePassword() })}
+                              >
+                                Generar
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" onClick={() => setShowCreateAdminDialog(false)}>Cancelar</Button>
+                          <Button onClick={handleCreateAdmin} disabled={savingAdmin} className="bg-[#5d1f1f] hover:bg-[#4a1818]">
+                            {savingAdmin ? "Creando..." : "Crear Usuario"}
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {restaurantAdmins.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Key className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No hay usuarios administradores configurados para este restaurante.</p>
+                    {isSuperAdmin && (
+                      <p className="text-sm mt-2">Haz clic en "Crear Usuario" para agregar uno.</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {restaurantAdmins.map((admin) => (
+                      <div key={admin.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium">{admin.username}</h3>
+                              <span className="px-2 py-0.5 text-xs rounded bg-blue-100 text-blue-800">
+                                Restaurant Admin
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{admin.email}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Creado: {new Date(admin.created_at).toLocaleDateString("es-PR")}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Dialog open={editingAdmin?.id === admin.id} onOpenChange={(open) => {
+                              if (open) {
+                                setEditingAdmin(admin)
+                                setAdminForm({ ...adminForm, password: generatePassword() })
+                              } else {
+                                setEditingAdmin(null)
+                              }
+                            }}>
+                              <DialogTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                  <Key className="h-4 w-4 mr-1" />
+                                  Cambiar Contrasena
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Cambiar Contrasena</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4 py-4">
+                                  <p className="text-sm text-muted-foreground">
+                                    Cambiando contrasena para: <strong>{admin.username}</strong>
+                                  </p>
+                                  <div className="space-y-2">
+                                    <Label>Nueva Contrasena</Label>
+                                    <div className="flex gap-2">
+                                      <div className="relative flex-1">
+                                        <Input
+                                          type={showAdminPassword ? "text" : "password"}
+                                          value={adminForm.password}
+                                          onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })}
+                                        />
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          className="absolute right-0 top-0 h-full px-3"
+                                          onClick={() => setShowAdminPassword(!showAdminPassword)}
+                                        >
+                                          {showAdminPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                        </Button>
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(adminForm.password)
+                                          toast({ title: "Copiado", description: "Contrasena copiada al portapapeles" })
+                                        }}
+                                      >
+                                        <Copy className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => setAdminForm({ ...adminForm, password: generatePassword() })}
+                                      >
+                                        Generar
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex justify-end gap-2">
+                                  <Button variant="outline" onClick={() => setEditingAdmin(null)}>Cancelar</Button>
+                                  <Button 
+                                    onClick={() => handleResetAdminPassword(admin.id, adminForm.password)} 
+                                    className="bg-[#5d1f1f] hover:bg-[#4a1818]"
+                                  >
+                                    Guardar Contrasena
+                                  </Button>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Login URL Info */}
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                  <h4 className="font-medium text-blue-900 mb-2">URL de Acceso al Panel Admin</h4>
+                  <p className="text-sm text-blue-800 mb-2">
+                    Los usuarios pueden acceder al panel de administracion en:
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <code className="bg-blue-100 px-3 py-1 rounded text-sm flex-1 truncate">
+                      {typeof window !== "undefined" ? `${window.location.origin}/${restaurant.slug}/admin` : `/${restaurant.slug}/admin`}
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/${restaurant.slug}/admin`)
+                        toast({ title: "Copiado", description: "URL copiada al portapapeles" })
+                      }}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* KDS Access Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Monitor className="h-5 w-5" />
+                  Acceso al KDS (Pantalla de Cocina)
+                </CardTitle>
+                <CardDescription>
+                  El KDS usa tokens de acceso en lugar de usuario/contrasena. Esto permite que las tablets de cocina accedan directamente sin iniciar sesion.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Main Restaurant KDS Token */}
+                <div className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h3 className="font-medium">{restaurant.name}</h3>
+                      <p className="text-sm text-muted-foreground">Token de acceso principal</p>
+                    </div>
+                    <span className={`px-2 py-1 text-xs rounded ${settingsForm.kds_access_token ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
+                      {settingsForm.kds_access_token ? "Configurado" : "Sin configurar"}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <Input
+                        value={settingsForm.kds_access_token || ""}
+                        onChange={(e) => setSettingsForm({ ...settingsForm, kds_access_token: e.target.value })}
+                        placeholder="Token de acceso (ej: cocina123)"
+                        className="flex-1"
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          const token = Math.random().toString(36).substring(2, 10)
+                          setSettingsForm({ ...settingsForm, kds_access_token: token })
+                        }}
+                      >
+                        Generar
+                      </Button>
+                      <Button
+                        onClick={async () => {
+                          const { error } = await supabase
+                            .from("restaurants")
+                            .update({ kds_access_token: settingsForm.kds_access_token || null })
+                            .eq("id", restaurantId)
+                          if (error) {
+                            toast({ title: "Error", description: "Error al guardar token", variant: "destructive" })
+                          } else {
+                            toast({ title: "Guardado", description: "Token de KDS actualizado" })
+                          }
+                        }}
+                        className="bg-[#5d1f1f] hover:bg-[#4a1818]"
+                      >
+                        Guardar
+                      </Button>
+                    </div>
+                    
+                    {settingsForm.kds_access_token && (
+                      <div className="bg-gray-50 rounded p-3">
+                        <p className="text-sm font-medium mb-2">URL de acceso directo al KDS:</p>
+                        <div className="flex items-center gap-2">
+                          <code className="bg-white border px-3 py-1 rounded text-sm flex-1 truncate">
+                            {typeof window !== "undefined" 
+                              ? `${window.location.origin}/${restaurant.slug}/kds?token=${settingsForm.kds_access_token}`
+                              : `/${restaurant.slug}/kds?token=${settingsForm.kds_access_token}`
+                            }
+                          </code>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const url = `${window.location.origin}/${restaurant.slug}/kds?token=${settingsForm.kds_access_token}`
+                              navigator.clipboard.writeText(url)
+                              toast({ title: "Copiado", description: "URL del KDS copiada" })
+                            }}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Branch KDS Tokens (if has branches) */}
+                {branches.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm text-muted-foreground">Tokens por Sucursal</h4>
+                    {branches.map((branch: any) => (
+                      <div key={branch.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h3 className="font-medium">{branch.name}</h3>
+                            <p className="text-sm text-muted-foreground">Token de acceso de sucursal</p>
+                          </div>
+                          <span className={`px-2 py-1 text-xs rounded ${branch.kds_access_token ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
+                            {branch.kds_access_token ? "Configurado" : "Sin configurar"}
+                          </span>
+                        </div>
+                        
+                        {branch.kds_access_token && (
+                          <div className="bg-gray-50 rounded p-3">
+                            <p className="text-sm font-medium mb-2">URL de acceso directo:</p>
+                            <div className="flex items-center gap-2">
+                              <code className="bg-white border px-3 py-1 rounded text-sm flex-1 truncate">
+                                {typeof window !== "undefined" 
+                                  ? `${window.location.origin}/${restaurant.slug}/kds?branch=${branch.id}&token=${branch.kds_access_token}`
+                                  : `/${restaurant.slug}/kds?branch=${branch.id}&token=${branch.kds_access_token}`
+                                }
+                              </code>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const url = `${window.location.origin}/${restaurant.slug}/kds?branch=${branch.id}&token=${branch.kds_access_token}`
+                                  navigator.clipboard.writeText(url)
+                                  toast({ title: "Copiado", description: "URL del KDS copiada" })
+                                }}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {!branch.kds_access_token && (
+                          <p className="text-sm text-amber-600">
+                            Configura el token en la pestana Sucursales para esta sucursal.
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Instructions */}
+                <div className="p-4 bg-amber-50 rounded-lg">
+                  <h4 className="font-medium text-amber-900 mb-2">Como usar el KDS</h4>
+                  <ul className="text-sm text-amber-800 space-y-1 list-disc list-inside">
+                    <li>Genera o ingresa un token de acceso arriba</li>
+                    <li>Guarda el token</li>
+                    <li>Copia la URL de acceso directo</li>
+                    <li>Abre esa URL en la tablet de cocina o guardala como favorito</li>
+                    <li>La cocina podra ver los pedidos sin necesidad de usuario/contrasena</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
 {/* KDS Tab Content */}
-                <TabsContent value="kds" className="space-y-6">
-                  <Card>
+  <TabsContent value="kds" className="space-y-6">
+  <Card>
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Monitor className="h-5 w-5" />

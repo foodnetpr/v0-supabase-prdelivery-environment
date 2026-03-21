@@ -1,7 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { Resend } from "resend"
 import { submitOrderToChowly } from "@/app/actions/chowly"
 import { createSquareKDSOrder } from "@/app/actions/square"
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -101,9 +104,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Fetch email templates for this restaurant
+    const { data: emailTemplates } = await supabase
+      .from("email_templates")
+      .select("*")
+      .eq("restaurant_id", restaurantId)
+      .eq("is_active", true)
+
     // Format order details for notifications
     const restaurantSummary = formatRestaurantOrderSummary(orderData)
-    const customerSummary = formatCustomerOrderSummary(orderData)
+    const customerSummary = formatCustomerOrderSummaryFromTemplate(orderData, emailTemplates)
 
     const notifications = []
     const results: { email?: boolean; chowly?: any; squareKds?: any } = {}
@@ -128,7 +138,10 @@ export async function POST(request: NextRequest) {
 
     // Customer email notification (always send)
     if (orderData.customerEmail) {
-      notifications.push(sendEmail(orderData.customerEmail, "Confirmacion de Pedido", customerSummary, "customer"))
+      const confirmationTemplate = emailTemplates?.find((t: any) => t.template_type === "order_confirmation")
+      const subject = confirmationTemplate?.subject || "Confirmacion de Pedido - {{restaurant_name}}"
+      const processedSubject = replaceTemplateVariables(subject, orderData)
+      notifications.push(sendEmail(orderData.customerEmail, processedSubject, customerSummary, "customer", orderData.restaurantName))
     }
 
     // Customer SMS notification (only if they consented)
@@ -297,7 +310,48 @@ Utensils: ${orderData.includeUtensils ? "Yes" : "No"}
 `
 }
 
-function formatCustomerOrderSummary(orderData: any) {
+// Replace template variables with actual order data
+function replaceTemplateVariables(template: string, orderData: any): string {
+  const items = orderData.cart
+    .map((item: any) => `${item.quantity}x ${item.name} - $${(item.price * item.quantity).toFixed(2)}`)
+    .join("\n")
+
+  const variables: Record<string, string> = {
+    "{{order_number}}": orderData.orderNumber || String(Date.now()).slice(-8),
+    "{{customer_name}}": orderData.customerName || orderData.eventDetails?.companyName || "Cliente",
+    "{{restaurant_name}}": orderData.restaurantName || "Restaurante",
+    "{{order_total}}": `$${(orderData.total || 0).toFixed(2)}`,
+    "{{order_date}}": orderData.eventDetails?.date || new Date().toLocaleDateString("es-PR"),
+    "{{order_time}}": orderData.eventDetails?.time || "",
+    "{{delivery_address}}": orderData.eventDetails?.address || orderData.deliveryAddress || "N/A",
+    "{{order_items}}": items,
+    "{{order_type}}": orderData.orderType === "Delivery" ? "Delivery" : "Recogido",
+    "{{subtotal}}": `$${(orderData.subtotal || 0).toFixed(2)}`,
+    "{{tax}}": `$${(orderData.tax || 0).toFixed(2)}`,
+    "{{delivery_fee}}": `$${(orderData.deliveryFee || 0).toFixed(2)}`,
+    "{{tip}}": `$${(orderData.tip || 0).toFixed(2)}`,
+  }
+
+  let result = template
+  for (const [key, value] of Object.entries(variables)) {
+    result = result.replace(new RegExp(key.replace(/[{}]/g, "\\$&"), "g"), value)
+  }
+  return result
+}
+
+// Format customer order summary using database template if available
+function formatCustomerOrderSummaryFromTemplate(orderData: any, templates: any[] | null): string {
+  const confirmationTemplate = templates?.find((t: any) => t.template_type === "order_confirmation")
+  
+  if (confirmationTemplate?.body) {
+    return replaceTemplateVariables(confirmationTemplate.body, orderData)
+  }
+  
+  // Fall back to default format if no template
+  return formatCustomerOrderSummaryDefault(orderData)
+}
+
+function formatCustomerOrderSummaryDefault(orderData: any) {
   const items = orderData.cart
     .map((item: any) => {
       let itemStr = `${item.quantity}x ${item.name} - $${(item.price * item.quantity).toFixed(2)}`
@@ -354,15 +408,30 @@ function formatCustomerSMS(orderData: any) {
   return `Order confirmed! Your ${orderData.restaurantName || "catering"} order for ${orderData.eventDetails.date} has been received. Total: $${orderData.total.toFixed(2)}. Check email for full details.`
 }
 
-async function sendEmail(to: string, subject: string, body: string, recipient: "restaurant" | "customer") {
-  console.log(`[v0] Email notification sent to ${recipient}: ${to}`)
-  console.log(`Subject: ${subject}`)
-  console.log(body)
-
-  // TODO: Integrate with Resend or other email service
-  // Example: await resend.emails.send({ from: '...', to, subject, text: body })
-
-  return true
+async function sendEmail(to: string, subject: string, body: string, recipient: "restaurant" | "customer", restaurantName?: string) {
+  console.log(`[Notifications] Sending ${recipient} email to: ${to}`)
+  
+  if (resend) {
+    try {
+      const fromName = restaurantName || "FoodNet PR"
+      await resend.emails.send({
+        from: `${fromName} <foodnetpr.mail@gmail.com>`,
+        to,
+        subject,
+        text: body,
+      })
+      console.log(`[Notifications] Email sent successfully to ${to}`)
+      return true
+    } catch (error) {
+      console.error(`[Notifications] Error sending email to ${to}:`, error)
+      return false
+    }
+  } else {
+    console.log(`[Notifications] Resend not configured, email not sent`)
+    console.log(`Subject: ${subject}`)
+    console.log(body)
+    return false
+  }
 }
 
 async function sendSMS(to: string, message: string, recipient: "restaurant" | "customer") {
