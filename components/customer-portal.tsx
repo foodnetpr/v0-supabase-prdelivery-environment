@@ -4838,13 +4838,7 @@ export default function CustomerPortal({
                 </div>
 
                 {/* Internal Shop Extras - Add drinks, snacks, etc. */}
-                <div
-                  className="space-y-4 border-l-4 pl-4 -ml-2 py-3 pr-2 rounded-r-lg"
-                  style={{
-                    borderColor: primaryColor,
-                    backgroundColor: `${primaryColor}08`,
-                  }}
-                >
+                <div className="mb-4">
                   <InternalShopExtras
                     onAddToCart={(item, quantity) => {
                       setCart((prevCart) => {

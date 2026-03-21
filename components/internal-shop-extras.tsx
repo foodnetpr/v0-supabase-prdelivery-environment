@@ -2,10 +2,14 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
-import { Plus, Minus, Package } from "lucide-react"
+import { Plus, Minus, Package, ChevronDown, ShoppingBag } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 
 interface InternalShopItem {
   id: string
@@ -26,9 +30,11 @@ export function InternalShopExtras({ onAddToCart, existingItems = [] }: Internal
   const [items, setItems] = useState<InternalShopItem[]>([])
   const [loading, setLoading] = useState(true)
   const [quantities, setQuantities] = useState<Record<string, number>>({})
+  const [isOpen, setIsOpen] = useState(false)
+  const [shopAvailable, setShopAvailable] = useState(false)
 
   useEffect(() => {
-    fetchItems()
+    checkAvailabilityAndFetchItems()
   }, [])
 
   useEffect(() => {
@@ -38,10 +44,31 @@ export function InternalShopExtras({ onAddToCart, existingItems = [] }: Internal
       initialQuantities[item.id] = item.quantity
     })
     setQuantities(initialQuantities)
+    // Auto-expand if there are existing items in cart
+    if (existingItems.length > 0) {
+      setIsOpen(true)
+    }
   }, [existingItems])
 
-  const fetchItems = async () => {
+  const checkAvailabilityAndFetchItems = async () => {
     try {
+      // Check if shop is available/enabled
+      const availResponse = await fetch("/api/internal-shop/availability")
+      if (availResponse.ok) {
+        const availData = await availResponse.json()
+        if (!availData.available) {
+          setShopAvailable(false)
+          setLoading(false)
+          return
+        }
+        setShopAvailable(true)
+      } else {
+        setShopAvailable(false)
+        setLoading(false)
+        return
+      }
+
+      // Fetch items
       const response = await fetch("/api/internal-shop/items?active=true")
       if (response.ok) {
         const data = await response.json()
@@ -76,103 +103,119 @@ export function InternalShopExtras({ onAddToCart, existingItems = [] }: Internal
     return acc
   }, {} as Record<string, InternalShopItem[]>)
 
+  // Count total items in cart
+  const totalItemsInCart = Object.values(quantities).reduce((sum, qty) => sum + qty, 0)
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="flex items-center justify-center py-4">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     )
   }
 
-  if (items.length === 0) {
+  // Don't render if shop is not available or no items
+  if (!shopAvailable || items.length === 0) {
     return null
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Package className="h-5 w-5 text-primary" />
-        <h3 className="font-semibold">Agrega Extras a tu Pedido</h3>
-      </div>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full">
+      <CollapsibleTrigger asChild>
+        <button className="w-full flex items-center justify-between p-3 bg-white rounded-lg border hover:bg-gray-50 transition-colors">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+              <ShoppingBag className="h-4 w-4 text-purple-600" />
+            </div>
+            <div className="text-left">
+              <p className="font-medium text-sm">Agrega Extras a tu Pedido</p>
+              <p className="text-xs text-muted-foreground">
+                Bebidas, snacks y mas
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {totalItemsInCart > 0 && (
+              <Badge className="bg-purple-600 text-white text-xs">
+                {totalItemsInCart} agregado{totalItemsInCart > 1 ? "s" : ""}
+              </Badge>
+            )}
+            <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+          </div>
+        </button>
+      </CollapsibleTrigger>
       
-      {Object.entries(groupedItems).map(([category, categoryItems]) => (
-        <div key={category} className="space-y-2">
-          <Badge variant="secondary" className="text-xs">
-            {category}
-          </Badge>
-          <div className="grid gap-2">
-            {categoryItems.map((item) => {
-              const quantity = quantities[item.id] || 0
-              return (
-                <Card key={item.id} className="overflow-hidden">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-3">
+      <CollapsibleContent className="mt-2">
+        <div className="bg-white rounded-lg border p-3 space-y-3 max-h-[300px] overflow-y-auto">
+          {Object.entries(groupedItems).map(([category, categoryItems]) => (
+            <div key={category} className="space-y-2">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{category}</p>
+              <div className="grid grid-cols-1 gap-2">
+                {categoryItems.map((item) => {
+                  const quantity = quantities[item.id] || 0
+                  return (
+                    <div 
+                      key={item.id} 
+                      className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                    >
                       {item.image_url ? (
                         <Image
                           src={item.image_url}
                           alt={item.name}
-                          width={48}
-                          height={48}
-                          className="rounded-md object-cover"
+                          width={36}
+                          height={36}
+                          className="rounded object-cover flex-shrink-0"
                         />
                       ) : (
-                        <div className="flex h-12 w-12 items-center justify-center rounded-md bg-muted">
-                          <Package className="h-5 w-5 text-muted-foreground" />
+                        <div className="flex h-9 w-9 items-center justify-center rounded bg-gray-200 flex-shrink-0">
+                          <Package className="h-4 w-4 text-gray-400" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm truncate">{item.name}</p>
-                        {item.description && (
-                          <p className="text-xs text-muted-foreground truncate">
-                            {item.description}
-                          </p>
-                        )}
-                        <p className="text-sm font-semibold text-primary">
+                        <p className="text-xs font-semibold text-purple-600">
                           ${Number(item.price).toFixed(2)}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 flex-shrink-0">
                         {quantity > 0 ? (
                           <>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
+                            <button
                               onClick={() => handleQuantityChange(item, -1)}
+                              className="h-7 w-7 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition-colors"
                             >
-                              <Minus className="h-4 w-4" />
-                            </Button>
-                            <span className="w-6 text-center font-medium">
+                              <Minus className="h-3 w-3" />
+                            </button>
+                            <span className="w-6 text-center font-medium text-sm">
                               {quantity}
                             </span>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
+                            <button
                               onClick={() => handleQuantityChange(item, 1)}
+                              className="h-7 w-7 rounded-full bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center transition-colors"
                             >
-                              <Plus className="h-4 w-4" />
-                            </Button>
+                              <Plus className="h-3 w-3" />
+                            </button>
                           </>
                         ) : (
                           <Button
                             variant="outline"
                             size="sm"
+                            className="h-7 text-xs px-2"
                             onClick={() => handleQuantityChange(item, 1)}
                           >
-                            <Plus className="mr-1 h-4 w-4" />
+                            <Plus className="mr-1 h-3 w-3" />
                             Agregar
                           </Button>
                         )}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
-    </div>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
