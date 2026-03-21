@@ -86,7 +86,7 @@ export default async function KDSPage({
       redirect(`/auth/login?returnUrl=${returnUrl}`)
     }
 
-    // Check if user has access to this restaurant
+    // Check if user has access to this restaurant via restaurant_users
     const { data: restaurantUser } = await supabase
       .from("restaurant_users")
       .select("role")
@@ -94,7 +94,16 @@ export default async function KDSPage({
       .eq("user_id", user.id)
       .single()
 
-    // Also check super admin
+    // Check admin_users table (for restaurant admins created via admin panel)
+    const { data: adminUser } = await supabase
+      .from("admin_users")
+      .select("role, restaurant_id")
+      .eq("auth_user_id", user.id)
+      .single()
+    
+    const isRestaurantAdmin = adminUser?.restaurant_id === restaurant.id || adminUser?.role === "super_admin"
+
+    // Also check super admin via profiles
     const { data: profile } = await supabase
       .from("profiles")
       .select("is_super_admin")
@@ -102,7 +111,7 @@ export default async function KDSPage({
       .single()
 
     const isSuperAdmin = profile?.is_super_admin || false
-    hasAccess = !!(restaurantUser || isSuperAdmin)
+    hasAccess = !!(restaurantUser || isRestaurantAdmin || isSuperAdmin)
     
     if (!hasAccess) {
       // User is logged in but doesn't have access - show unauthorized page

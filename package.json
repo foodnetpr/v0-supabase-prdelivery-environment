@@ -71,7 +71,8 @@
     "tailwindcss-animate": "^1.0.7",
     "vaul": "latest",
     "jsonwebtoken": "^9.0.2",
-    "zod": "3.25.76"
+    "zod": "3.25.76",
+    "qrcode.react": "^4.2.0"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.8",

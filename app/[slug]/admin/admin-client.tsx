@@ -9,7 +9,8 @@ import { createBrowserClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Minus, Pencil, Trash2, Settings, GripVertical, MapPin, Copy, Upload, Building, Phone, Eye, EyeOff, ChevronUp, ChevronDown, ArrowRightLeft, Search, CalendarDays, List, ChevronLeft, ChevronRight, Clock, Truck, Check, Monitor, ExternalLink, User, Key } from "lucide-react"
+import { Plus, Minus, Pencil, Trash2, Settings, GripVertical, MapPin, Copy, Upload, Building, Phone, Eye, EyeOff, ChevronUp, ChevronDown, ArrowRightLeft, Search, CalendarDays, List, ChevronLeft, ChevronRight, Clock, Truck, Check, Monitor, ExternalLink, User, Key, QrCode, RefreshCw } from "lucide-react"
+import { QRCodeSVG } from "qrcode.react"
 import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
@@ -5677,149 +5678,159 @@ const pickupOrders = orders.filter((o: any) => o.order_type === "pickup" || o.de
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Monitor className="h-5 w-5" />
-                  Acceso al KDS (Pantalla de Cocina)
+                  Pantalla de Cocina (KDS)
                 </CardTitle>
                 <CardDescription>
-                  El KDS usa tokens de acceso en lugar de usuario/contrasena. Esto permite que las tablets de cocina accedan directamente sin iniciar sesion.
+                  Escanea el codigo QR con la tablet de cocina para configurarla.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Main Restaurant KDS Token */}
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h3 className="font-medium">{restaurant.name}</h3>
-                      <p className="text-sm text-muted-foreground">Token de acceso principal</p>
-                    </div>
-                    <span className={`px-2 py-1 text-xs rounded ${settingsForm.kds_access_token ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
-                      {settingsForm.kds_access_token ? "Configurado" : "Sin configurar"}
-                    </span>
+              <CardContent>
+                {!settingsForm.kds_access_token ? (
+                  <div className="text-center py-8">
+                    <QrCode className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                    <p className="text-muted-foreground mb-4">No hay codigo QR configurado para el KDS.</p>
+                    <Button
+                      onClick={async () => {
+                        const token = Math.random().toString(36).substring(2, 14)
+                        const { error } = await supabase
+                          .from("restaurants")
+                          .update({ kds_access_token: token })
+                          .eq("id", restaurantId)
+                        if (!error) {
+                          setSettingsForm({ ...settingsForm, kds_access_token: token })
+                          toast({ title: "Listo", description: "Codigo QR generado" })
+                        }
+                      }}
+                      className="bg-[#5d1f1f] hover:bg-[#4a1818]"
+                    >
+                      <QrCode className="h-4 w-4 mr-2" />
+                      Generar Codigo QR
+                    </Button>
                   </div>
-                  
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <Input
-                        value={settingsForm.kds_access_token || ""}
-                        onChange={(e) => setSettingsForm({ ...settingsForm, kds_access_token: e.target.value })}
-                        placeholder="Token de acceso (ej: cocina123)"
-                        className="flex-1"
-                      />
+                ) : (
+                  <div className="space-y-6">
+                    {/* QR Code Display */}
+                    <div className="flex flex-col items-center">
+                      <div className="bg-white p-4 rounded-lg border-2 border-dashed border-gray-300">
+                        <QRCodeSVG
+                          value={typeof window !== "undefined" 
+                            ? `${window.location.origin}/${restaurant.slug}/kds?token=${settingsForm.kds_access_token}`
+                            : `/${restaurant.slug}/kds?token=${settingsForm.kds_access_token}`
+                          }
+                          size={200}
+                          level="M"
+                          includeMargin={true}
+                        />
+                      </div>
+                      <p className="mt-3 text-sm font-medium text-center">{restaurant.name}</p>
+                      <p className="text-xs text-muted-foreground">Pantalla de Cocina</p>
+                    </div>
+
+                    {/* Simple Instructions */}
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <h4 className="font-medium text-blue-900 mb-2">Instalacion en Tablet</h4>
+                      <ol className="text-sm text-blue-800 space-y-2 list-decimal list-inside">
+                        <li>Abre la camara de la tablet</li>
+                        <li>Escanea el codigo QR</li>
+                        <li>Abre el enlace que aparece</li>
+                        <li>Agrega a la pantalla de inicio</li>
+                      </ol>
+                    </div>
+
+                    {/* Troubleshooting Section */}
+                    <div className="bg-amber-50 rounded-lg p-4">
+                      <h4 className="font-medium text-amber-900 mb-2">Si la tablet no funciona</h4>
+                      <ol className="text-sm text-amber-800 space-y-1 list-decimal list-inside">
+                        <li>Verifica que tenga conexion a internet</li>
+                        <li>Refresca la pagina (desliza hacia abajo)</li>
+                        <li>Si sigue sin funcionar, escanea el QR de nuevo</li>
+                      </ol>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex flex-wrap gap-2 pt-2">
                       <Button
                         variant="outline"
+                        size="sm"
                         onClick={() => {
-                          const token = Math.random().toString(36).substring(2, 10)
-                          setSettingsForm({ ...settingsForm, kds_access_token: token })
+                          const url = `${window.location.origin}/${restaurant.slug}/kds?token=${settingsForm.kds_access_token}`
+                          navigator.clipboard.writeText(url)
+                          toast({ title: "Copiado", description: "URL copiada al portapapeles" })
                         }}
                       >
-                        Generar
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copiar URL
                       </Button>
                       <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const url = `${window.location.origin}/${restaurant.slug}/kds?token=${settingsForm.kds_access_token}`
+                          window.open(url, "_blank")
+                        }}
+                      >
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Probar KDS
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={async () => {
-                          const { error } = await supabase
-                            .from("restaurants")
-                            .update({ kds_access_token: settingsForm.kds_access_token || null })
-                            .eq("id", restaurantId)
-                          if (error) {
-                            toast({ title: "Error", description: "Error al guardar token", variant: "destructive" })
-                          } else {
-                            toast({ title: "Guardado", description: "Token de KDS actualizado" })
+                          if (confirm("Esto invalidara el codigo actual. Las tablets necesitaran escanear el nuevo codigo. Continuar?")) {
+                            const token = Math.random().toString(36).substring(2, 14)
+                            const { error } = await supabase
+                              .from("restaurants")
+                              .update({ kds_access_token: token })
+                              .eq("id", restaurantId)
+                            if (!error) {
+                              setSettingsForm({ ...settingsForm, kds_access_token: token })
+                              toast({ title: "Listo", description: "Nuevo codigo QR generado" })
+                            }
                           }
                         }}
-                        className="bg-[#5d1f1f] hover:bg-[#4a1818]"
                       >
-                        Guardar
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Regenerar Codigo
                       </Button>
                     </div>
-                    
-                    {settingsForm.kds_access_token && (
-                      <div className="bg-gray-50 rounded p-3">
-                        <p className="text-sm font-medium mb-2">URL de acceso directo al KDS:</p>
-                        <div className="flex items-center gap-2">
-                          <code className="bg-white border px-3 py-1 rounded text-sm flex-1 truncate">
-                            {typeof window !== "undefined" 
-                              ? `${window.location.origin}/${restaurant.slug}/kds?token=${settingsForm.kds_access_token}`
-                              : `/${restaurant.slug}/kds?token=${settingsForm.kds_access_token}`
-                            }
-                          </code>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              const url = `${window.location.origin}/${restaurant.slug}/kds?token=${settingsForm.kds_access_token}`
-                              navigator.clipboard.writeText(url)
-                              toast({ title: "Copiado", description: "URL del KDS copiada" })
-                            }}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Branch KDS Tokens (if has branches) */}
-                {branches.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-sm text-muted-foreground">Tokens por Sucursal</h4>
-                    {branches.map((branch: any) => (
-                      <div key={branch.id} className="border rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <div>
-                            <h3 className="font-medium">{branch.name}</h3>
-                            <p className="text-sm text-muted-foreground">Token de acceso de sucursal</p>
-                          </div>
-                          <span className={`px-2 py-1 text-xs rounded ${branch.kds_access_token ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
-                            {branch.kds_access_token ? "Configurado" : "Sin configurar"}
-                          </span>
-                        </div>
-                        
-                        {branch.kds_access_token && (
-                          <div className="bg-gray-50 rounded p-3">
-                            <p className="text-sm font-medium mb-2">URL de acceso directo:</p>
-                            <div className="flex items-center gap-2">
-                              <code className="bg-white border px-3 py-1 rounded text-sm flex-1 truncate">
-                                {typeof window !== "undefined" 
-                                  ? `${window.location.origin}/${restaurant.slug}/kds?branch=${branch.id}&token=${branch.kds_access_token}`
-                                  : `/${restaurant.slug}/kds?branch=${branch.id}&token=${branch.kds_access_token}`
-                                }
-                              </code>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  const url = `${window.location.origin}/${restaurant.slug}/kds?branch=${branch.id}&token=${branch.kds_access_token}`
-                                  navigator.clipboard.writeText(url)
-                                  toast({ title: "Copiado", description: "URL del KDS copiada" })
-                                }}
-                              >
-                                <Copy className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {!branch.kds_access_token && (
-                          <p className="text-sm text-amber-600">
-                            Configura el token en la pestana Sucursales para esta sucursal.
-                          </p>
-                        )}
-                      </div>
-                    ))}
                   </div>
                 )}
 
-                {/* Instructions */}
-                <div className="p-4 bg-amber-50 rounded-lg">
-                  <h4 className="font-medium text-amber-900 mb-2">Como usar el KDS</h4>
-                  <ul className="text-sm text-amber-800 space-y-1 list-disc list-inside">
-                    <li>Genera o ingresa un token de acceso arriba</li>
-                    <li>Guarda el token</li>
-                    <li>Copia la URL de acceso directo</li>
-                    <li>Abre esa URL en la tablet de cocina o guardala como favorito</li>
-                    <li>La cocina podra ver los pedidos sin necesidad de usuario/contrasena</li>
-                  </ul>
-                </div>
+                {/* Branch KDS Codes (if has branches) */}
+                {branches.length > 0 && settingsForm.kds_access_token && (
+                  <div className="mt-6 pt-6 border-t">
+                    <h4 className="font-medium mb-4">Codigos por Sucursal</h4>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {branches.map((branch: any) => (
+                        <div key={branch.id} className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <h5 className="font-medium">{branch.name}</h5>
+                            <span className={`px-2 py-1 text-xs rounded ${branch.kds_access_token ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>
+                              {branch.kds_access_token ? "Configurado" : "Sin configurar"}
+                            </span>
+                          </div>
+                          {branch.kds_access_token ? (
+                            <div className="flex justify-center">
+                              <QRCodeSVG
+                                value={typeof window !== "undefined" 
+                                  ? `${window.location.origin}/${restaurant.slug}/kds?branch=${branch.id}&token=${branch.kds_access_token}`
+                                  : `/${restaurant.slug}/kds?branch=${branch.id}&token=${branch.kds_access_token}`
+                                }
+                                size={120}
+                                level="M"
+                                includeMargin={true}
+                              />
+                            </div>
+                          ) : (
+                            <p className="text-sm text-amber-600 text-center">
+                              Configura el token en Sucursales
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
