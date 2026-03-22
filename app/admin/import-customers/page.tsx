@@ -60,6 +60,8 @@ export default function ImportCustomersPage() {
   const [validCount, setValidCount] = useState(0)
   const parsedDataRef = useRef<ParsedCustomer[] | null>(null)
   const abortRef = useRef(false)
+  const [wasAborted, setWasAborted] = useState(false)
+  const lastProcessedIndexRef = useRef<number>(-1)
 
   function parseCSV(text: string): ParsedCustomer[] {
     const lines = text.split(/\r?\n/).filter((line) => line.trim())
@@ -152,7 +154,7 @@ export default function ImportCustomersPage() {
     }
   }
 
-  async function handleImport(e: React.FormEvent) {
+  async function handleImport(e: React.FormEvent, resumeFromIndex: number = 0) {
     e.preventDefault()
     const data = parsedDataRef.current
     if (!data || data.length === 0) {
@@ -161,24 +163,33 @@ export default function ImportCustomersPage() {
     }
 
     abortRef.current = false
-    setSummary(null)
-    setProgress(0)
-    setRows(
-      data.map((c) => ({
-        firstName: c.firstName,
-        lastName: c.lastName,
-        email: c.email,
-        phone: c.phone,
-        status: "pending",
-      }))
-    )
+    setWasAborted(false)
+    
+    // If resuming, keep existing rows state but reset pending ones
+    if (resumeFromIndex === 0) {
+      setSummary(null)
+      setProgress(0)
+      setRows(
+        data.map((c) => ({
+          firstName: c.firstName,
+          lastName: c.lastName,
+          email: c.email,
+          phone: c.phone,
+          status: "pending",
+        }))
+      )
+    } else {
+      setSummary(null)
+    }
+    
     setIsRunning(true)
 
-    let success = 0
-    let skipped = 0
-    let errors = 0
+    // Count existing successes/skips/errors if resuming
+    let success = resumeFromIndex > 0 ? rows.filter((r, i) => i < resumeFromIndex && r.status === "success").length : 0
+    let skipped = resumeFromIndex > 0 ? rows.filter((r, i) => i < resumeFromIndex && r.status === "skipped").length : 0
+    let errors = resumeFromIndex > 0 ? rows.filter((r, i) => i < resumeFromIndex && r.status === "error").length : 0
 
-    for (let i = 0; i < data.length; i++) {
+    for (let i = resumeFromIndex; i < data.length; i++) {
       if (abortRef.current) break
 
       const customer = data[i]
@@ -241,10 +252,22 @@ export default function ImportCustomersPage() {
       }
 
       setProgress(Math.round(((i + 1) / data.length) * 100))
+      lastProcessedIndexRef.current = i
     }
 
-    setSummary({ success, skipped, errors, total: data.length })
+    // Check if we were aborted
+    if (abortRef.current) {
+      setWasAborted(true)
+    } else {
+      setSummary({ success, skipped, errors, total: data.length })
+    }
     setIsRunning(false)
+  }
+
+  function handleResume(e: React.FormEvent) {
+    // Resume from the next unprocessed row
+    const startIndex = lastProcessedIndexRef.current + 1
+    handleImport(e, startIndex)
   }
 
   const completed = rows.filter((r) => r.status !== "pending" && r.status !== "running").length
@@ -309,6 +332,16 @@ export default function ImportCustomersPage() {
                   }}
                 >
                   Stop
+                </Button>
+              )}
+              {wasAborted && !isRunning && (
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={handleResume}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Resume Import
                 </Button>
               )}
             </form>
@@ -379,6 +412,30 @@ export default function ImportCustomersPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <Progress value={progress} className="h-2" />
+
+              {wasAborted && !isRunning && (
+                <div className="p-4 rounded-lg bg-amber-50 border border-amber-200 space-y-2">
+                  <p className="font-semibold text-amber-800">Import Paused</p>
+                  <p className="text-sm text-amber-700">
+                    Processed {lastProcessedIndexRef.current + 1} of {rows.length} rows.
+                    Click "Resume Import" to continue from where you left off.
+                  </p>
+                  <div className="grid grid-cols-3 gap-4 text-center mt-3">
+                    <div>
+                      <p className="text-2xl font-bold text-green-600">{rows.filter(r => r.status === "success").length}</p>
+                      <p className="text-xs text-muted-foreground">Imported</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-amber-600">{rows.filter(r => r.status === "skipped").length}</p>
+                      <p className="text-xs text-muted-foreground">Skipped</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-gray-400">{rows.filter(r => r.status === "pending").length}</p>
+                      <p className="text-xs text-muted-foreground">Remaining</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {summary && (
                 <div className="p-4 rounded-lg bg-muted/50 space-y-2">
