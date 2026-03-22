@@ -38,6 +38,7 @@ import { InternalShopExtras } from "@/components/internal-shop-extras"
 import { ShopUpsellBanner } from "@/components/shop-upsell-banner"
 import { InternalShopModal } from "@/components/internal-shop-modal"
 import { useInternalShopCart } from "@/hooks/use-internal-shop-cart"
+import { CheckoutUpsellDialog } from "@/components/checkout-upsell-dialog"
 
 import { createBrowserClient } from "@/lib/supabase/client"
 import { GlobalNavbar } from "@/components/global-navbar"
@@ -792,6 +793,7 @@ export default function CustomerPortal({
 
   const [checkoutStep, setCheckoutStep] = useState<"delivery" | null>(null) // For managing checkout flow
   const [showCheckout, setShowCheckout] = useState(false) // Renamed from showCheckoutForm for clarity
+  const [showUpsellDialog, setShowUpsellDialog] = useState(false) // For checkout upsell dialog
 
   // Delivery fee calculation state
   const [deliveryFeeCalculation, setDeliveryFeeCalculation] = useState<{
@@ -1847,12 +1849,61 @@ export default function CustomerPortal({
   const handleProceedToCheckout = () => {
     if (foodCartCount > 0 && !isBelowMinimum) {
       setShowCart(false) // Close the cart
-      setCheckoutStep("delivery") // Show delivery info form step
-      // Facebook Pixel: Track InitiateCheckout
-      if (typeof fbq !== "undefined") {
-        fbq("track", "InitiateCheckout")
+      
+      // Check if upsell is enabled and there are upsell items
+      const upsellEnabled = (restaurant as any).cart_upsell_enabled
+      const upsellItems = menuItems.filter(item => item.is_cart_upsell)
+      
+      if (upsellEnabled && upsellItems.length > 0) {
+        // Show upsell dialog first
+        setShowUpsellDialog(true)
+      } else {
+        // Go directly to checkout
+        setCheckoutStep("delivery") // Show delivery info form step
+        // Facebook Pixel: Track InitiateCheckout
+        if (typeof fbq !== "undefined") {
+          fbq("track", "InitiateCheckout")
+        }
+        setShowCheckout(true) // Open checkout dialog
       }
-      setShowCheckout(true) // Open checkout dialog
+    }
+  }
+  
+  // Handler called when user skips or continues from upsell dialog
+  const handleUpsellComplete = () => {
+    setShowUpsellDialog(false)
+    setCheckoutStep("delivery")
+    // Facebook Pixel: Track InitiateCheckout
+    if (typeof fbq !== "undefined") {
+      fbq("track", "InitiateCheckout")
+    }
+    setShowCheckout(true)
+  }
+  
+  // Handler to add upsell item to cart
+  const handleAddUpsellItem = (item: { id: string; name: string; description: string; price: number; image_url: string | null }) => {
+    // Find the full menu item to get all required data
+    const menuItem = menuItems.find(mi => mi.id === item.id)
+    if (!menuItem) return
+    
+    // Check if already in cart
+    const existingIndex = cart.findIndex(ci => ci.id === item.id && ci.type === "item")
+    if (existingIndex >= 0) {
+      // Remove from cart if already added
+      setCart(prev => prev.filter((_, i) => i !== existingIndex))
+    } else {
+      // Add to cart with quantity 1
+      const newCartItem: CartItem = {
+        id: menuItem.id,
+        name: menuItem.name,
+        basePrice: menuItem.price || menuItem.base_price,
+        quantity: 1,
+        selectedOptions: {},
+        totalPrice: menuItem.price || menuItem.base_price,
+        type: "item",
+        image_url: menuItem.image_url,
+      }
+      setCart(prev => [...prev, newCartItem])
     }
   }
 
@@ -5348,6 +5399,26 @@ export default function CustomerPortal({
           </div>
         </div>
       )}
+
+      {/* Checkout Upsell Dialog */}
+      <CheckoutUpsellDialog
+        open={showUpsellDialog}
+        onClose={() => setShowUpsellDialog(false)}
+        onSkip={handleUpsellComplete}
+        items={menuItems
+          .filter(item => item.is_cart_upsell)
+          .map(item => ({
+            id: item.id,
+            name: item.name,
+            description: item.description || "",
+            price: item.price || item.base_price,
+            image_url: item.image_url,
+          }))}
+        onAddItem={handleAddUpsellItem}
+        addedItemIds={cart.filter(ci => ci.type === "item").map(ci => ci.id)}
+        title={(restaurant as any).cart_upsell_title || "Completa tu orden"}
+        primaryColor={primaryColor}
+      />
 
 {/* Stripe Checkout */}
   {showStripeCheckout && checkoutData && (
