@@ -296,14 +296,10 @@ export function KDSBoard({ restaurant, branchId, branchName, initialOrders, onPr
                 playNotificationSound()
               }
               // Auto-print if enabled - all devices with auto-print will print
+              // The onPrintOrder callback handles Bluetooth printing via KDSClient
               if (autoPrint && onPrintOrder) {
                 console.log("[v0] Auto-printing order:", newOrder.order_number)
                 onPrintOrder(newOrder)
-              }
-              // Auto-print via Bluetooth if printer is connected
-              if (printerConnected && printerCharacteristic) {
-                console.log("[v0] Auto-printing to Bluetooth printer:", newOrder.order_number)
-                printReceipt(newOrder)
               }
             }
           } else if (payload.eventType === "UPDATE") {
@@ -325,7 +321,7 @@ export function KDSBoard({ restaurant, branchId, branchName, initialOrders, onPr
       console.log("[v0] KDS Realtime cleanup")
       supabase.removeChannel(channel)
     }
-  }, [restaurant.id, branchId, supabase, soundEnabled, autoPrint, onPrintOrder, printerConnected, printerCharacteristic])
+  }, [restaurant.id, branchId, supabase, soundEnabled, autoPrint, onPrintOrder])
 
   const playNotificationSound = () => {
     if (audioRef.current) {
