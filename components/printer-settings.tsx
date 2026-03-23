@@ -20,7 +20,6 @@ export function PrinterSettings({ onPrinterStatusChange }: PrinterSettingsProps)
     id: null,
   })
   const [isConnecting, setIsConnecting] = useState(false)
-  const [isReconnecting, setIsReconnecting] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const [savedPrinter, setSavedPrinter] = useState<{ hasPrinter: boolean; name: string | null }>({ hasPrinter: false, name: null })
@@ -37,63 +36,27 @@ export function PrinterSettings({ onPrinterStatusChange }: PrinterSettingsProps)
     const saved = bluetoothPrinter.hasSavedPrinter()
     setSavedPrinter(saved)
 
-    // Auto-reconnect silently on mount if saved printer exists and not yet connected
-    // Use a local async IIFE so we don't need handleReconnect in deps (avoids stale closure)
-    if (saved.hasPrinter && !status.connected) {
-      setIsReconnecting(true)
-      bluetoothPrinter.tryReconnect().then((result) => {
-        if (result.success && result.printer) {
-          setPrinterStatus(result.printer)
-        }
-        // Silently ignore needsManualConnect on auto-reconnect — user can click button
-      }).catch(() => {
-        // Ignore errors on silent auto-reconnect
-      }).finally(() => {
-        setIsReconnecting(false)
-      })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Do NOT auto-reconnect on mount — on Android/PWA restarts, getDevices() always
+    // requires a user gesture and will fail silently, which leaves isReconnecting=true
+    // permanently and disables the button. User must press "Reconectar" manually.
   }, [])
 
   useEffect(() => {
     onPrinterStatusChange?.(printerStatus)
   }, [printerStatus, onPrinterStatusChange])
 
-  // When user clicks "Reconectar": try getDevices() auto-reconnect first,
-  // then always fall through to device picker if that fails (covers browser restarts,
-  // PWA relaunches, and any case where the browser forgets the pairing).
-  const handleReconnectWithFallback = async () => {
-    setMessage(null)
-    setIsReconnecting(true)
-
-    try {
-      const result = await bluetoothPrinter.tryReconnect()
-
-      if (result.success && result.printer) {
-        // getDevices() found the device and reconnected automatically
-        setPrinterStatus(result.printer)
-        setMessage({ type: "success", text: `Reconectado a ${result.printer.name || "impresora"}` })
-        return
-      }
-
-      // Auto-reconnect couldn't do it (needsManualConnect or any other failure).
-      // Always fall through to the device picker — this is the normal flow after
-      // a PWA restart or browser refresh when getDevices() is unavailable or empty.
-      setIsReconnecting(false)
-      setMessage({
-        type: "error",
-        text: `Selecciona "${savedPrinter.name || "la impresora"}" en la lista que aparecerá`,
-      })
-      // Small delay so user reads the hint before the picker opens
-      await new Promise((r) => setTimeout(r, 600))
-      setMessage(null)
-      await handleConnect()
-    } catch {
-      setIsReconnecting(false)
-      setMessage({ type: "error", text: "Error al reconectar. Intenta de nuevo." })
-    }
-    // Note: no finally needed — isReconnecting is always set false before
-    // reaching handleConnect() or the catch block
+  // When user clicks "Reconectar": immediately open the device picker.
+  // navigator.bluetooth.requestDevice() MUST be called synchronously from a user
+  // gesture on Android/PWA — any async delay (setTimeout, await tryReconnect) before
+  // calling it breaks the user-gesture requirement and silently fails.
+  // We skip tryReconnect() here because getDevices() never works after a PWA restart
+  // on Android without explicit permission re-grant.
+  const handleReconnectWithFallback = () => {
+    setMessage({
+      type: "error",
+      text: `Selecciona "${savedPrinter.name || "la impresora"}" en la lista`,
+    })
+    handleConnect()
   }
 
   const handleConnect = async () => {
@@ -178,7 +141,7 @@ export function PrinterSettings({ onPrinterStatusChange }: PrinterSettingsProps)
         {/* Connection Status */}
         <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
           <div className="flex items-center gap-3">
-            {isReconnecting ? (
+            {isConnecting ? (
               <Loader2 className="h-6 w-6 text-blue-500 animate-spin" />
             ) : printerStatus.connected ? (
               <BluetoothConnected className="h-6 w-6 text-green-600" />
@@ -187,15 +150,15 @@ export function PrinterSettings({ onPrinterStatusChange }: PrinterSettingsProps)
             )}
             <div>
               <p className="font-medium">
-                {isReconnecting ? "Reconectando..." : printerStatus.connected ? printerStatus.name || "Impresora conectada" : "Sin conexion"}
+                {isConnecting ? "Conectando..." : printerStatus.connected ? printerStatus.name || "Impresora conectada" : "Sin conexion"}
               </p>
               <p className="text-sm text-gray-500">
-                {isReconnecting ? `Buscando ${savedPrinter.name || "impresora"}...` : printerStatus.connected ? "Lista para imprimir" : savedPrinter.hasPrinter ? `Ultimo: ${savedPrinter.name || "impresora"}` : "Conecta una impresora Bluetooth"}
+                {isConnecting ? `Buscando ${savedPrinter.name || "impresora"}...` : printerStatus.connected ? "Lista para imprimir" : savedPrinter.hasPrinter ? `Ultimo: ${savedPrinter.name || "impresora"}` : "Conecta una impresora Bluetooth"}
               </p>
             </div>
           </div>
           <Badge variant={printerStatus.connected ? "default" : "secondary"}>
-            {isReconnecting ? "Conectando" : printerStatus.connected ? "Conectada" : "Desconectada"}
+            {isConnecting ? "Conectando" : printerStatus.connected ? "Conectada" : "Desconectada"}
           </Badge>
         </div>
 
@@ -237,18 +200,9 @@ export function PrinterSettings({ onPrinterStatusChange }: PrinterSettingsProps)
           ) : (
             <>
               {savedPrinter.hasPrinter && (
-                <Button variant="outline" onClick={handleReconnectWithFallback} disabled={isReconnecting || isConnecting}>
-                  {isReconnecting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Reconectando...
-                    </>
-                  ) : (
-                    <>
-                      <BluetoothConnected className="mr-2 h-4 w-4" />
-                      Reconectar {savedPrinter.name ? `(${savedPrinter.name})` : ""}
-                    </>
-                  )}
+                <Button variant="outline" onClick={handleReconnectWithFallback} disabled={isConnecting}>
+                  <BluetoothConnected className="mr-2 h-4 w-4" />
+                  Reconectar {savedPrinter.name ? `(${savedPrinter.name})` : ""}
                 </Button>
               )}
               <Button onClick={handleConnect} disabled={isConnecting}>
