@@ -2,6 +2,44 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 export async function updateSession(request: NextRequest) {
+  const { pathname, searchParams } = request.nextUrl
+
+  // Handle KDS PWA session restoration FIRST, before any other processing
+  // When a PWA is launched from the home screen, URL query params are lost.
+  // This reads the kds_session cookie and redirects to include the token.
+  if (pathname.match(/^\/[^\/]+\/kds$/)) {
+    const urlToken = searchParams.get('token')
+    
+    // If token is already in URL, continue to normal processing
+    if (!urlToken) {
+      // Extract slug from pathname (e.g., /restaurant-slug/kds -> restaurant-slug)
+      const slugMatch = pathname.match(/^\/([^\/]+)\/kds$/)
+      if (slugMatch) {
+        const slug = slugMatch[1]
+        const sessionCookie = request.cookies.get(`kds_session_${slug}`)
+        
+        if (sessionCookie?.value) {
+          try {
+            const decodedValue = decodeURIComponent(sessionCookie.value)
+            const session = JSON.parse(decodedValue)
+            
+            if (session.token) {
+              // Reconstruct URL with saved token and branch
+              const url = request.nextUrl.clone()
+              url.searchParams.set('token', session.token)
+              if (session.branchId) {
+                url.searchParams.set('branch', session.branchId)
+              }
+              return NextResponse.redirect(url)
+            }
+          } catch {
+            // Invalid cookie format - continue to normal processing
+          }
+        }
+      }
+    }
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   })

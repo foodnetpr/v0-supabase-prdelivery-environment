@@ -21,7 +21,6 @@ export default async function KDSPage({
 }) {
   const { slug } = await params
   const { branch: branchId, token: accessToken } = await searchParams
-  console.log('[v0] KDS Page - slug:', slug, 'branchId:', branchId, 'accessToken:', accessToken ? 'present' : 'missing')
   const supabase = await createClient()
 
   // Get restaurant first (allow inactive for KDS)
@@ -41,11 +40,9 @@ export default async function KDSPage({
   // Method 1: Token-based authentication (for tablets/direct bookmarks)
   // This is the primary method for kitchen tablets - no login required
   if (accessToken) {
-    console.log('[v0] KDS Page - checking token auth, restaurant token:', restaurant.kds_access_token ? 'exists' : 'missing')
     // Check if token matches restaurant's KDS token
     if (restaurant.kds_access_token && restaurant.kds_access_token === accessToken) {
       hasAccess = true
-      console.log('[v0] KDS Page - token matched restaurant token!')
     }
     
     // Check if token matches a specific branch's KDS token
