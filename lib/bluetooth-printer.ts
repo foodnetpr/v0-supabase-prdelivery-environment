@@ -31,6 +31,8 @@ const COMMANDS = {
   DOUBLE_WIDTH_ON: new Uint8Array([GS, 0x21, 0x20]),
   DOUBLE_SIZE_ON: new Uint8Array([ESC, 0x21, 0x30]),
   NORMAL_SIZE: new Uint8Array([ESC, 0x21, 0x00]),
+  UNDERLINE_ON: new Uint8Array([ESC, 0x2D, 0x01]),
+  UNDERLINE_OFF: new Uint8Array([ESC, 0x2D, 0x00]),
   
   // Line spacing
   LINE_SPACING_DEFAULT: new Uint8Array([ESC, 0x32]),
@@ -42,6 +44,7 @@ const COMMANDS = {
   
   // Feed paper
   FEED_LINE: new Uint8Array([LF]),
+  FEED_LINES_2: new Uint8Array([ESC, 0x64, 0x02]),
   FEED_LINES_3: new Uint8Array([ESC, 0x64, 0x03]),
   FEED_LINES_5: new Uint8Array([ESC, 0x64, 0x05]),
   
@@ -510,7 +513,7 @@ class BluetoothPrinter {
 
   /**
    * Print a KDS kitchen ticket with FOODNETPR branding
-   * Uses 58mm paper (32 chars width)
+   * Uses 58mm paper (32 chars width) - Paper-efficient layout
    */
   async printKitchenTicket(order: Order, restaurantName: string, branchName?: string | null): Promise<{ success: boolean; error?: string }> {
     if (!this.characteristic) {
@@ -524,26 +527,20 @@ class BluetoothPrinter {
       // Beep for attention (if supported)
       await this.write(COMMANDS.BEEP)
 
-      // ============ HEADER - NUEVA ORDEN (largest, most important) ============
+      // --- NUEVA ORDEN (large, bold, centered) - most important for kitchen ---
       await this.write(COMMANDS.ALIGN_CENTER)
       await this.write(COMMANDS.DOUBLE_SIZE_ON)
       await this.write(COMMANDS.BOLD_ON)
       await this.printText("NUEVA ORDEN\n")
       await this.write(COMMANDS.NORMAL_SIZE)
       await this.write(COMMANDS.BOLD_OFF)
-      await this.write(COMMANDS.FEED_LINE)
 
-      // ============ FOODNETPR LOGO (bold text, no graphic) ============
-      await this.write(COMMANDS.ALIGN_CENTER)
+      // --- FOODNETPR + restaurant on same block, no blank lines ---
       await this.write(COMMANDS.DOUBLE_HEIGHT_ON)
       await this.write(COMMANDS.BOLD_ON)
       await this.printText(centerText("FOODNETPR") + "\n")
       await this.write(COMMANDS.NORMAL_SIZE)
       await this.write(COMMANDS.BOLD_OFF)
-      await this.printText(centerText("foodnetpr.com") + "\n")
-      await this.write(COMMANDS.FEED_LINE)
-
-      // ============ RESTAURANT INFO ============
       await this.write(COMMANDS.ALIGN_LEFT)
       await this.write(COMMANDS.BOLD_ON)
       await this.printText(restaurantName.toUpperCase() + "\n")
@@ -551,20 +548,18 @@ class BluetoothPrinter {
       if (branchName) {
         await this.printText(branchName + "\n")
       }
-      await this.printText("-".repeat(PAPER_WIDTH) + "\n")
 
-      // ============ ORDER NUMBER (big and bold) ============
+      // --- ORDER NUMBER ---
+      await this.printText("-".repeat(PAPER_WIDTH) + "\n")
       await this.write(COMMANDS.ALIGN_CENTER)
       await this.write(COMMANDS.DOUBLE_SIZE_ON)
       await this.write(COMMANDS.BOLD_ON)
-      await this.printText(`# ${order.order_number}\n`)
+      await this.printText(`#${order.order_number}\n`)
       await this.write(COMMANDS.NORMAL_SIZE)
       await this.write(COMMANDS.BOLD_OFF)
-      await this.write(COMMANDS.FEED_LINE)
 
-      // ============ ORDER META ============
+      // --- ORDER META (compact, all on consecutive lines) ---
       await this.write(COMMANDS.ALIGN_LEFT)
-      
       const date = new Date(order.created_at)
       const dateStr = date.toLocaleDateString('es-PR', {
         day: '2-digit', month: '2-digit', year: 'numeric'
@@ -572,10 +567,8 @@ class BluetoothPrinter {
       const timeStr = date.toLocaleTimeString('es-PR', {
         hour: '2-digit', minute: '2-digit', hour12: true
       })
-      
       await this.printText(leftRightText("Fecha:", dateStr) + "\n")
       await this.printText(leftRightText("Hora:", timeStr) + "\n")
-      
       const orderTypeLabel = order.delivery_type === "delivery" ? "DELIVERY" : "PICKUP"
       await this.printText(leftRightText("Tipo:", orderTypeLabel) + "\n")
 
@@ -584,18 +577,15 @@ class BluetoothPrinter {
         const initials = getCustomerInitials(order.customer_name)
         await this.printText(leftRightText("Cliente:", initials) + "\n")
       }
-
       if (order.customer_phone) {
         await this.printText(leftRightText("Tel:", order.customer_phone) + "\n")
       }
 
+      // --- ITEMS (no blank lines between items) ---
       await this.printText("-".repeat(PAPER_WIDTH) + "\n")
-
-      // ============ ITEMS ============
       await this.write(COMMANDS.BOLD_ON)
-      await this.printText("ITEMS ORDENADOS:\n")
+      await this.printText("ITEMS:\n")
       await this.write(COMMANDS.BOLD_OFF)
-      await this.write(COMMANDS.FEED_LINE)
 
       for (const item of order.order_items) {
         // Item name + quantity (bold)
@@ -603,47 +593,40 @@ class BluetoothPrinter {
         await this.printText(`${item.quantity}x ${item.item_name.toUpperCase()}\n`)
         await this.write(COMMANDS.BOLD_OFF)
 
-        // Modifiers/options
+        // Modifiers/options - immediately after item, no gap
         if (item.selected_options && Object.keys(item.selected_options).length > 0) {
           for (const [, value] of Object.entries(item.selected_options)) {
             if (value) {
               const optValue = Array.isArray(value) ? value.join(", ") : String(value)
               if (optValue && optValue !== "undefined") {
-                await this.printText(`  > ${optValue}\n`)
+                await this.printText(`  >${optValue}\n`)
               }
             }
           }
         }
-
-        await this.write(COMMANDS.FEED_LINE)
       }
 
-      await this.printText("=".repeat(PAPER_WIDTH) + "\n")
-
-      // ============ SPECIAL INSTRUCTIONS (highly visible) ============
+      // --- ORDER NOTES - inline, bold+underline, no wasted lines ---
       if (order.special_instructions) {
-        await this.write(COMMANDS.FEED_LINE)
-        await this.printText("*".repeat(PAPER_WIDTH) + "\n")
+        await this.printText("-".repeat(PAPER_WIDTH) + "\n")
         await this.write(COMMANDS.BOLD_ON)
-        await this.write(COMMANDS.DOUBLE_HEIGHT_ON)
-        await this.printText("!! NOTAS !!\n")
-        await this.write(COMMANDS.NORMAL_SIZE)
+        await this.write(COMMANDS.UNDERLINE_ON)
+        await this.printText("!NOTAS:\n")
+        await this.write(COMMANDS.UNDERLINE_OFF)
         const wrappedNotes = wrapText(order.special_instructions.toUpperCase())
         for (const line of wrappedNotes) {
-          await this.printText(`** ${line} **\n`)
+          await this.printText(line + "\n")
         }
         await this.write(COMMANDS.BOLD_OFF)
-        await this.printText("*".repeat(PAPER_WIDTH) + "\n")
       }
 
-      // ============ FOOTER ============
+      // --- FOOTER (minimal) ---
+      await this.printText("-".repeat(PAPER_WIDTH) + "\n")
       await this.write(COMMANDS.ALIGN_CENTER)
-      await this.printText("Gracias por su orden!\n")
       await this.printText("foodnetpr.com\n")
-      await this.write(COMMANDS.FEED_LINE)
 
-      // Feed and cut
-      await this.write(COMMANDS.FEED_LINES_3)
+      // Minimal feed before cut - just enough to clear tear bar
+      await this.write(COMMANDS.FEED_LINES_2)
       await this.write(COMMANDS.PARTIAL_CUT)
 
       return { success: true }
