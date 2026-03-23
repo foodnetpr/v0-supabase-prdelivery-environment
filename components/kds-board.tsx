@@ -608,7 +608,7 @@ export function KDSBoard({ restaurant, branchId, branchName, initialOrders, onPr
           {orders.length}
         </Badge>
       </div>
-      <div className="space-y-1.5 flex-1 overflow-y-auto">
+      <div className="space-y-1.5 flex-1 overflow-y-auto" data-scrollable>
         {orders.map((order) => (
           <OrderCard key={order.id} order={order} />
         ))}

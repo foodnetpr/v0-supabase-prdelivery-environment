@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { KDSBoard } from "@/components/kds-board"
 import { PrinterSettings } from "@/components/printer-settings"
 import { bluetoothPrinter, PrinterStatus } from "@/lib/bluetooth-printer"
 import { Button } from "@/components/ui/button"
-import { Settings, X, Printer } from "lucide-react"
+import { Settings, X, Printer, WifiOff } from "lucide-react"
 
 type Order = {
   id: string
@@ -54,6 +54,89 @@ export function KDSClient({ restaurant, branchId, branchName, initialOrders }: K
     id: null,
   })
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(false)
+  const [isOnline, setIsOnline] = useState(true)
+  const [isPWA, setIsPWA] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Detect if running as PWA (standalone mode)
+  useEffect(() => {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+      || (window.navigator as any).standalone === true // iOS Safari
+      || document.referrer.includes('android-app://');
+    setIsPWA(isStandalone)
+  }, [])
+
+  // Navigation prevention - warn before leaving
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // In PWA mode, be more aggressive about preventing navigation
+      e.preventDefault()
+      e.returnValue = '¿Seguro que deseas salir del KDS?'
+      return '¿Seguro que deseas salir del KDS?'
+    }
+
+    // Prevent back button / swipe navigation
+    const handlePopState = (e: PopStateEvent) => {
+      // Push state back to prevent navigation
+      window.history.pushState(null, '', window.location.href)
+    }
+
+    // Push initial state for popstate handling
+    window.history.pushState(null, '', window.location.href)
+    
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
+
+  // Prevent gestures that could close the app
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    // Prevent pull-to-refresh and edge swipes
+    const handleTouchMove = (e: TouchEvent) => {
+      // Allow scrolling within scrollable elements
+      const target = e.target as HTMLElement
+      const isScrollable = target.closest('[data-scrollable]') || 
+                          target.closest('.overflow-auto') || 
+                          target.closest('.overflow-y-auto')
+      
+      if (!isScrollable && e.touches.length === 1) {
+        // Only prevent on edges (pull to refresh, edge swipe)
+        const touch = e.touches[0]
+        if (touch.clientY < 50 || touch.clientX < 20 || touch.clientX > window.innerWidth - 20) {
+          e.preventDefault()
+        }
+      }
+    }
+
+    container.addEventListener('touchmove', handleTouchMove, { passive: false })
+
+    return () => {
+      container.removeEventListener('touchmove', handleTouchMove)
+    }
+  }, [])
+
+  // Online/offline detection
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    
+    setIsOnline(navigator.onLine)
+    
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   // Load auto-print setting from localStorage on mount
   useEffect(() => {
@@ -94,7 +177,18 @@ export function KDSClient({ restaurant, branchId, branchName, initialOrders }: K
   }, [printerStatus.connected])
 
   return (
-    <div className="relative">
+    <div 
+      ref={containerRef}
+      className="relative min-h-screen"
+      style={{ touchAction: 'pan-y pinch-zoom' }}
+    >
+      {/* Offline indicator */}
+      {!isOnline && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-red-600 text-white py-2 px-4 flex items-center justify-center gap-2 text-sm font-medium">
+          <WifiOff className="h-4 w-4" />
+          Sin conexión - Los pedidos no se actualizarán hasta que se restaure la conexión
+        </div>
+      )}
       {/* Settings Panel */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
