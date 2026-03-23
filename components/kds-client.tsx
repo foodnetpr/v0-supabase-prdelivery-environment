@@ -186,8 +186,12 @@ export function KDSClient({ restaurant, branchId, branchName, initialOrders, acc
   useEffect(() => {
     const key = getAutoPrintKey(restaurant.id, branchId)
     const saved = localStorage.getItem(key)
+    console.log("[v0] KDSClient - loading auto-print from localStorage key:", key, "value:", saved)
     if (saved === "true") {
       setAutoPrintEnabled(true)
+      console.log("[v0] KDSClient - autoPrintEnabled set to TRUE from localStorage")
+    } else {
+      console.log("[v0] KDSClient - autoPrintEnabled remains FALSE (not set in localStorage)")
     }
   }, [restaurant.id, branchId])
 
