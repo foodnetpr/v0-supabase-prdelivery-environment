@@ -225,7 +225,16 @@ export function KDSClient({ restaurant, branchId, branchName, initialOrders, acc
     } catch (error: any) {
       showPrintAlert(`Error al imprimir: ${error?.message || "Error desconocido"}`)
     }
-  }, [printerStatus.connected, restaurant.name, branchName])
+  }, [printerStatus.connected, restaurant.name, branchName, showPrintAlert])
+
+  // Called by KDSBoard whenever a new order arrives (realtime or test).
+  // Auto-print decision is made here where autoPrintEnabled state definitively lives —
+  // no prop-passing or stale closure issues possible.
+  const handleNewOrder = useCallback((order: Order) => {
+    if (autoPrintEnabled) {
+      handlePrintOrder(order)
+    }
+  }, [autoPrintEnabled, handlePrintOrder])
 
   return (
     <div 
@@ -361,6 +370,7 @@ export function KDSClient({ restaurant, branchId, branchName, initialOrders, acc
         onPrintOrder={handlePrintOrder}
         autoPrintEnabled={autoPrintEnabled}
         onAutoPrintChange={handleAutoPrintChange}
+        onNewOrder={handleNewOrder}
       />
     </div>
   )

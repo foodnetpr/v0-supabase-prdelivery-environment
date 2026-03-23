@@ -63,9 +63,10 @@ interface KDSBoardProps {
   onPrintOrder?: (order: Order) => void
   autoPrintEnabled?: boolean
   onAutoPrintChange?: (enabled: boolean) => void
+  onNewOrder?: (order: Order) => void
 }
 
-export function KDSBoard({ restaurant, branchId, branchName, initialOrders, onPrintOrder, autoPrintEnabled = false, onAutoPrintChange }: KDSBoardProps) {
+export function KDSBoard({ restaurant, branchId, branchName, initialOrders, onPrintOrder, autoPrintEnabled = false, onAutoPrintChange, onNewOrder }: KDSBoardProps) {
   const [orders, setOrders] = useState<Order[]>(initialOrders)
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -179,17 +180,8 @@ export function KDSBoard({ restaurant, branchId, branchName, initialOrders, onPr
         playNotificationSound()
       }
 
-      // Auto-print test order if enabled
-      // showPrintStatus is passed via onAutoPrintChange reuse — use alert as visible debug
-      if (onPrintOrder) {
-        if (autoPrint) {
-          markOrderAsPrinted(order.id)
-          onPrintOrder(completeOrder as Order)
-        } else {
-          // Visible feedback so we know autoPrint state on device
-          alert(`AUTO-PRINT ESTADO: ${autoPrint} | autoPrintEnabled: ${autoPrintEnabled}`)
-        }
-      }
+      // Notify parent of new test order — auto-print handled in kds-client
+      onNewOrder?.(completeOrder as Order)
       
       // Close dialog after successful creation
       setTestModeOpen(false)
@@ -310,11 +302,9 @@ export function KDSBoard({ restaurant, branchId, branchName, initialOrders, onPr
             if (newOrder) {
               setOrders((prev) => [newOrder, ...prev])
               if (soundEnabled) playNotificationSound()
-              // Auto-print if enabled and order hasn't been printed yet
-              if (autoPrint && onPrintOrder && !newOrder.printed_at) {
-                markOrderAsPrinted(newOrder.id)
-                onPrintOrder(newOrder)
-              }
+              // Notify parent — auto-print decision is made in kds-client
+              // where autoPrintEnabled state definitively lives
+              onNewOrder?.(newOrder)
             }
           } else if (payload.eventType === "UPDATE") {
             setOrders((prev) =>
@@ -328,7 +318,7 @@ export function KDSBoard({ restaurant, branchId, branchName, initialOrders, onPr
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [restaurant.id, branchId, supabase, soundEnabled, autoPrint, onPrintOrder])
+  }, [restaurant.id, branchId, supabase, soundEnabled, onNewOrder])
 
   // Hidden admin exit gesture - tap logo 3 times rapidly to show PIN dialog
   const handleLogoTap = useCallback(() => {
