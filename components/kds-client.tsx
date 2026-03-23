@@ -40,13 +40,17 @@ interface KDSClientProps {
   branchId?: string | null
   branchName?: string | null
   initialOrders: Order[]
+  accessToken?: string
 }
 
 // LocalStorage key for auto-print setting (per restaurant/branch)
 const getAutoPrintKey = (restaurantId: string, branchId?: string | null) => 
   `kds_auto_print_${restaurantId}${branchId ? `_${branchId}` : ''}`
 
-export function KDSClient({ restaurant, branchId, branchName, initialOrders }: KDSClientProps) {
+// LocalStorage keys for KDS session persistence (for PWA home screen launch)
+const getKdsSessionKey = (slug: string) => `kds_session_${slug}`
+
+export function KDSClient({ restaurant, branchId, branchName, initialOrders, accessToken }: KDSClientProps) {
   const [showSettings, setShowSettings] = useState(false)
   const [printerStatus, setPrinterStatus] = useState<PrinterStatus>({
     connected: false,
@@ -65,6 +69,45 @@ export function KDSClient({ restaurant, branchId, branchName, initialOrders }: K
       || document.referrer.includes('android-app://');
     setIsPWA(isStandalone)
   }, [])
+
+  // Persist KDS session to localStorage for PWA home screen launches
+  // When the app is opened from home screen, URL params are lost, so we save the full session
+  useEffect(() => {
+    const sessionKey = getKdsSessionKey(restaurant.slug)
+    
+    if (accessToken) {
+      // Save the full session when accessed with a valid token in URL
+      const session = {
+        token: accessToken,
+        branchId: branchId || null,
+        savedAt: new Date().toISOString()
+      }
+      localStorage.setItem(sessionKey, JSON.stringify(session))
+      console.log("[KDS] Session saved to localStorage for PWA")
+    } else {
+      // If no token in URL, check if we have a saved session and redirect
+      // This handles PWA launch where URL params are lost
+      try {
+        const savedSession = localStorage.getItem(sessionKey)
+        if (savedSession) {
+          const session = JSON.parse(savedSession)
+          if (session.token) {
+            // Reconstruct URL with saved token and branch for proper authentication
+            const url = new URL(window.location.href)
+            url.searchParams.set('token', session.token)
+            if (session.branchId) {
+              url.searchParams.set('branch', session.branchId)
+            }
+            console.log("[KDS] Restoring session from localStorage, redirecting...")
+            window.location.replace(url.toString())
+            return
+          }
+        }
+      } catch (e) {
+        console.error("[KDS] Error parsing saved session:", e)
+      }
+    }
+  }, [accessToken, restaurant.slug, branchId])
 
   // Navigation prevention - warn before leaving
   useEffect(() => {

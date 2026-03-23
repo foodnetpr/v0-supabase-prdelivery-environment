@@ -84,14 +84,33 @@ export default function KDSLayout({ children }: { children: ReactNode }) {
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/kds-sw.js', { scope: '/' })
-                    .then(function(registration) {
-                      console.log('[KDS] Service Worker registered:', registration.scope);
-                    })
-                    .catch(function(error) {
-                      console.error('[KDS] Service Worker registration failed:', error);
+                // Register service worker immediately for faster caching
+                navigator.serviceWorker.register('/kds-sw.js', { scope: '/' })
+                  .then(function(registration) {
+                    console.log('[KDS] Service Worker registered:', registration.scope);
+                    
+                    // Check for updates periodically
+                    setInterval(function() {
+                      registration.update();
+                    }, 60 * 60 * 1000); // Check every hour
+                    
+                    // Handle updates
+                    registration.addEventListener('updatefound', function() {
+                      var newWorker = registration.installing;
+                      newWorker.addEventListener('statechange', function() {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                          console.log('[KDS] New version available');
+                        }
+                      });
                     });
+                  })
+                  .catch(function(error) {
+                    console.error('[KDS] Service Worker registration failed:', error);
+                  });
+                
+                // Handle controller change (new SW activated)
+                navigator.serviceWorker.addEventListener('controllerchange', function() {
+                  console.log('[KDS] Service Worker controller changed');
                 });
               }
             `,

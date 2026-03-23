@@ -193,6 +193,7 @@ export default async function KDSPage({
       branchId={effectiveBranchId}
       branchName={branchName}
       initialOrders={orders || []}
+      accessToken={accessToken || undefined}
     />
   )
 }

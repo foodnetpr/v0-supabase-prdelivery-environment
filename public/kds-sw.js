@@ -58,29 +58,23 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For KDS pages - network first with cache fallback
+  // For KDS pages - network first, offline fallback
+  // IMPORTANT: Don't cache KDS HTML pages because:
+  // 1. They contain authentication tokens in URLs
+  // 2. Each device may have different branch assignments
+  // 3. Order data should always be fresh
   if (url.pathname.includes('/kds')) {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          // Cache successful responses
-          if (response.ok) {
-            const responseClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseClone);
-            });
-          }
+          // Don't cache HTML responses (they have auth data)
+          // Only cache if it's a static asset within the KDS route
           return response;
         })
         .catch(() => {
-          // Network failed - try cache
-          return caches.match(request).then((cachedResponse) => {
-            if (cachedResponse) {
-              return cachedResponse;
-            }
-            // No cache - return offline page
-            return caches.match(OFFLINE_URL);
-          });
+          // Network failed - show offline page
+          // The offline page will auto-retry when connection is restored
+          return caches.match(OFFLINE_URL);
         })
     );
     return;
