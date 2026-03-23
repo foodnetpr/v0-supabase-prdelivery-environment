@@ -177,6 +177,12 @@ export function KDSBoard({ restaurant, branchId, branchName, initialOrders, onPr
       if (soundEnabled) {
         playNotificationSound()
       }
+
+      // Auto-print test order if enabled (same logic as real orders)
+      if (autoPrint && onPrintOrder) {
+        markOrderAsPrinted(order.id)
+        onPrintOrder(completeOrder as Order)
+      }
       
       // Close dialog after successful creation
       setTestModeOpen(false)

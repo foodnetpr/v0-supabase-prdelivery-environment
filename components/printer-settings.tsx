@@ -37,83 +37,72 @@ export function PrinterSettings({ onPrinterStatusChange }: PrinterSettingsProps)
     const saved = bluetoothPrinter.hasSavedPrinter()
     setSavedPrinter(saved)
 
-    // Auto-reconnect if there's a saved printer and not currently connected
-    // This will silently try to reconnect without showing the device picker
+    // Auto-reconnect silently on mount if saved printer exists and not yet connected
+    // Use a local async IIFE so we don't need handleReconnect in deps (avoids stale closure)
     if (saved.hasPrinter && !status.connected) {
-      handleReconnect(false)
+      setIsReconnecting(true)
+      bluetoothPrinter.tryReconnect().then((result) => {
+        if (result.success && result.printer) {
+          setPrinterStatus(result.printer)
+        }
+        // Silently ignore needsManualConnect on auto-reconnect — user can click button
+      }).catch(() => {
+        // Ignore errors on silent auto-reconnect
+      }).finally(() => {
+        setIsReconnecting(false)
+      })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     onPrinterStatusChange?.(printerStatus)
   }, [printerStatus, onPrinterStatusChange])
 
-  const handleReconnect = async (showErrors = false) => {
-    console.log("[v0] handleReconnect called, showErrors:", showErrors)
-    setIsReconnecting(true)
+  // When user clicks "Reconectar": try getDevices() auto-reconnect first,
+  // then always fall through to device picker if that fails (covers browser restarts,
+  // PWA relaunches, and any case where the browser forgets the pairing).
+  const handleReconnectWithFallback = async () => {
     setMessage(null)
+    setIsReconnecting(true)
+
     try {
-      console.log("[v0] Calling bluetoothPrinter.tryReconnect()")
       const result = await bluetoothPrinter.tryReconnect()
-      console.log("[v0] tryReconnect result:", JSON.stringify(result))
+
       if (result.success && result.printer) {
+        // getDevices() found the device and reconnected automatically
         setPrinterStatus(result.printer)
         setMessage({ type: "success", text: `Reconectado a ${result.printer.name || "impresora"}` })
-        return { success: true }
-      } else if (result.needsManualConnect) {
-        // Browser doesn't have the device in memory anymore, need to select it again
-        // This is normal after PWA restart or page refresh
-        console.log("[v0] needsManualConnect is true")
-        setIsReconnecting(false)
-        return { success: false, needsManualConnect: true }
-      } else if (showErrors && result.error) {
-        setMessage({ type: "error", text: result.error })
+        return
       }
-      return { success: false }
-    } catch (error) {
-      console.log("[v0] handleReconnect error:", error)
-      // Silent fail for auto-reconnect
-      return { success: false }
-    } finally {
-      setIsReconnecting(false)
-    }
-  }
 
-  // When user clicks "Reconectar", try automatic reconnect first, 
-  // then fall back to device picker if needed
-  const handleReconnectWithFallback = async () => {
-    console.log("[v0] handleReconnectWithFallback called")
-    setMessage(null)
-    const result = await handleReconnect(false)
-    console.log("[v0] handleReconnect result:", result)
-    
-    if (result.success) {
-      console.log("[v0] Auto-reconnect succeeded")
-      return
-    }
-    
-    if (result.needsManualConnect) {
-      console.log("[v0] Needs manual connect, opening device picker")
-      // Show helpful message and open device picker
-      setMessage({ type: "error", text: `Selecciona "${savedPrinter.name || 'la impresora'}" en la lista` })
-      // Small delay so user sees the message
-      await new Promise(r => setTimeout(r, 300))
+      // Auto-reconnect couldn't do it (needsManualConnect or any other failure).
+      // Always fall through to the device picker — this is the normal flow after
+      // a PWA restart or browser refresh when getDevices() is unavailable or empty.
+      setIsReconnecting(false)
+      setMessage({
+        type: "error",
+        text: `Selecciona "${savedPrinter.name || "la impresora"}" en la lista que aparecerá`,
+      })
+      // Small delay so user reads the hint before the picker opens
+      await new Promise((r) => setTimeout(r, 600))
+      setMessage(null)
       await handleConnect()
-    } else {
-      console.log("[v0] Reconnect failed without needsManualConnect flag")
-      setMessage({ type: "error", text: "Error al reconectar. Intenta 'Conectar Otra'" })
+    } catch {
+      setIsReconnecting(false)
+      setMessage({ type: "error", text: "Error al reconectar. Intenta de nuevo." })
     }
+    // Note: no finally needed — isReconnecting is always set false before
+    // reaching handleConnect() or the catch block
   }
 
   const handleConnect = async () => {
-    console.log("[v0] handleConnect called - opening device picker")
     setIsConnecting(true)
     setMessage(null)
 
     try {
       const result = await bluetoothPrinter.connect()
-      console.log("[v0] connect result:", JSON.stringify(result))
-      
+
       if (result.success && result.printer) {
         setPrinterStatus(result.printer)
         setSavedPrinter({ hasPrinter: true, name: result.printer.name })
@@ -123,9 +112,9 @@ export function PrinterSettings({ onPrinterStatusChange }: PrinterSettingsProps)
       }
     } catch (error: any) {
       setMessage({ type: "error", text: error.message || "Error inesperado" })
+    } finally {
+      setIsConnecting(false)
     }
-
-    setIsConnecting(false)
   }
 
   const handleDisconnect = () => {
@@ -262,7 +251,7 @@ export function PrinterSettings({ onPrinterStatusChange }: PrinterSettingsProps)
                   )}
                 </Button>
               )}
-              <Button onClick={handleConnect} disabled={isConnecting || isReconnecting}>
+              <Button onClick={handleConnect} disabled={isConnecting}>
                 {isConnecting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
