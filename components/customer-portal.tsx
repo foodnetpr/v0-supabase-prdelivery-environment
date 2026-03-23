@@ -5437,7 +5437,7 @@ export default function CustomerPortal({
           setShowCheckout(true)
         }}
       />
-      <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-auto">
+      <div className="relative z-[101] bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-auto pointer-events-auto">
         <div className="p-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -5448,6 +5448,7 @@ export default function CustomerPortal({
               <p className="text-sm text-gray-500">Paga al momento de recibir tu orden</p>
             </div>
             <button
+              type="button"
               onClick={() => {
                 setShowCashCheckout(false)
                 setCheckoutStep("delivery")
@@ -5481,6 +5482,7 @@ export default function CustomerPortal({
           </div>
 
           <button
+            type="button"
             onClick={async () => {
               try {
                 // Create order with cash payment status
@@ -5558,6 +5560,7 @@ export default function CustomerPortal({
           </button>
 
           <button
+            type="button"
             onClick={() => {
               setShowCashCheckout(false)
               setCheckoutStep("delivery")
