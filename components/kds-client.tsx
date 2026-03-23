@@ -237,10 +237,12 @@ export function KDSClient({ restaurant, branchId, branchName, initialOrders, acc
 
   // Stable callback — never changes identity, always reads latest values via refs.
   const handleNewOrder = useCallback((order: Order) => {
+    // Always show toast so we can see this function IS being called and what the ref value is
+    showPrintAlert(`Nueva orden #${order.order_number} | Auto-print: ${autoPrintRef.current ? 'SI' : 'NO'}`)
     if (autoPrintRef.current) {
       handlePrintOrderRef.current(order)
     }
-  }, []) // stable — intentionally empty deps
+  }, [showPrintAlert]) // showPrintAlert is stable via useCallback
 
   return (
     <div 
