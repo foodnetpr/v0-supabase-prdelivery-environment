@@ -294,6 +294,7 @@ chowly_enabled: false,
 
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([])
   const [selectedMenuItemIds, setSelectedMenuItemIds] = useState<string[]>([])
+  const [menuSearchQuery, setMenuSearchQuery] = useState("")
 
   // Copy menu state
   const [allRestaurantsForCopy, setAllRestaurantsForCopy] = useState<{ id: string; name: string }[]>([])
@@ -2944,6 +2945,16 @@ payment_provider: branchForm.payment_provider || "stripe",
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Search input for menu items */}
+                <div className="relative mb-4">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Buscar items del menu..."
+                    value={menuSearchQuery}
+                    onChange={(e) => setMenuSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
                 {menuItems.length > 0 && (
                   <div className="flex items-center gap-2 mb-3 pb-3 border-b">
                     <Checkbox
@@ -2954,15 +2965,106 @@ payment_provider: branchForm.payment_provider || "stripe",
                   </div>
                 )}
                 <div className="space-y-6">
-                  {categories.map((category) => {
-                    const categoryItems = menuItems.filter((item) => item.category_id === category.id)
-                    if (categoryItems.length === 0) return null
+                  {/* When searching, show flat list of all matching items */}
+                  {menuSearchQuery.trim() ? (
+                    <>
+                      {(() => {
+                        const query = menuSearchQuery.toLowerCase()
+                        const filteredItems = menuItems.filter(
+                          (item) =>
+                            item.name?.toLowerCase().includes(query) ||
+                            item.description?.toLowerCase().includes(query)
+                        )
+                        if (filteredItems.length === 0) {
+                          return (
+                            <div className="text-center py-8 text-gray-500">
+                              No se encontraron items para "{menuSearchQuery}"
+                            </div>
+                          )
+                        }
+                        return (
+                          <div className="space-y-4">
+                            <p className="text-sm text-gray-500">{filteredItems.length} resultado(s) para "{menuSearchQuery}"</p>
+                            {filteredItems.map((item) => {
+                              const globalIndex = menuItems.findIndex((mi) => mi.id === item.id)
+                              const category = categories.find((c) => c.id === item.category_id)
+                              return (
+                                <Card
+                                  key={item.id}
+                                  draggable
+                                  onDragStart={(e) => handleMenuItemDragStart(e, globalIndex)}
+                                  onDragOver={(e) => handleMenuItemDragOver(e, globalIndex)}
+                                  onDragEnd={handleMenuItemDragEnd}
+                                  className={`cursor-move hover:shadow-md transition-shadow ${
+                                    draggedMenuItemIndex === globalIndex ? "ring-2 ring-blue-500 bg-blue-50" : ""
+                                  }`}
+                                >
+                                  <CardContent className="p-4">
+                                    <div className="flex gap-4">
+                                      <GripVertical className="h-5 w-5 text-gray-400 mt-2 flex-shrink-0" />
+                                      {item.image_url && (
+                                        <img
+                                          src={item.image_url || "/placeholder.svg"}
+                                          alt={item.name}
+                                          className="w-20 h-20 object-cover rounded"
+                                        />
+                                      )}
+                                      <div className="flex-1">
+                                        <div className="flex items-start justify-between">
+                                          <div>
+                                            <div className="flex items-center gap-2">
+                                              <h3 className="font-semibold">{item.name}</h3>
+                                              {category && <Badge variant="outline" className="text-xs">{category.name}</Badge>}
+                                              {!item.is_active && <Badge variant="secondary">Inactive</Badge>}
+                                            </div>
+                                            <p className="text-sm text-gray-600">{item.description}</p>
+                                            <div className="text-lg font-bold text-[#5d1f1f] mt-1">
+                                              ${item.price.toFixed(2)}
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-sm">{item.is_active ? "Active" : "Inactive"}</span>
+                                            <Switch
+                                              checked={item.is_active}
+                                              onCheckedChange={() => handleToggleMenuItemActive(item.id, item.is_active)}
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 mt-3">
+                                          <Button variant="outline" size="sm" onClick={() => handleOpenOptions(item)}>
+                                            <Settings className="h-4 w-4 mr-1" /> Options
+                                          </Button>
+                                          <Button variant="outline" size="sm" onClick={() => handleOpenSizes(item)}>
+                                            <Settings className="h-4 w-4 mr-1" /> Sizes
+                                          </Button>
+                                          <Button variant="outline" size="sm" onClick={() => handleEditMenuItem(item)}>
+                                            <Pencil className="h-4 w-4 mr-1" /> Edit
+                                          </Button>
+                                          <Button variant="outline" size="sm" onClick={() => handleDeleteMenuItem(item.id)}>
+                                            <Trash2 className="h-4 w-4 mr-1" /> Delete
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              )
+                            })}
+                          </div>
+                        )
+                      })()}
+                    </>
+                  ) : (
+                    /* When not searching, show items grouped by category */
+                    categories.map((category) => {
+                      const categoryItems = menuItems.filter((item) => item.category_id === category.id)
+                      if (categoryItems.length === 0) return null
 
-                    return (
-                      <div key={category.id}>
-                        <h3 className="text-lg font-semibold mb-3 text-[#5d1f1f]">{category.name}</h3>
-                        <div className="space-y-4">
-                          {categoryItems.map((item, index) => {
+                      return (
+                        <div key={category.id}>
+                          <h3 className="text-lg font-semibold mb-3 text-[#5d1f1f]">{category.name}</h3>
+                          <div className="space-y-4">
+                            {categoryItems.map((item, index) => {
                             // Find the global index for drag-and-drop state management
                             const globalIndex = menuItems.findIndex((mi) => mi.id === item.id)
                             return (
@@ -3125,7 +3227,8 @@ payment_provider: branchForm.payment_provider || "stripe",
                         </div>
                       </div>
                     )
-                  })}
+                  })
+                  )}
                 </div>
               </CardContent>
             </Card>
