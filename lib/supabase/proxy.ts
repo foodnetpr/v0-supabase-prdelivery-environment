@@ -72,7 +72,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const hostname = request.headers.get("host") || ""
-  const pathname = request.nextUrl.pathname
+  // pathname already declared at top of function from request.nextUrl
 
   // Skip routing for known system paths and already-routed paths
   const isSystemPath =
