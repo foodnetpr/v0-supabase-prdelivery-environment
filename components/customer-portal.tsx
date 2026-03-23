@@ -3858,14 +3858,27 @@ export default function CustomerPortal({
                                 <Pencil className="w-3 h-3" />
                                 Editar
                               </button>
-                              <button
-                                onClick={() => handleRemoveFromCart(index)}
-                                className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-md text-red-600 transition-colors hover:bg-red-50"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                                Eliminar
-                              </button>
-                            </div>
+          <button
+            type="submit"
+            className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <Check className="h-5 w-5" />
+            Confirmar Orden - Pagar en Efectivo
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowCashCheckout(false)
+              setCheckoutStep("delivery")
+              setShowCheckout(true)
+            }}
+            className="w-full mt-3 text-gray-500 py-2 hover:text-gray-700 text-sm"
+          >
+            Cancelar y volver
+          </button>
+        </form>
+      </div>
                             
                             {/* Quantity Controls */}
                             {item.type === "item" && (
@@ -5437,8 +5450,81 @@ export default function CustomerPortal({
           setShowCheckout(true)
         }}
       />
-      <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-auto">
-        <div className="p-6">
+      <div className="relative z-[101] bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-auto pointer-events-auto">
+        <form 
+          className="p-6"
+          onSubmit={async (e) => {
+            e.preventDefault()
+            try {
+              // Create order with cash payment status
+              const supabase = createBrowserClient()
+              const { data: order, error } = await supabase
+                .from("orders")
+                .insert({
+                  restaurant_id: checkoutData.restaurantId,
+                  branch_id: checkoutData.branchId || null,
+                  customer_id: checkoutData.customerId || null,
+                  customer_name: checkoutData.customerName,
+                  customer_email: checkoutData.customerEmail,
+                  customer_phone: checkoutData.customerPhone,
+                  delivery_type: checkoutData.deliveryType,
+                  delivery_address: checkoutData.deliveryAddress || null,
+                  delivery_fee: checkoutData.deliveryFee || 0,
+                  dispatch_fee: checkoutData.dispatchFee || 0,
+                  subtotal: checkoutData.subtotal,
+                  tax: checkoutData.tax,
+                  tip: checkoutData.tip || 0,
+                  total: checkoutData.total,
+                  status: "pending",
+                  payment_status: "pending_cash",
+                  payment_method: "cash",
+                  event_date: checkoutData.eventDate,
+                  event_time: checkoutData.eventTime,
+                  special_instructions: checkoutData.specialInstructions || null,
+                })
+                .select()
+                .single()
+
+              if (error) throw error
+
+              // Insert order items
+              if (checkoutData.items && checkoutData.items.length > 0) {
+                const orderItems = checkoutData.items.map((item: any) => ({
+                  order_id: order.id,
+                  menu_item_id: item.menuItemId || null,
+                  item_name: item.name,
+                  quantity: item.quantity,
+                  unit_price: item.price,
+                  total_price: item.price * item.quantity,
+                  selected_options: item.selectedOptions || null,
+                  special_instructions: item.specialInstructions || null,
+                }))
+                await supabase.from("order_items").insert(orderItems)
+              }
+
+              // Success - clear cart and show confirmation
+              setShowCashCheckout(false)
+              setCart([])
+              localStorage.removeItem(`cart_${restaurant.id}`)
+              toast({
+                title: "Orden Confirmada",
+                description: "Tu orden ha sido recibida. Paga en efectivo al recibirla.",
+              })
+              
+              // Call success handler if available
+              if (handlePaymentSuccess) {
+                handlePaymentSuccess(order)
+              }
+            } catch (error) {
+              console.error("Error creating cash order:", error)
+              toast({
+                title: "Error",
+                description: "No se pudo procesar tu orden. Por favor intenta de nuevo.",
+                variant: "destructive",
+              })
+            }
+          }}
+        >
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
               <Banknote className="h-6 w-6 text-green-600" />
@@ -5448,6 +5534,7 @@ export default function CustomerPortal({
               <p className="text-sm text-gray-500">Paga al momento de recibir tu orden</p>
             </div>
             <button
+              type="button"
               onClick={() => {
                 setShowCashCheckout(false)
                 setCheckoutStep("delivery")
@@ -5481,7 +5568,12 @@ export default function CustomerPortal({
           </div>
 
           <button
-            onClick={async () => {
+            type="submit"
+            className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <Check className="h-5 w-5" />
+            Confirmar Orden - Pagar en Efectivo
+          </button>
               try {
                 // Create order with cash payment status
                 const supabase = createBrowserClient()
@@ -5558,6 +5650,7 @@ export default function CustomerPortal({
           </button>
 
           <button
+            type="button"
             onClick={() => {
               setShowCashCheckout(false)
               setCheckoutStep("delivery")
