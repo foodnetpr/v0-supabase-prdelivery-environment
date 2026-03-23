@@ -69,7 +69,8 @@ export function KDSBoard({ restaurant, branchId, branchName, initialOrders, onPr
   const [orders, setOrders] = useState<Order[]>(initialOrders)
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [autoPrint, setAutoPrint] = useState(autoPrintEnabled)
+  // Use prop directly — no local copy that can diverge from parent state
+  const autoPrint = autoPrintEnabled
   const [currentTime, setCurrentTime] = useState(new Date())
   const [activeView, setActiveView] = useState<"current" | "future">("current")
   const [updatingOrders, setUpdatingOrders] = useState<Set<string>>(new Set())
@@ -178,10 +179,8 @@ export function KDSBoard({ restaurant, branchId, branchName, initialOrders, onPr
         playNotificationSound()
       }
 
-      // Auto-print test order if enabled (same logic as real orders)
-      console.log("[v0] TEST ORDER autoPrint:", autoPrint, "| autoPrintEnabled prop:", autoPrintEnabled, "| onPrintOrder:", !!onPrintOrder)
+      // Auto-print test order if enabled
       if (autoPrint && onPrintOrder) {
-        console.log("[v0] Calling onPrintOrder for test order")
         markOrderAsPrinted(order.id)
         onPrintOrder(completeOrder as Order)
       }
@@ -236,11 +235,7 @@ export function KDSBoard({ restaurant, branchId, branchName, initialOrders, onPr
     return orderDate <= today
   }
 
-  // Sync autoPrint state with prop
-  useEffect(() => {
-    console.log("[v0] autoPrintEnabled prop changed →", autoPrintEnabled, "| syncing local autoPrint")
-    setAutoPrint(autoPrintEnabled)
-  }, [autoPrintEnabled])
+
 
   // Update time every second for order age display
   useEffect(() => {
@@ -296,14 +291,9 @@ export function KDSBoard({ restaurant, branchId, branchName, initialOrders, onPr
           filter: filter,
         },
         async (payload) => {
-          console.log("[v0] Real-time event received:", payload.eventType, payload.new?.order_number || payload.new?.id)
           if (payload.eventType === "INSERT") {
             // If filtering by branch, only accept orders for this specific branch
-            console.log("[v0] INSERT - branchId filter:", branchId, "order branch_id:", payload.new.branch_id)
-            if (branchId && payload.new.branch_id !== branchId) {
-              console.log("[v0] Skipping order - branch mismatch")
-              return
-            }
+            if (branchId && payload.new.branch_id !== branchId) return
             
             const { data: newOrder } = await supabase
               .from("orders")
@@ -312,22 +302,12 @@ export function KDSBoard({ restaurant, branchId, branchName, initialOrders, onPr
               .single()
 
             if (newOrder) {
-              console.log("[v0] New order received via realtime:", newOrder.order_number)
               setOrders((prev) => [newOrder, ...prev])
-              // Play sound notification
-              if (soundEnabled) {
-                console.log("[v0] Playing sound notification")
-                playNotificationSound()
-              }
+              if (soundEnabled) playNotificationSound()
               // Auto-print if enabled and order hasn't been printed yet
-              // Check printed_at to prevent duplicate prints across multiple KDS devices
               if (autoPrint && onPrintOrder && !newOrder.printed_at) {
-                console.log("[v0] Auto-printing order:", newOrder.order_number)
-                // Mark as printed in database first (race condition prevention)
                 markOrderAsPrinted(newOrder.id)
                 onPrintOrder(newOrder)
-              } else if (autoPrint && newOrder.printed_at) {
-                console.log("[v0] Skipping auto-print - order already printed:", newOrder.order_number)
               }
             }
           } else if (payload.eventType === "UPDATE") {
@@ -339,16 +319,9 @@ export function KDSBoard({ restaurant, branchId, branchName, initialOrders, onPr
           }
         }
       )
-      .subscribe((status) => {
-        console.log("[v0] KDS Realtime subscription status:", status)
-      })
+      .subscribe()
 
-    console.log("[v0] KDS Realtime subscription started for filter:", filter)
-
-    return () => {
-      console.log("[v0] KDS Realtime cleanup")
-      supabase.removeChannel(channel)
-    }
+    return () => { supabase.removeChannel(channel) }
   }, [restaurant.id, branchId, supabase, soundEnabled, autoPrint, onPrintOrder])
 
   // Hidden admin exit gesture - tap logo 3 times rapidly to show PIN dialog
@@ -763,9 +736,7 @@ export function KDSBoard({ restaurant, branchId, branchName, initialOrders, onPr
             variant="ghost"
             size="sm"
             onClick={() => {
-              const newValue = !autoPrint
-              setAutoPrint(newValue)
-              onAutoPrintChange?.(newValue)
+              onAutoPrintChange?.(!autoPrint)
             }}
             className={autoPrint ? "text-green-400" : "text-gray-500"}
             title={autoPrint ? "Auto-print ON" : "Auto-print OFF"}

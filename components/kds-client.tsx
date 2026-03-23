@@ -223,10 +223,8 @@ export function KDSClient({ restaurant, branchId, branchName, initialOrders, acc
   }, [restaurant.id, branchId])
 
   const handlePrintOrder = useCallback(async (order: Order) => {
-    console.log("[v0] handlePrintOrder called | order:", order.order_number, "| printer connected:", printerStatus.connected)
     if (!printerStatus.connected) {
       // No Bluetooth printer connected — fall back to browser print dialog
-      console.log("[v0] No printer — calling window.print()")
       window.print()
       return
     }
