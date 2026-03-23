@@ -5574,80 +5574,6 @@ export default function CustomerPortal({
             <Check className="h-5 w-5" />
             Confirmar Orden - Pagar en Efectivo
           </button>
-              try {
-                // Create order with cash payment status
-                const supabase = createBrowserClient()
-                const { data: order, error } = await supabase
-                  .from("orders")
-                  .insert({
-                    restaurant_id: checkoutData.restaurantId,
-                    branch_id: checkoutData.branchId || null,
-                    customer_id: checkoutData.customerId || null,
-                    customer_name: checkoutData.customerName,
-                    customer_email: checkoutData.customerEmail,
-                    customer_phone: checkoutData.customerPhone,
-                    delivery_type: checkoutData.deliveryType,
-                    delivery_address: checkoutData.deliveryAddress || null,
-                    delivery_fee: checkoutData.deliveryFee || 0,
-                    dispatch_fee: checkoutData.dispatchFee || 0,
-                    subtotal: checkoutData.subtotal,
-                    tax: checkoutData.tax,
-                    tip: checkoutData.tip || 0,
-                    total: checkoutData.total,
-                    status: "pending",
-                    payment_status: "pending_cash",
-                    payment_method: "cash",
-                    event_date: checkoutData.eventDate,
-                    event_time: checkoutData.eventTime,
-                    special_instructions: checkoutData.specialInstructions || null,
-                  })
-                  .select()
-                  .single()
-
-                if (error) throw error
-
-                // Insert order items
-                if (checkoutData.items && checkoutData.items.length > 0) {
-                  const orderItems = checkoutData.items.map((item: any) => ({
-                    order_id: order.id,
-                    menu_item_id: item.menuItemId || null,
-                    item_name: item.name,
-                    quantity: item.quantity,
-                    unit_price: item.price,
-                    total_price: item.price * item.quantity,
-                    selected_options: item.selectedOptions || null,
-                    special_instructions: item.specialInstructions || null,
-                  }))
-                  await supabase.from("order_items").insert(orderItems)
-                }
-
-                // Success - clear cart and show confirmation
-                setShowCashCheckout(false)
-                setCart([])
-                localStorage.removeItem(`cart_${restaurant.id}`)
-                toast({
-                  title: "Orden Confirmada",
-                  description: "Tu orden ha sido recibida. Paga en efectivo al recibirla.",
-                })
-                
-                // Call success handler if available
-                if (handlePaymentSuccess) {
-                  handlePaymentSuccess(order)
-                }
-              } catch (error) {
-                console.error("Error creating cash order:", error)
-                toast({
-                  title: "Error",
-                  description: "No se pudo procesar tu orden. Por favor intenta de nuevo.",
-                  variant: "destructive",
-                })
-              }
-            }}
-            className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-          >
-            <Check className="h-5 w-5" />
-            Confirmar Orden - Pagar en Efectivo
-          </button>
 
           <button
             type="button"
@@ -5660,7 +5586,7 @@ export default function CustomerPortal({
           >
             Cancelar y volver
           </button>
-        </div>
+        </form>
       </div>
     </div>
   )}
