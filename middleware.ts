@@ -18,6 +18,7 @@ export function middleware(request: NextRequest) {
 
   // If token is already in URL, let the request proceed
   const urlToken = searchParams.get('token')
+  console.log('[v0] KDS Middleware - pathname:', pathname, 'urlToken:', urlToken ? 'present' : 'missing')
   if (urlToken) {
     return NextResponse.next()
   }
@@ -31,6 +32,7 @@ export function middleware(request: NextRequest) {
 
   // Check for saved KDS session cookie
   const sessionCookie = request.cookies.get(`kds_session_${slug}`)
+  console.log('[v0] KDS Middleware - looking for cookie:', `kds_session_${slug}`, 'found:', !!sessionCookie?.value)
   if (!sessionCookie?.value) {
     // No saved session - let the server handle auth (will redirect to login if needed)
     return NextResponse.next()

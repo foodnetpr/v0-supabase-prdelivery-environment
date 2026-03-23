@@ -94,13 +94,13 @@ export function KDSClient({ restaurant, branchId, branchName, initialOrders, acc
       // - Secure: only sent over HTTPS (required for production)
       // - SameSite=Lax: allows cookie on same-site navigations and top-level GET redirects
       //   (Strict would break the middleware redirect flow)
-      // - path scoped to this restaurant's KDS
+      // - path=/ so middleware can read it from any route
       // - 1 year expiry
       const cookieValue = encodeURIComponent(JSON.stringify(session))
       const maxAge = 365 * 24 * 60 * 60 // 1 year in seconds
       const isSecure = window.location.protocol === 'https:'
       const securePart = isSecure ? '; Secure' : ''
-      document.cookie = `${sessionKey}=${cookieValue}; path=/${restaurant.slug}/kds; max-age=${maxAge}; SameSite=Lax${securePart}`
+      document.cookie = `${sessionKey}=${cookieValue}; path=/; max-age=${maxAge}; SameSite=Lax${securePart}`
     }
     // Note: We no longer need client-side redirect logic here because
     // middleware.ts handles the token restoration BEFORE the page loads
@@ -295,11 +295,12 @@ export function KDSClient({ restaurant, branchId, branchName, initialOrders, acc
                   <button
                     type="button"
                     onClick={() => {
-                      // Clear session from localStorage and cookie
-                      const sessionKey = getKdsSessionKey(restaurant.slug)
-                      localStorage.removeItem(sessionKey)
-                      // Clear cookie by setting it to expire immediately
-                      document.cookie = `${sessionKey}=; path=/${restaurant.slug}/kds; max-age=0`
+                    // Clear session from localStorage and cookie
+                    const sessionKey = getKdsSessionKey(restaurant.slug)
+                    localStorage.removeItem(sessionKey)
+                    // Clear cookie by setting it to expire immediately (both old path and new root path)
+                    document.cookie = `${sessionKey}=; path=/; max-age=0`
+                    document.cookie = `${sessionKey}=; path=/${restaurant.slug}/kds; max-age=0`
                       // Redirect to login
                       window.location.href = `/${restaurant.slug}`
                     }}
