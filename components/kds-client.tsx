@@ -227,14 +227,20 @@ export function KDSClient({ restaurant, branchId, branchName, initialOrders, acc
     }
   }, [printerStatus.connected, restaurant.name, branchName, showPrintAlert])
 
-  // Called by KDSBoard whenever a new order arrives (realtime or test).
-  // Auto-print decision is made here where autoPrintEnabled state definitively lives —
-  // no prop-passing or stale closure issues possible.
+  // Keep a stable ref to the latest auto-print state and print handler.
+  // This ref is passed into KDSBoard so the realtime subscription never needs
+  // to re-subscribe when autoPrintEnabled or printerStatus changes.
+  const autoPrintRef = useRef(autoPrintEnabled)
+  const handlePrintOrderRef = useRef(handlePrintOrder)
+  useEffect(() => { autoPrintRef.current = autoPrintEnabled }, [autoPrintEnabled])
+  useEffect(() => { handlePrintOrderRef.current = handlePrintOrder }, [handlePrintOrder])
+
+  // Stable callback — never changes identity, always reads latest values via refs.
   const handleNewOrder = useCallback((order: Order) => {
-    if (autoPrintEnabled) {
-      handlePrintOrder(order)
+    if (autoPrintRef.current) {
+      handlePrintOrderRef.current(order)
     }
-  }, [autoPrintEnabled, handlePrintOrder])
+  }, []) // stable — intentionally empty deps
 
   return (
     <div 

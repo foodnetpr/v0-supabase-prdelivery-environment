@@ -318,7 +318,10 @@ export function KDSBoard({ restaurant, branchId, branchName, initialOrders, onPr
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [restaurant.id, branchId, supabase, soundEnabled, onNewOrder])
+  // onNewOrder is intentionally omitted from deps — it's a stable ref-backed callback
+  // that always reads the latest autoPrintEnabled value without causing re-subscriptions.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurant.id, branchId, supabase, soundEnabled])
 
   // Hidden admin exit gesture - tap logo 3 times rapidly to show PIN dialog
   const handleLogoTap = useCallback(() => {
