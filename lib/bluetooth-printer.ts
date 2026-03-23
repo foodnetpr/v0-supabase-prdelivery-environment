@@ -620,36 +620,20 @@ class BluetoothPrinter {
 
       await this.printText("=".repeat(PAPER_WIDTH) + "\n")
 
-      // ============ SPECIAL INSTRUCTIONS ============
+      // ============ SPECIAL INSTRUCTIONS (highly visible) ============
       if (order.special_instructions) {
+        await this.write(COMMANDS.FEED_LINE)
+        await this.printText("*".repeat(PAPER_WIDTH) + "\n")
         await this.write(COMMANDS.BOLD_ON)
-        await this.printText("NOTAS:\n")
-        await this.write(COMMANDS.BOLD_OFF)
-        const wrappedNotes = wrapText(order.special_instructions)
+        await this.write(COMMANDS.DOUBLE_HEIGHT_ON)
+        await this.printText("!! NOTAS !!\n")
+        await this.write(COMMANDS.NORMAL_SIZE)
+        const wrappedNotes = wrapText(order.special_instructions.toUpperCase())
         for (const line of wrappedNotes) {
-          await this.printText(line + "\n")
+          await this.printText(`** ${line} **\n`)
         }
-        await this.printText("=".repeat(PAPER_WIDTH) + "\n")
-      }
-
-      // ============ DELIVERY ADDRESS ============
-      if (order.delivery_type === "delivery" && order.delivery_address) {
-        await this.write(COMMANDS.BOLD_ON)
-        await this.printText("DIRECCION:\n")
         await this.write(COMMANDS.BOLD_OFF)
-        
-        const fullAddress = [
-          order.delivery_address,
-          order.delivery_city && order.delivery_state 
-            ? `${order.delivery_city}, ${order.delivery_state} ${order.delivery_zip || ''}`.trim()
-            : null
-        ].filter(Boolean).join(", ")
-        
-        const wrappedAddress = wrapText(fullAddress)
-        for (const line of wrappedAddress) {
-          await this.printText(line + "\n")
-        }
-        await this.printText("-".repeat(PAPER_WIDTH) + "\n")
+        await this.printText("*".repeat(PAPER_WIDTH) + "\n")
       }
 
       // ============ FOOTER ============
