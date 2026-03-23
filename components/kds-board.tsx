@@ -180,9 +180,15 @@ export function KDSBoard({ restaurant, branchId, branchName, initialOrders, onPr
       }
 
       // Auto-print test order if enabled
-      if (autoPrint && onPrintOrder) {
-        markOrderAsPrinted(order.id)
-        onPrintOrder(completeOrder as Order)
+      // showPrintStatus is passed via onAutoPrintChange reuse — use alert as visible debug
+      if (onPrintOrder) {
+        if (autoPrint) {
+          markOrderAsPrinted(order.id)
+          onPrintOrder(completeOrder as Order)
+        } else {
+          // Visible feedback so we know autoPrint state on device
+          alert(`AUTO-PRINT ESTADO: ${autoPrint} | autoPrintEnabled: ${autoPrintEnabled}`)
+        }
       }
       
       // Close dialog after successful creation

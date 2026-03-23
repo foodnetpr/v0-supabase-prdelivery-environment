@@ -63,8 +63,6 @@ export function KDSClient({ restaurant, branchId, branchName, initialOrders, acc
   const [isOnline, setIsOnline] = useState(true)
   const [isPWA, setIsPWA] = useState(false)
   const [printAlert, setPrintAlert] = useState<string | null>(null)
-  const [debugLogs, setDebugLogs] = useState<string[]>([])
-  const [showDebugPanel, setShowDebugPanel] = useState(false)
   const printAlertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -75,18 +73,7 @@ export function KDSClient({ restaurant, branchId, branchName, initialOrders, acc
     printAlertTimerRef.current = setTimeout(() => setPrintAlert(null), 4000)
   }, [])
 
-  // Intercept console.log to capture [v0] messages on screen
-  useEffect(() => {
-    const original = console.log
-    console.log = (...args: any[]) => {
-      original(...args)
-      const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')
-      if (msg.includes('[v0]')) {
-        setDebugLogs(prev => [`${new Date().toLocaleTimeString()} ${msg}`, ...prev].slice(0, 30))
-      }
-    }
-    return () => { console.log = original }
-  }, [])
+
 
   // Detect if running as PWA (standalone mode)
   useEffect(() => {
@@ -224,23 +211,19 @@ export function KDSClient({ restaurant, branchId, branchName, initialOrders, acc
 
   const handlePrintOrder = useCallback(async (order: Order) => {
     if (!printerStatus.connected) {
-      // No Bluetooth printer connected — fall back to browser print dialog
-      window.print()
+      showPrintAlert(`Sin impresora — conecta la impresora Bluetooth para imprimir`)
       return
     }
 
     try {
       const result = await bluetoothPrinter.printKitchenTicket(order, restaurant.name, branchName)
       if (!result.success) {
-        showPrintAlert(`Error al imprimir: ${result.error || "Error desconocido"}`)
-        // Fallback to browser print on Bluetooth failure
-        window.print()
+        showPrintAlert(`Error al imprimir orden #${order.order_number}: ${result.error || "Error desconocido"}`)
       } else {
         showPrintAlert(`Impreso: Orden #${order.order_number}`)
       }
     } catch (error: any) {
       showPrintAlert(`Error al imprimir: ${error?.message || "Error desconocido"}`)
-      window.print()
     }
   }, [printerStatus.connected, restaurant.name, branchName])
 
@@ -266,44 +249,7 @@ export function KDSClient({ restaurant, branchId, branchName, initialOrders, acc
         </div>
       )}
 
-      {/* Hidden debug toggle — tap top-left corner 5 times to show/hide */}
-      {(() => {
-        let tapCount = 0
-        let tapTimer: ReturnType<typeof setTimeout> | null = null
-        return (
-          <div
-            className="fixed top-0 left-0 w-16 h-16 z-50 opacity-0"
-            onClick={() => {
-              tapCount++
-              if (tapTimer) clearTimeout(tapTimer)
-              tapTimer = setTimeout(() => { tapCount = 0 }, 2000)
-              if (tapCount >= 5) {
-                tapCount = 0
-                setShowDebugPanel(p => !p)
-              }
-            }}
-          />
-        )
-      })()}
 
-      {/* On-screen debug log panel */}
-      {showDebugPanel && (
-        <div className="fixed top-0 left-0 right-0 bottom-20 z-[60] bg-black/90 text-green-400 font-mono text-xs p-3 overflow-y-auto flex flex-col gap-1">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-white font-bold text-sm">DEBUG LOG</span>
-            <div className="flex gap-2">
-              <span className="text-yellow-400">autoPrint: <b>{String(autoPrintEnabled)}</b></span>
-              <span className="text-cyan-400">printer: <b>{printerStatus.connected ? printerStatus.name || 'connected' : 'disconnected'}</b></span>
-              <button onClick={() => setDebugLogs([])} className="text-red-400 px-2 border border-red-400 rounded">Clear</button>
-              <button onClick={() => setShowDebugPanel(false)} className="text-white px-2 border border-white rounded">X</button>
-            </div>
-          </div>
-          {debugLogs.length === 0 && <span className="text-gray-500">No logs yet. Create a test order.</span>}
-          {debugLogs.map((log, i) => (
-            <div key={i} className="border-b border-gray-800 pb-1 break-all">{log}</div>
-          ))}
-        </div>
-      )}
       {/* Settings Panel */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
