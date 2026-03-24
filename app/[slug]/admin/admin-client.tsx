@@ -1539,11 +1539,13 @@ const result = await updateMenuItem(editingItem.id, {
   category_id: menuItemForm.category_id,
   pricing_unit: menuItemForm.pricing_unit || null,
   per_unit_price: isUnitBased && menuItemForm.per_unit_price ? Number.parseFloat(menuItemForm.per_unit_price) : null,
-  serves: menuItemForm.serves ? Number.parseInt(menuItemForm.serves) : null,
+  serves: menuItemForm.serves ? menuItemForm.serves.trim() : null,
   is_bulk_order: menuItemForm.is_bulk_order,
   minimum_quantity: menuItemForm.is_bulk_order && menuItemForm.minimum_quantity ? Number.parseInt(menuItemForm.minimum_quantity) : null,
   quantity_unit: menuItemForm.is_bulk_order && menuItemForm.quantity_unit ? menuItemForm.quantity_unit : null,
   is_cart_upsell: menuItemForm.is_cart_upsell,
+  delivery_lead_time: menuItemForm.lead_time_hours ? Number.parseInt(menuItemForm.lead_time_hours) : null,
+  pickup_lead_time: menuItemForm.lead_time_hours ? Number.parseInt(menuItemForm.lead_time_hours) : null,
 })
 
         if (!result.success) throw new Error(result.error || "Failed to update")
@@ -1572,11 +1574,13 @@ const result = await updateMenuItem(editingItem.id, {
           is_active: true,
           pricing_unit: menuItemForm.pricing_unit || null,
           per_unit_price: isUnitBasedCreate && menuItemForm.per_unit_price ? Number.parseFloat(menuItemForm.per_unit_price) : null,
-          serves: menuItemForm.serves ? Number.parseInt(menuItemForm.serves) : null,
+          serves: menuItemForm.serves ? menuItemForm.serves.trim() : null,
           is_bulk_order: menuItemForm.is_bulk_order,
           minimum_quantity: menuItemForm.is_bulk_order && menuItemForm.minimum_quantity ? Number.parseInt(menuItemForm.minimum_quantity) : null,
           quantity_unit: menuItemForm.is_bulk_order && menuItemForm.quantity_unit ? menuItemForm.quantity_unit : null,
           is_cart_upsell: menuItemForm.is_cart_upsell,
+          delivery_lead_time: menuItemForm.lead_time_hours ? Number.parseInt(menuItemForm.lead_time_hours) : null,
+          pickup_lead_time: menuItemForm.lead_time_hours ? Number.parseInt(menuItemForm.lead_time_hours) : null,
         }
         const result = await createMenuItem(createData)
         

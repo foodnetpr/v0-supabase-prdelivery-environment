@@ -313,13 +313,15 @@ export async function createMenuItem(data: {
   display_order?: number
   pricing_unit?: string | null
   per_unit_price?: number | null
-  serves?: number | null // DB column is integer
+  serves?: string | null // Text field for ranges like "Serves 6-8"
   is_bulk_order?: boolean
   minimum_quantity?: number | null
   quantity_unit?: string | undefined
   is_cart_upsell?: boolean
   available_days?: AvailableDays
   availability_daypart?: AvailabilityDaypart
+  delivery_lead_time?: number | null
+  pickup_lead_time?: number | null
 }) {
   const supabase = getAdminClient()
 
@@ -344,6 +346,8 @@ export async function createMenuItem(data: {
   if (data.is_cart_upsell !== undefined) insertData.is_upsell_item = data.is_cart_upsell
   if (data.available_days !== undefined) insertData.available_days = data.available_days
   if (data.availability_daypart !== undefined) insertData.availability_daypart = data.availability_daypart
+  if (data.delivery_lead_time !== undefined) insertData.delivery_lead_time = data.delivery_lead_time
+  if (data.pickup_lead_time !== undefined) insertData.pickup_lead_time = data.pickup_lead_time
 
   const { data: item, error } = await supabase.from("menu_items").insert(insertData).select().single()
 
@@ -388,13 +392,15 @@ export async function updateMenuItem(
     display_order?: number
     pricing_unit?: string | null
     per_unit_price?: number | null
-    serves?: number | null // DB column is integer
+    serves?: string | null // Text field for ranges like "Serves 6-8"
     is_bulk_order?: boolean
     minimum_quantity?: number | null
     quantity_unit?: string | undefined
     is_cart_upsell?: boolean
     available_days?: AvailableDays
     availability_daypart?: AvailabilityDaypart
+    delivery_lead_time?: number | null
+    pickup_lead_time?: number | null
   },
 ) {
   const supabase = getAdminClient()
@@ -417,6 +423,8 @@ export async function updateMenuItem(
   if (data.is_cart_upsell !== undefined) updateData.is_upsell_item = data.is_cart_upsell
   if (data.available_days !== undefined) updateData.available_days = data.available_days
   if (data.availability_daypart !== undefined) updateData.availability_daypart = data.availability_daypart
+  if (data.delivery_lead_time !== undefined) updateData.delivery_lead_time = data.delivery_lead_time
+  if (data.pickup_lead_time !== undefined) updateData.pickup_lead_time = data.pickup_lead_time
 
   const { data: item, error } = await supabase.from("menu_items").update(updateData).eq("id", id).select().single()
 
