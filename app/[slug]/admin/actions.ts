@@ -337,19 +337,14 @@ export async function createMenuItem(data: {
     display_order: data.display_order ?? 0,
   }
 
-  // Selling unit fields
-  if (data.pricing_unit !== undefined) insertData.pricing_unit = data.pricing_unit
+  // Selling unit fields - map to actual database column names
+  if (data.pricing_unit !== undefined) insertData.selling_unit = data.pricing_unit
   if (data.per_unit_price !== undefined) insertData.per_unit_price = data.per_unit_price
-  if (data.min_quantity !== undefined) insertData.min_quantity = data.min_quantity
   if (data.serves !== undefined) insertData.serves = data.serves
-  if (data.is_bulk_order !== undefined) insertData.is_bulk_order = data.is_bulk_order
-  if (data.minimum_quantity !== undefined) insertData.minimum_quantity = data.minimum_quantity
-  if (data.per_unit_pricing !== undefined) insertData.per_unit_pricing = data.per_unit_pricing
-  if (data.quantity_unit !== undefined) insertData.quantity_unit = data.quantity_unit
-  if (data.is_cart_upsell !== undefined) insertData.is_cart_upsell = data.is_cart_upsell
-  if (data.lead_time_hours !== undefined) insertData.lead_time_hours = data.lead_time_hours
-  if (data.container_type !== undefined) insertData.container_type = data.container_type
-  if (data.containers_per_unit !== undefined) insertData.containers_per_unit = data.containers_per_unit
+  if (data.is_bulk_order !== undefined) insertData.is_bulk_item = data.is_bulk_order
+  if (data.minimum_quantity !== undefined) insertData.bulk_min_quantity = Number.parseInt(data.minimum_quantity)
+  if (data.quantity_unit !== undefined) insertData.unit_label = data.quantity_unit
+  if (data.is_cart_upsell !== undefined) insertData.is_upsell_item = data.is_cart_upsell
 
   const { data: item, error } = await supabase.from("menu_items").insert(insertData).select().single()
 

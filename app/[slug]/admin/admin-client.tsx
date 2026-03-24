@@ -1564,12 +1564,6 @@ cash_payment_enabled: restaurantData.cash_payment_enabled || false,
       } else {
         // Create new item
         const isUnitBasedCreate = menuItemForm.pricing_unit && menuItemForm.pricing_unit !== "each"
-        console.log("[v0] Creating menu item with data:", {
-          restaurantId,
-          categoryId: menuItemForm.category_id,
-          name: menuItemForm.name.trim(),
-          price: menuItemForm.price,
-        })
         const result = await createMenuItem({
           restaurant_id: restaurantId,
           category_id: menuItemForm.category_id,
@@ -1591,8 +1585,6 @@ cash_payment_enabled: restaurantData.cash_payment_enabled || false,
           container_type: menuItemForm.container_type || "none",
           containers_per_unit: menuItemForm.containers_per_unit ? Number.parseInt(menuItemForm.containers_per_unit) : 1,
         })
-        
-        console.log("[v0] createMenuItem result:", result)
         
         // Check if createMenuItem returned an error
         if (result && typeof result === 'object' && 'success' in result && !result.success) {
